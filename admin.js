@@ -88,14 +88,15 @@ function calc(e){
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
 function totals(list){
-  const t = { hRev: 0, hComm: 0, hNet: 0, coffee: 0, exp: 0, profit: 0 };
+  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, coffee: 0, exp: 0, profit: 0 };
   list.forEach(e => {
     const c = calc(e);
-    if (BARBER_TYPES.includes(e.type)) { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
+    if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
+    if (e.type === "منتج") t.products += c.rev;
     if (e.type === "كوفي")  t.coffee += c.rev;
     if (e.type === "مصروف") t.exp += c.rev;
   });
-  t.profit = t.hNet + t.coffee - t.exp;
+  t.profit = t.hNet + t.products + t.coffee - t.exp;
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
@@ -116,6 +117,7 @@ function renderDash(){
     ${kpi("إيراد الحلاقة والخدمات", m.hRev)}
     ${kpi("عمولات الحلاقين", m.hComm)}
     ${kpi("صافي الحلاقة", m.hNet)}
+    ${kpi("إيراد المنتجات", m.products)}
     ${kpi("إيراد الكوفي", m.coffee)}
     ${kpi("المصاريف", m.exp, true)}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
@@ -156,9 +158,9 @@ function renderDash(){
 
   const months = [...new Set(ENTRIES.map(e => e.entry_date.slice(0, 7)))].sort().reverse();
   document.getElementById("monthsStats").innerHTML = months.length
-    ? `<table><tr><th>الشهر</th><th>حلاقة</th><th>كوفي</th><th>مصاريف</th><th>✨ الربح</th></tr>` +
+    ? `<table><tr><th>الشهر</th><th>حلاقة</th><th>منتجات</th><th>كوفي</th><th>مصاريف</th><th>✨ الربح</th></tr>` +
       months.map(mm => { const t = totals(ENTRIES.filter(e => inMonth(e, mm)));
-        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
+        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.products)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
     : `<div class="empty">لسا ما في بيانات</div>`;
 
   renderRent(usdBy(RENT_ACC));
@@ -226,7 +228,7 @@ function renderDay(){
   const d = dayPick.value;
   const list = ENTRIES.filter(e => e.entry_date === d);
   const t = totals(list);
-  const total = t.hRev + t.coffee;
+  const total = t.hRev + t.products + t.coffee;
 
   document.getElementById("dayKpis").innerHTML = `
     ${kpi("إجمالي اليوم", total, false, true)}
