@@ -245,14 +245,13 @@ function syncTicket(){
 
   const body = document.getElementById('ticketBody');
   const totals = document.getElementById('ticketTotals');
-  const gift = document.getElementById('coffeeGift');
   if(!items.length){
     body.innerHTML = '<div class="empty-ticket">اختار خدماتك ليبلّش الحساب ✂</div>';
-    totals.style.display = 'none'; gift.style.display = 'none';
+    totals.style.display = 'none';
   } else {
     body.innerHTML = items.map(s => `<div class="tline"><span class="n">${s.name}</span><span class="p">${fmtSYP(s.price)}</span></div>`).join('')
       + (discount ? `<div class="tline discount"><span class="n">خصم كومبو ✦</span><span class="p">−${fmtSYP(discount)}</span></div>` : '');
-    totals.style.display = 'block'; gift.style.display = 'block';
+    totals.style.display = 'block';
     document.getElementById('tGrand').textContent = fmtSYP(sum);
   }
 
@@ -306,10 +305,38 @@ async function submitBooking(){
   if(error){ console.error(error); return toast("صار خطأ، جرب مرة تانية"); }
 
   const b = BARBERS.find(x => x.id === state.barber);
+  const barberName = b ? b.name : "";
+  const svcNames = items.map(s => s.name).join("، ");
+
   document.getElementById('confirmText').innerHTML =
-    `أهلاً ${name}! موعدك مع <b>${b ? b.name : ""}</b> يوم <b>${fmtDate(state.date)}</b> الساعة <b>${arNum(state.slot)}</b><br>` +
-    `${arNum(items.length)} خدمات · ${arNum(mins)} دقيقة · ${fmtSYP(sum)} — والقهوة علينا ☕`;
+    `أهلاً ${name}! موعدك مع <b>${barberName}</b> يوم <b>${fmtDate(state.date)}</b> الساعة <b>${arNum(state.slot)}</b><br>` +
+    `${arNum(items.length)} خدمات · ${arNum(mins)} دقيقة · ${fmtSYP(sum)}`;
   document.getElementById('confirmCode').textContent = code;
+
+  const SHOP_WA = "963949534048";
+  const detailsMsg =
+    `حجز جديد — Bob & Co%0A` +
+    `رمز الحجز: ${code}%0A` +
+    `الاسم: ${encodeURIComponent(name)}%0A` +
+    `الموبايل: ${encodeURIComponent(phone)}%0A` +
+    `الحلاق: ${encodeURIComponent(barberName)}%0A` +
+    `الخدمات: ${encodeURIComponent(svcNames)}%0A` +
+    `التاريخ: ${encodeURIComponent(fmtDate(state.date))}%0A` +
+    `الوقت: ${encodeURIComponent(state.slot)}%0A` +
+    `المدة: ${mins} دقيقة%0A` +
+    `الإجمالي: ${encodeURIComponent(fmtSYP(sum))}`;
+  const selfMsg =
+    `تأكيد حجز — Bob & Co%0A` +
+    `رمز الحجز: ${code}%0A` +
+    `الاسم: ${encodeURIComponent(name)}%0A` +
+    `الحلاق: ${encodeURIComponent(barberName)}%0A` +
+    `التاريخ: ${encodeURIComponent(fmtDate(state.date))} — الساعة ${encodeURIComponent(state.slot)}%0A` +
+    `الخدمات: ${encodeURIComponent(svcNames)}%0A` +
+    `الإجمالي: ${encodeURIComponent(fmtSYP(sum))}%0A` +
+    `منستناك بـ Bob & Co ☕✂`;
+  document.getElementById('waShop').href = `https://wa.me/${SHOP_WA}?text=${detailsMsg}`;
+  document.getElementById('waSelf').href = `https://wa.me/?text=${selfMsg}`;
+
   document.getElementById('bookLayout').style.display = 'none';
   document.getElementById('confirmBox').classList.add('show');
   takenCache = {};
