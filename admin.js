@@ -3,12 +3,17 @@ let SETTINGS = {}, BARBERS = [], EXPCATS = [], PRICES = [], SERVICES = [], COFFE
 
 const RENT_ACC = "مؤونة الأجار";
 const BARBER_TYPES = ["حلاقة", "خدمة", "منتج"];
-const CUT_PRICES = () => ({
-  "شعر": +SETTINGS.price_cut_hair || 60000,
-  "دقن": +SETTINGS.price_cut_beard || 40000,
-  "كامل": +SETTINGS.price_cut_full || 90000,
-  "طفل": +SETTINGS.price_cut_kid || 50000
-});
+const CUT_PRICES = () => {
+  const svc = n => { const s = SERVICES.find(x => x.name === n); return s ? +s.price : 0; };
+  return {
+    "شعر": +SETTINGS.price_cut_hair || 60000,
+    "دقن": +SETTINGS.price_cut_beard || 40000,
+    "كامل": +SETTINGS.price_cut_full || 90000,
+    "طفل": +SETTINGS.price_cut_kid || 50000,
+    "ستايل": svc("ستايل") || 30000,
+    "شمع": svc("شمع") || 20000
+  };
+};
 const svcPrice = name => { const s = SERVICES.find(x => x.name === name); return s ? +s.price : 0; };
 const drinkPrice = name => { const c = COFFEE.find(x => x.name === name); return c ? +c.price : 0; };
 
@@ -280,7 +285,7 @@ function syncLogForm(){
   if (t === "حلاقة" || t === "خدمة") { lD.textContent = "الحلاق"; dSel.innerHTML = activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
   if (t === "منتج") { lD.textContent = "البائع"; dSel.innerHTML = `<option value="المحل">🏪 المحل (بدون حلاق)</option>` + activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
   if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
-  if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && ["حمام زيت", "تنضيف بشرة", "عناية وجه", "سشوار"].includes(s.name)).map(s => `<option value="${s.name}">${s.name} — ${fmt(s.price)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
+  if (t === "خدمة") { lS.textContent = "الخدمة"; const CARE = ["تنضيف بشرة", "عناية وجه", "مساج ظهر", "حمام زيت", "بروتين"]; sSel.innerHTML = SERVICES.filter(s => s.active !== false && CARE.includes(s.name)).map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
