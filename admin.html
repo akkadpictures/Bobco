@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Bob & Co — الإدارة</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --olive:#343925; --olive-deep:#282D1C; --cream:#EFE3CA; --cream-soft:#F6EFDF;
+  --ink:#0F0F0F; --line:rgba(52,57,37,.16); --line-light:rgba(239,227,202,.22);
+  --pos:#2f5c33; --neg:#9c3b2e;
+  --ar:'Almarai',sans-serif; --serif:'Cormorant Garamond',serif; --caps:'Montserrat',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--ar);background:var(--cream-soft);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:var(--ar);cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:var(--ar);font-size:1rem}
+::selection{background:var(--olive);color:var(--cream)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* ===== gate ===== */
+#gate{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--olive)}
+.gate-card{background:var(--cream);border-radius:24px;padding:44px 34px;width:100%;max-width:400px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.gate-card h1{font-family:var(--serif);font-size:2rem;font-weight:600;color:var(--olive);margin-bottom:6px}
+.gate-card p{font-size:.9rem;opacity:.6;margin-bottom:24px}
+.gate-card input{width:100%;padding:14px;border:1px solid var(--line);border-radius:14px;text-align:center;letter-spacing:.3em;font-size:1.2rem;margin-bottom:14px;background:#fff}
+.gate-card input:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px rgba(52,57,37,.12)}
+.gate-err{color:var(--neg);font-size:.85rem;min-height:20px;margin-bottom:8px}
+
+/* ===== header + tabs ===== */
+header.top{position:sticky;top:0;z-index:40;background:rgba(40,45,28,.96);backdrop-filter:blur(10px);color:var(--cream)}
+.top-in{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;max-width:1180px;margin:0 auto;flex-wrap:wrap;gap:10px}
+.top-in .brand{font-family:var(--serif);font-size:1.5rem;font-weight:600;letter-spacing:.02em}
+.top-in .brand small{font-family:var(--caps);font-size:.6rem;letter-spacing:.35em;text-transform:uppercase;opacity:.6;display:block;margin-top:-4px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{padding:9px 18px;border-radius:999px;color:var(--cream);font-weight:700;font-size:.92rem;opacity:.7;border:1px solid transparent;transition:.2s}
+.tab:hover{opacity:1}
+.tab.on{background:var(--cream);color:var(--olive);opacity:1}
+.top-link{font-size:.82rem;opacity:.7;border:1px solid var(--line-light);padding:7px 14px;border-radius:999px}
+
+/* ===== views ===== */
+main{padding:26px 0 80px}
+.view{display:none;animation:fade .3s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:20px;box-shadow:0 6px 24px rgba(52,57,37,.05)}
+.card h2{font-size:1.05rem;font-weight:800;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card h2 .add{margin-inline-start:auto}
+.muted{font-size:.85rem;opacity:.6}
+.sec-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.sec-row h2{margin:0}
+
+/* KPI grid */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--cream);border-radius:16px;padding:16px 18px}
+.kpi .l{font-size:.82rem;opacity:.7;margin-bottom:4px}
+.kpi .v{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--olive)}
+.kpi .v.neg{color:var(--neg)}
+.kpi.hero{background:var(--olive);color:var(--cream);grid-column:span 2}
+.kpi.hero .l{opacity:.85}
+.kpi.hero .v{color:var(--cream)}
+@media(max-width:560px){.kpi.hero{grid-column:span 1}}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line)}
+th{font-weight:800;font-size:.82rem;opacity:.7;background:var(--cream-soft)}
+td{font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:none}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.empty{opacity:.55;padding:16px 4px;font-size:.9rem;text-align:center}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* mini buttons */
+.mini{background:var(--olive);color:var(--cream);padding:6px 14px;border-radius:999px;font-size:.82rem;font-weight:700;transition:.2s}
+.mini:hover{background:var(--olive-deep)}
+.mini.danger{background:#fff;color:var(--neg);border:1px solid var(--neg)}
+.mini.danger:hover{background:var(--neg);color:#fff}
+
+/* form */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;align-items:end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700;font-size:.82rem;opacity:.8}
+.field input,.field select,.field textarea{padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);width:100%;transition:.2s}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--olive);box-shadow:0 0 0 3px rgba(52,57,37,.12)}
+.cell{padding:8px 10px;border-radius:10px;width:100%}
+.form-actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.btn-add{background:var(--olive);color:var(--cream);padding:13px 34px;border-radius:999px;font-weight:800;font-size:1rem;transition:.2s}
+.btn-add:hover{background:var(--olive-deep)}
+.btn-cancel{color:var(--neg);font-weight:700;padding:13px 20px}
+
+.comm-prev{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.tag{display:inline-block;padding:5px 12px;border-radius:999px;font-size:.82rem;font-weight:700}
+.tag.t-حلاقة{background:rgba(52,57,37,.12);color:var(--olive)}
+.tag.t-خدمة{background:rgba(52,57,37,.12);color:var(--olive)}
+.tag.t-منتج{background:#efe1f5;color:#6b3b86}
+.tag.t-كوفي{background:#e7dcc9;color:#6b5227}
+.tag.t-مصروف{background:#f5dcd7;color:var(--neg)}
+.tag.t-دولار{background:#d8ead9;color:var(--pos)}
+.tag.s-جديد{background:#e7dcc9;color:#6b5227}
+.tag.s-مؤكد{background:#d8e6f2;color:#2c5a86}
+.tag.s-منجز{background:#d8ead9;color:var(--pos)}
+.tag.s-ملغى{background:#f5dcd7;color:var(--neg)}
+
+.rent-bar{height:12px;border-radius:999px;background:var(--cream);overflow:hidden;margin:12px 0 8px}
+.rent-bar i{display:block;height:100%;background:var(--olive);border-radius:999px;transition:width .5s}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.pin-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+</style>
+</head>
+<body>
+
+<!-- ===== gate ===== -->
+<div id="gate">
+  <div class="gate-card">
+    <h1>Bob &amp; Co</h1>
+    <p>لوحة الإدارة — دخول</p>
+    <input id="pin" type="password" inputmode="numeric" placeholder="رمز الدخول" autocomplete="off">
+    <div class="gate-err" id="gateErr"></div>
+    <button class="btn-add" style="width:100%" id="gateBtn">دخول</button>
+  </div>
+</div>
+
+<!-- ===== panel ===== -->
+<div id="panel" style="display:none">
+  <header class="top">
+    <div class="top-in">
+      <div class="brand">Bob &amp; Co<small>Admin Panel</small></div>
+      <nav class="tabs">
+        <button class="tab on" data-v="dash">📊 اللوحة</button>
+        <button class="tab" data-v="log">📒 السجل اليومي</button>
+        <button class="tab" data-v="bookings">📅 الحجوزات</button>
+        <button class="tab" data-v="settings">⚙️ الإعدادات</button>
+      </nav>
+      <a class="top-link" href="index.html">← الموقع</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ===== DASHBOARD ===== -->
+    <section class="view on" id="v-dash">
+      <div class="sec-row">
+        <h2>📊 ملخص الشهر</h2>
+        <input id="dashMonth" type="month" class="cell" style="width:auto;border:1px solid var(--line)">
+        <span class="muted">كل الأرقام بتتحدّث لحالها من السجل</span>
+      </div>
+
+      <div class="card"><div class="kpis" id="kpis"></div></div>
+
+      <div class="grid2">
+        <div class="card"><h2>💈 الحلاقين — هذا الشهر</h2><div class="table-scroll" id="barberStats"></div></div>
+        <div class="card"><h2>🧾 المصاريف حسب البند</h2><div class="table-scroll" id="expStats"></div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card"><h2>💰 الصندوق — الأرصدة الفعلية</h2><div class="table-scroll" id="cashStats"></div></div>
+        <div class="card"><h2>💵 الدولار (منذ البداية)</h2><div class="table-scroll" id="usdStats"></div></div>
+      </div>
+
+      <div class="card"><h2>🏠 مؤونة الأجار السنوي</h2><div id="rentStats"></div></div>
+
+      <div class="card"><h2>📆 ملخص الأشهر</h2><div class="table-scroll" id="monthsStats"></div></div>
+    </section>
+
+    <!-- ===== LOG ===== -->
+    <section class="view" id="v-log">
+      <div class="card">
+        <h2>➕ حركة جديدة</h2>
+        <div class="form-grid">
+          <div class="field"><label>التاريخ</label><input id="eDate" type="date"></div>
+          <div class="field"><label>النوع</label>
+            <select id="eType">
+              <option value="حلاقة">💈 حلاقة</option>
+              <option value="خدمة">✨ خدمة</option>
+              <option value="منتج">🧴 منتج</option>
+              <option value="كوفي">☕ كوفي</option>
+              <option value="مصروف">🧾 مصروف</option>
+              <option value="دولار">💵 دولار</option>
+            </select>
+          </div>
+          <div class="field" id="fDetail"><label id="lDetail">الحلاق</label><select id="eDetail"></select></div>
+          <div class="field" id="fSub"><label id="lSub">نوع الحلاقة</label><select id="eSub"></select></div>
+          <div class="field" id="fProdName" style="display:none"><label>اسم المنتج</label><input id="eProdName" placeholder="مثال: واكس"></div>
+          <div class="field" id="fCount"><label>عدد الحلاقات</label><input id="eCount" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field" id="fAmount"><label id="lAmount">المبلغ (ل.س)</label><input id="eAmount" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field" id="fRate" style="display:none"><label>سعر الصرف</label><input id="eRate" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label>ملاحظات</label><input id="eNote" placeholder="اختياري"></div>
+        </div>
+        <div class="comm-prev" id="commPrev"></div>
+        <div class="form-actions">
+          <button class="btn-add" id="eAdd">إضافة</button>
+          <button class="btn-cancel" id="eCancel" style="display:none">إلغاء التعديل</button>
+        </div>
+      </div>
+
+      <div class="sec-row" style="margin-top:6px">
+        <h2>📅 ملخص اليوم</h2>
+        <input id="dayPick" type="date" class="cell" style="width:auto;border:1px solid var(--line)">
+      </div>
+      <div class="card"><div class="kpis" id="dayKpis"></div></div>
+      <div class="card"><h2>💈 حلاقين اليوم</h2><div class="table-scroll" id="dayBarbers"></div></div>
+
+      <div class="card">
+        <h2>📒 آخر الحركات</h2>
+        <div class="table-scroll"><table id="logTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== BOOKINGS ===== -->
+    <section class="view" id="v-bookings">
+      <div class="sec-row">
+        <h2>📅 الحجوزات</h2>
+        <input id="bookDate" type="date" class="cell" style="width:auto;border:1px solid var(--line)">
+        <button class="mini" id="bookAll">كل القادمة</button>
+      </div>
+      <div class="card"><div class="table-scroll"><table id="bookTable"></table></div></div>
+    </section>
+
+    <!-- ===== SETTINGS ===== -->
+    <section class="view" id="v-settings">
+      <div class="card">
+        <h2>💈 خدمات الحلاقة <button class="mini add" onclick="addService()">+ خدمة جديدة</button></h2>
+        <div class="table-scroll" id="svcTable"></div>
+      </div>
+      <div class="card">
+        <h2>☕ منيو الكوفي <button class="mini add" onclick="addCoffee()">+ مشروب جديد</button></h2>
+        <div class="table-scroll" id="cofTable"></div>
+      </div>
+      <div class="card">
+        <h2>👥 الحلاقين ونسب العمولة <button class="mini add" onclick="addBarber()">+ حلاق جديد</button></h2>
+        <div class="table-scroll" id="barbTable"></div>
+      </div>
+      <div class="card">
+        <h2>💲 جدول أسعار الحلاقة (عروض) <button class="mini add" onclick="addPrice()">+ سعر جديد</button></h2>
+        <div class="table-scroll" id="priceTable"></div>
+      </div>
+      <div class="card">
+        <h2>💈 أسعار أنواع الحلاقة ونسب الأقسام</h2>
+        <div id="cutBox"></div>
+      </div>
+      <div class="card">
+        <h2>🤝 توزيع الأرباح</h2>
+        <div id="shareBox"></div>
+      </div>
+      <div class="card">
+        <h2>🔒 رمز الدخول</h2>
+        <div class="pin-row">
+          <div class="field"><label>رمز جديد (4 خانات عالأقل)</label><input id="newPin" type="text" inputmode="numeric" placeholder="••••"></div>
+          <button class="mini" onclick="savePin()">حفظ الرمز</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+<style>
+#toast{position:fixed;bottom:24px;right:50%;transform:translate(50%,20px);background:var(--ink);color:var(--cream);padding:13px 26px;border-radius:999px;font-weight:700;opacity:0;pointer-events:none;transition:.35s;z-index:99;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(50%,0)}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
