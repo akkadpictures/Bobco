@@ -11,11 +11,10 @@ const MONTHS = ['كانون الثاني','شباط','آذار','نيسان','أ
 
 // قسم العناية (الباقي بيروح لقسم الحلاقة تلقائياً)
 const CARE_NAMES = ["تنضيف بشرة","عناية وجه","مساج ظهر","حمام زيت","بروتين"];
-const COMBO_NAMES = { a: "قص شعر", b: "لحية", merged: "قص شعر + لحية" };
 // أوصاف صغيرة تحت اسم الخدمة
 const SVC_DESC = {
   "قص شعر": "قص شعر + ستايل",
-  "قص شعر + لحية": "شعر + لحية + ستايل"
+  "كامل": "قص شعر + لحية + ستايل"
 };
 // خدمات بدون سعر — الحساب لاحقاً
 const NO_PRICE = ["بروتين"];
@@ -58,9 +57,8 @@ async function init(){
 }
 
 /* ---------- helpers ---------- */
-const comboService = () => SERVICES.find(s => s.name === COMBO_NAMES.merged);
 const svcById = id => SERVICES.find(s => s.id === id);
-const visibleServices = () => SERVICES.filter(s => s.name !== COMBO_NAMES.merged);
+const visibleServices = () => SERVICES.slice();
 
 function totalMins(){
   return [...state.services].reduce((t,id) => {
@@ -73,18 +71,8 @@ function totalMins(){
 
 function calc(){
   const items = [...state.services].map(svcById).filter(Boolean);
-  let sum = items.reduce((t,s) => t + Number(s.price||0), 0);
-  const a = SERVICES.find(s => s.name === COMBO_NAMES.a);
-  const bb = SERVICES.find(s => s.name === COMBO_NAMES.b);
-  const merged = comboService();
-  const comboOn = !!(a && bb && merged && state.services.has(a.id) && state.services.has(bb.id));
-  let discount = 0;
-  if(comboOn){
-    const full = Number(a.price) + Number(bb.price);
-    discount = full - Number(merged.price);
-    if(discount > 0) sum -= discount; else discount = 0;
-  }
-  return { items, sum, discount, comboOn, mins: totalMins() };
+  const sum = items.reduce((t,s) => t + Number(s.price||0), 0);
+  return { items, sum, discount: 0, comboOn: false, mins: totalMins() };
 }
 
 /* ---------- barbers section (top of site) ---------- */
@@ -302,12 +290,11 @@ async function submitBooking(){
   const phone = document.getElementById('custPhone').value.trim();
   if(!/^0?9\d{8}$/.test(phone.replace(/\s/g,""))) return toast("تأكد من رقم الموبايل (09XXXXXXXX)");
 
-  const { items, sum, comboOn, mins } = calc();
+  const { items, sum, mins } = calc();
   const btn = document.getElementById('bookBtn');
   btn.disabled = true; btn.textContent = "عم نثبّت الحجز...";
 
   const ids = [...state.services];
-  const merged = comboService();
   const code = 'BC-' + Math.floor(1000 + Math.random()*9000);
   const hasProtein = items.some(s => NO_PRICE.includes(s.name));
   const laterNote = hasProtein ? ' · حساب البروتين لاحقاً' : '';
@@ -315,12 +302,12 @@ async function submitBooking(){
   const { error } = await db.from("bookings").insert({
     customer_name: name, phone,
     barber_id: state.barber,
-    service_id: comboOn && merged ? merged.id : ids[0],
+    service_id: ids[0],
     service_ids: ids,
     booking_date: iso(state.date),
     booking_time: state.slot,
     status: "جديد",
-    note: 'رمز الحجز: ' + code + (comboOn ? ' · عرض كومبو' : '') + laterNote
+    note: 'رمز الحجز: ' + code + laterNote
   });
 
   btn.disabled = false; btn.textContent = "ثبّت الحجز";
