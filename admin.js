@@ -239,6 +239,9 @@ function renderDay(){
 
   document.getElementById("dayKpis").innerHTML = `
     ${kpi("إجمالي اليوم", total, false, true)}
+    ${kpi("إيراد الحلاقة والخدمات", t.hRev)}
+    ${kpi("إيراد المنتجات", t.products)}
+    ${kpi("إيراد الكوفي", t.coffee)}
     ${kpi("حصة الحلاقين", t.hComm)}
     ${kpi("حصة المحل", total - t.hComm)}
   `;
