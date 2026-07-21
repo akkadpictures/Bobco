@@ -178,32 +178,37 @@ function renderDash(){
 }
 
 function renderCash(){
-  // رصيد الصندوق الفعلي = من 1 تموز 2026 وطالع (بداية التسجيل بالنظام)
-  // اللي قبل هيك (حزيران) كان على Google Sheet — بيظهر كمرجع تحت
+  // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, usd = 0, comm = 0;
+  let sypIn = 0, exp = 0, comm = 0;
   ENTRIES.forEach(e => {
-    if (e.entry_date < CASH_START) { // حركات ما قبل تموز (دولار قديم إلخ) — بس نحسب الدولار
-      if (e.type === "دولار") usd += calc(e).usd;
-      return;
-    }
+    if (e.entry_date < CASH_START) return;
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { sypIn += c.rev; comm += c.comm; }
-    if (e.type === "منتج") sypIn += c.net; // ربح المنتج فقط (التكلفة مطروحة أصلاً)
+    if (e.type === "منتج") sypIn += c.net;
     if (e.type === "كوفي") sypIn += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
-    if (e.type === "دولار") usd += c.usd;
   });
-  const syp = sypIn - comm - exp;
+  const julySyp = sypIn - comm - exp;
+
+  // التحويشة القديمة (الافتتاح لـ 30/6) — من الإعدادات
+  const openSyp = +(SETTINGS.opening_syp || 0);
+  const openUsd = +(SETTINGS.opening_usd || 0);
+
+  // الصندوق الموحّد
+  const totalSyp = julySyp + openSyp;
+
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:4px;font-size:.8rem;opacity:.6">💰 صندوق المحل — من 1 تموز 2026 (بداية النظام)</td></tr>
-    <tr><td>دخل ليرة (حلاقة + خدمات + ربح منتجات + مشاريب)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
-    <tr><td>عمولات مدفوعة للحلاقين</td><td class="neg">−${fmtSYP(comm)}</td></tr>
-    <tr><td>مصاريف فعلية</td><td class="neg">−${fmtSYP(exp)}</td></tr>
-    <tr><td><strong>رصيد الليرة بالصندوق (صافي المحل)</strong></td><td class="pos"><strong>${fmtSYP(syp)}</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الكامل — كل اللي معك</td></tr>
+    <tr><td>رصيد الليرة الكلي</td><td class="pos"><strong style="font-size:1.15rem">${fmtSYP(totalSyp)}</strong></td></tr>
+    <tr><td>رصيد الدولار الكلي</td><td class="pos"><strong style="font-size:1.15rem">${openUsd.toFixed(0)} $</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;صندوق المحل (شغل تموز)</td><td>${fmtSYP(julySyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;تحويشة الافتتاح (لـ 30/6) — ليرة</td><td>${fmtSYP(openSyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;تحويشة الافتتاح (لـ 30/6) — دولار</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
-  <div style="margin-top:10px;font-size:.82rem;opacity:.7;line-height:1.7">
-    <strong>ملاحظة:</strong> الدولار (${usd.toFixed(0)}$) والتحويشة القديمة (قبل تموز) محفوظين منفصلين عن صندوق المحل، لأنهم من الحساب القديم (Google Sheet).
+  <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
+    💡 الدولار (${openUsd.toFixed(0)}$) جاهز تحوّله لمؤونة الأجار وقت ما تحب. تعدّل تحويشة الافتتاح من الإعدادات.
   </div>`;
 }
 
@@ -587,6 +592,14 @@ function renderSettings(){
       <div class="field"><label>وقت الفتح (للحجز)</label><input class="cell" style="border:1px solid var(--line)" id="shopOpen" type="time" value="${SETTINGS.open_time || "11:00"}"></div>
       <div class="field"><label>وقت الإغلاق (للحجز)</label><input class="cell" style="border:1px solid var(--line)" id="shopClose" type="time" value="${SETTINGS.close_time || "23:00"}"></div>
       <button class="mini" onclick="saveShopInfo()">حفظ معلومات المحل</button>
+    </div>
+    <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+    <h2 style="font-size:.98rem">🏦 تحويشة الافتتاح (شغلك من الافتتاح لـ 30/6)</h2>
+    <p class="muted" style="margin:-6px 0 12px">رصيدك القديم قبل ما يبلّش النظام. بينضاف للصندوق والإحصائيات.</p>
+    <div class="form-grid">
+      <div class="field"><label>ليرة قديمة (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="openSyp" type="number" value="${SETTINGS.opening_syp || 0}"></div>
+      <div class="field"><label>دولار قديم ($)</label><input class="cell" style="border:1px solid var(--line)" id="openUsd" type="number" value="${SETTINGS.opening_usd || 0}"></div>
+      <button class="mini" onclick="saveOpening()">حفظ التحويشة القديمة</button>
     </div>`;
 }
 function editTable(list, table, cols, canToggle, canDelete){
@@ -666,6 +679,13 @@ async function saveShopInfo(){
   ]);
   await loadAll(); toast("انحفظت معلومات المحل ✓ — بتظهر بالموقع خلال دقيقة");
 }
+async function saveOpening(){
+  await db.from("settings").upsert([
+    { key: "opening_syp", value: String(+document.getElementById("openSyp").value || 0) },
+    { key: "opening_usd", value: String(+document.getElementById("openUsd").value || 0) },
+  ]);
+  await loadAll(); renderDash(); renderStats(); toast("انحفظت التحويشة القديمة ✓");
+}
 async function addExpCat(){
   const name = prompt("اسم البند الجديد (مثال: أجار):");
   if (!name || !name.trim()) return;
@@ -734,8 +754,20 @@ function renderStats(){
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
 
+  // التحويشة القديمة (الافتتاح لـ 30/6) — تظهر لما الفلتر يشمل كل الفترة
+  const openSyp = +(SETTINGS.opening_syp || 0);
+  const openUsd = +(SETTINGS.opening_usd || 0);
+  const showOld = (statRange ? statRange.value : "all") === "all" && (openSyp || openUsd);
+  const oldCard = showOld ? `
+    <div class="kpi" style="background:#efe1c9">
+      <div class="l">🏦 تحويشة الافتتاح → 30/6</div>
+      <div class="v" style="font-size:1.15rem">${fmtShort(openSyp)} ل.س</div>
+      <div style="font-size:.82rem;opacity:.7;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
+    </div>` : "";
+
   document.getElementById("statHighlights").innerHTML = `
     ${kpi("✨ صافي الربح (الفترة)", allT.profit, false, true)}
+    ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
     <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
     ${kpi("📊 متوسط دخل اليوم", Math.round(avgDay))}
