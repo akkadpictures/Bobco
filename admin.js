@@ -178,24 +178,33 @@ function renderDash(){
 }
 
 function renderCash(){
-  let sypIn = 0, exp = 0, toUsd = 0, usd = 0, comm = 0;
+  // رصيد الصندوق الفعلي = من 1 تموز 2026 وطالع (بداية التسجيل بالنظام)
+  // اللي قبل هيك (حزيران) كان على Google Sheet — بيظهر كمرجع تحت
+  const CASH_START = "2026-07-01";
+  let sypIn = 0, exp = 0, usd = 0, comm = 0;
   ENTRIES.forEach(e => {
+    if (e.entry_date < CASH_START) { // حركات ما قبل تموز (دولار قديم إلخ) — بس نحسب الدولار
+      if (e.type === "دولار") usd += calc(e).usd;
+      return;
+    }
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { sypIn += c.rev; comm += c.comm; }
     if (e.type === "منتج") sypIn += c.net; // ربح المنتج فقط (التكلفة مطروحة أصلاً)
     if (e.type === "كوفي") sypIn += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
-    if (e.type === "دولار") { toUsd += (+e.amount || 0); usd += c.usd; }
+    if (e.type === "دولار") usd += c.usd;
   });
-  const syp = sypIn - comm - exp - toUsd;
+  const syp = sypIn - comm - exp;
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td>دخل ليرة (حلاقة + خدمات + منتجات + مشاريب)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
-    <tr><td>عمولات مدفوعة للحلاقين (بتندفع بنهاية الدوام)</td><td class="neg">−${fmtSYP(comm)}</td></tr>
-    <tr><td>مصاريف فعلية (كهربا وغيرها)</td><td class="neg">−${fmtSYP(exp)}</td></tr>
-    <tr><td>ليرة انقلبت لدولار</td><td class="neg">−${fmtSYP(toUsd)}</td></tr>
+    <tr><td colspan="2" style="padding-top:4px;font-size:.8rem;opacity:.6">💰 صندوق المحل — من 1 تموز 2026 (بداية النظam)</td></tr>
+    <tr><td>دخل ليرة (حلاقة + خدمات + ربح منتجات + مشاريب)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
+    <tr><td>عمولات مدفوعة للحلاقين</td><td class="neg">−${fmtSYP(comm)}</td></tr>
+    <tr><td>مصاريف فعلية</td><td class="neg">−${fmtSYP(exp)}</td></tr>
     <tr><td><strong>رصيد الليرة بالصندوق (صافي المحل)</strong></td><td class="pos"><strong>${fmtSYP(syp)}</strong></td></tr>
-    <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong>${usd.toFixed(2)} $</strong></td></tr>
-  </table>`;
+  </table>
+  <div style="margin-top:10px;font-size:.82rem;opacity:.7;line-height:1.7">
+    <strong>ملاحظة:</strong> الدولار (${usd.toFixed(0)}$) والتحويشة القديمة (قبل تموز) محفوظين منفصلين عن صندوق المحل، لأنهم من الحساب القديم (Google Sheet).
+  </div>`;
 }
 
 function renderRent(collected){
