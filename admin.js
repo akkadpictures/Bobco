@@ -785,18 +785,21 @@ function renderStats(){
 
   // سعر الصرف (من الإعدادات) لتحويل الدولار وعرضه بين قوسين
   const rate = +(SETTINGS.usd_rate || 13000);
-  const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
   const usdInSyp = openUsd * rate; // قيمة الدولار بالليرة
-  const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق (ليرة) ضمن الفترة
-  const showOld = prevBalTotal > 0;
-  // إجمالي المحل بالليرة = ربح النظام + الدولار محوّل
-  const grandTotalSyp = allT.profit + usdInSyp;
+  const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق (ليرة) ضمن الفترة المختارة
+  const includesOld = prevBalTotal > 0; // الفترة المختارة فيها شهور قبل تموز؟
   // صافي تموز فما بعد (بدون الرصيد السابق)
   const julyOnward = allT.profit - prevBalTotal;
-  // نص صغير للدولار المحوّل
-  const usdNote = openUsd ? `<div style="font-size:.78rem;opacity:.7;font-weight:600">(بالدولار ${openUsd.toFixed(0)}$ ≈ ${fmtShort(usdInSyp)} ل.س بسعر ${fmt(rate)})</div>` : "";
-  const oldCard = showOld ? `
+  // الدولار بيدخل بالإجمالي فقط لما الفترة تشمل ما قبل تموز
+  const grandTotalSyp = allT.profit + (includesOld ? usdInSyp : 0);
+
+  // بطاقة الإجمالي: العنوان والنص يتغيّروا حسب إذا في قديم بالفترة
+  const heroLabel = includesOld ? "💰 إجمالي ربح المحل (شامل القديم والدولار)" : "💰 إجمالي ربح الفترة";
+  const heroNote = includesOld
+    ? `<div style="font-size:.78rem;opacity:.85;font-weight:600">(منها ${fmtShort(usdInSyp)} ل.س دولار محوّل — ${openUsd.toFixed(0)}$ × ${fmt(rate)})</div>`
+    : "";
+  const oldCard = includesOld ? `
     <div class="kpi" style="background:#efe1c9">
       <div class="l">🏦 صافي ما قبل تموز (أيار + حزيران)</div>
       <div class="v" style="font-size:1.15rem">${fmt(prevBalTotal)} ل.س</div>
@@ -804,8 +807,8 @@ function renderStats(){
     </div>` : "";
 
   document.getElementById("statHighlights").innerHTML = `
-    <div class="kpi hero"><div class="l" style="opacity:.85">💰 إجمالي ربح المحل (بالليرة شامل الدولار)</div><div class="v" style="color:var(--cream)">${fmt(grandTotalSyp)} ل.س</div><div style="font-size:.78rem;opacity:.85;font-weight:600">(منها ${fmtShort(usdInSyp)} ل.س دولار محوّل — ${openUsd.toFixed(0)}$ × ${fmt(rate)})</div></div>
-    ${kpi("✨ صافي تموز فما بعد", julyOnward)}
+    <div class="kpi hero"><div class="l" style="opacity:.85">${heroLabel}</div><div class="v" style="color:var(--cream)">${fmt(grandTotalSyp)} ل.س</div>${heroNote}</div>
+    ${includesOld ? kpi("✨ صافي تموز فما بعد", julyOnward) : ""}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
     <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
