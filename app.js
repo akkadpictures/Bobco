@@ -18,6 +18,14 @@ const SVC_DESC = {
 };
 // خدمات بدون سعر — الحساب لاحقاً
 const NO_PRICE = ["بروتين"];
+// تعارض الخدمات — لما تختار وحدة، بتلغي المتعارضين معها (خدمات الراس الأساسية)
+const CONFLICTS = {
+  "كامل": ["قص شعر", "لحية", "ستايل", "حلاقة أطفال"],
+  "قص شعر": ["كامل", "ستايل", "حلاقة أطفال"],
+  "حلاقة أطفال": ["كامل", "قص شعر"],
+  "ستايل": ["كامل", "قص شعر"],
+  "لحية": ["كامل"]
+};
 
 const today = new Date(); today.setHours(0,0,0,0);
 let calYear = today.getFullYear(), calMonth = today.getMonth();
@@ -109,7 +117,17 @@ function renderServices(){
     el.innerHTML = `<div class="check">✓</div><h3>${s.name}</h3>${desc}
       <div class="meta">${metaLeft}${metaRight}</div>`;
     el.onclick = () => {
-      state.services.has(s.id) ? state.services.delete(s.id) : state.services.add(s.id);
+      if(state.services.has(s.id)){
+        state.services.delete(s.id);
+      } else {
+        state.services.add(s.id);
+        // شيل الخدمات المتعارضة مع هالخدمة
+        const conflicts = CONFLICTS[s.name] || [];
+        conflicts.forEach(cn => {
+          const cs = SERVICES.find(x => x.name === cn);
+          if(cs) state.services.delete(cs.id);
+        });
+      }
       state.slot = null;
       update();
     };
