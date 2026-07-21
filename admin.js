@@ -712,19 +712,43 @@ const CHART_COLORS = ["#5a6b3b","#c9a227","#8a9b5e","#b5843a","#6b8fa3","#a3546b
 const statRange = document.getElementById("statRange");
 if (statRange) statRange.addEventListener("change", renderStats);
 
+// نضيف خيارات السنين تلقائياً حسب البيانات الموجودة
+function ensureYearOptions(){
+  if (!statRange) return;
+  const years = [...new Set(ENTRIES.filter(e => e.entry_date >= "2026-07-01" || e.type === "رصيد سابق").map(e => e.entry_date.slice(0,4)))].sort();
+  years.forEach(y => {
+    if (![...statRange.options].some(o => o.value === "year-" + y)) {
+      const opt = document.createElement("option");
+      opt.value = "year-" + y;
+      opt.textContent = "سنة " + y;
+      statRange.appendChild(opt);
+    }
+  });
+}
+
 function statEntries(){
   // حركات النظام من 1 تموز + حركات "رصيد سابق" (أيار/حزيران للمقارنة)
   let list = ENTRIES.filter(e => e.entry_date >= "2026-07-01" || e.type === "رصيد سابق");
   const r = statRange ? statRange.value : "all";
-  if (r !== "all") {
-    const months = [...new Set(list.map(e => e.entry_date.slice(0,7)))].sort().reverse().slice(0, +r);
+  const allMonths = [...new Set(list.map(e => e.entry_date.slice(0,7)))].sort();
+
+  if (r === "current") {
+    const cur = allMonths[allMonths.length - 1]; // آخر شهر فيه بيانات
+    list = list.filter(e => e.entry_date.slice(0,7) === cur);
+  } else if (r === "3" || r === "6") {
+    const months = allMonths.slice().reverse().slice(0, +r);
     list = list.filter(e => months.includes(e.entry_date.slice(0,7)));
+  } else if (r.startsWith("year-")) {
+    const y = r.slice(5);
+    list = list.filter(e => e.entry_date.slice(0,4) === y);
   }
+  // "all" = كل الأشهر (بدون فلترة)
   return list;
 }
 
 function renderStats(){
   if (!document.getElementById("statHighlights")) return;
+  ensureYearOptions();
   const list = statEntries();
 
   // ---- تجميع شهري ----
