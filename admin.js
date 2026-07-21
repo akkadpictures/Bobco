@@ -197,21 +197,25 @@ function renderCash(){
   // التحويشة القديمة (الافتتاح لـ 30/6) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
+  const rate = +(SETTINGS.usd_rate || 13000);
+  const usdInSyp = openUsd * rate;
 
-  // الصندوق الموحّد
+  // الصندوق الموحّد بالليرة (شامل الدولار محوّل)
   const totalSyp = julySyp + openSyp;
+  const grandAll = totalSyp + usdInSyp; // كل شي بالليرة
 
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الكامل — كل اللي معك</td></tr>
-    <tr><td>رصيد الليرة الكلي</td><td class="pos"><strong style="font-size:1.15rem">${fmtSYP(totalSyp)}</strong></td></tr>
-    <tr><td>رصيد الدولار الكلي</td><td class="pos"><strong style="font-size:1.15rem">${openUsd.toFixed(0)} $</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الكامل — كل اللي معك بالليرة</td></tr>
+    <tr><td><strong>الإجمالي بالليرة (شامل الدولار)</strong></td><td class="pos"><strong style="font-size:1.25rem">${fmtSYP(grandAll)}</strong></td></tr>
+    <tr><td colspan="2" style="font-size:.78rem;opacity:.6;padding-top:2px">منها ${fmtSYP(usdInSyp)} دولار محوّل (${openUsd.toFixed(0)}$ × ${fmt(rate)})</td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;صندوق المحل (شغل تموز)</td><td>${fmtSYP(julySyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;تحويشة الافتتاح (لـ 30/6) — ليرة</td><td>${fmtSYP(openSyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;تحويشة الافتتاح (لـ 30/6) — دولار</td><td>${openUsd.toFixed(0)} $</td></tr>
+    <tr><td>&nbsp;&nbsp;رصيد الليرة (تموز + التحويشة)</td><td>${fmtSYP(totalSyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;— صندوق المحل (تموز)</td><td style="opacity:.7">${fmtSYP(julySyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;— تحويشة الافتتاح (ليرة)</td><td style="opacity:.7">${fmtSYP(openSyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;رصيد الدولار (كاش)</td><td>${openUsd.toFixed(0)} $ <span style="opacity:.6;font-size:.82rem">(≈ ${fmtSYP(usdInSyp)})</span></td></tr>
   </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
-    💡 الدولار (${openUsd.toFixed(0)}$) جاهز تحوّله لمؤونة الأجار وقت ما تحب. تعدّل تحويشة الافتتاح من الإعدادات.
+    💡 سعر الصرف المستخدم ${fmt(rate)} ل.س/دولار — تعدّلو من الإعدادات وقت ما يتغيّر. الدولار جاهز للأجار.
   </div>`;
 }
 
@@ -602,7 +606,8 @@ function renderSettings(){
     <div class="form-grid">
       <div class="field"><label>ليرة قديمة (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="openSyp" type="number" value="${SETTINGS.opening_syp || 0}"></div>
       <div class="field"><label>دولار قديم ($)</label><input class="cell" style="border:1px solid var(--line)" id="openUsd" type="number" value="${SETTINGS.opening_usd || 0}"></div>
-      <button class="mini" onclick="saveOpening()">حفظ التحويشة القديمة</button>
+      <div class="field"><label>سعر صرف الدولار (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="usdRate" type="number" value="${SETTINGS.usd_rate || 13000}"></div>
+      <button class="mini" onclick="saveOpening()">حفظ</button>
     </div>`;
 }
 function editTable(list, table, cols, canToggle, canDelete){
@@ -686,8 +691,9 @@ async function saveOpening(){
   await db.from("settings").upsert([
     { key: "opening_syp", value: String(+document.getElementById("openSyp").value || 0) },
     { key: "opening_usd", value: String(+document.getElementById("openUsd").value || 0) },
+    { key: "usd_rate", value: String(+document.getElementById("usdRate").value || 13000) },
   ]);
-  await loadAll(); renderDash(); renderStats(); toast("انحفظت التحويشة القديمة ✓");
+  await loadAll(); renderDash(); renderStats(); toast("انحفظ ✓");
 }
 async function addExpCat(){
   const name = prompt("اسم البند الجديد (مثال: أجار):");
@@ -781,25 +787,28 @@ function renderStats(){
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
 
-  // الرصيد السابق (أيار+حزيران) صار مسجّل كحركات "رصيد سابق"،
-  // فـ allT.profit أصلاً بيشملهن. openSyp/openUsd للعرض بس.
+  // سعر الصرف (من الإعدادات) لتحويل الدولار وعرضه بين قوسين
+  const rate = +(SETTINGS.usd_rate || 13000);
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
-  const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق ضمن الفترة
+  const usdInSyp = openUsd * rate; // قيمة الدولار بالليرة
+  const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق (ليرة) ضمن الفترة
   const showOld = prevBalTotal > 0;
-  // إجمالي المحل = ربح النظام (بيشمل الرصيد السابق أصلاً)
-  const grandTotal = allT.profit;
+  // إجمالي المحل بالليرة = ربح النظام + الدولار محوّل
+  const grandTotalSyp = allT.profit + usdInSyp;
   // صافي تموز فما بعد (بدون الرصيد السابق)
   const julyOnward = allT.profit - prevBalTotal;
+  // نص صغير للدولار المحوّل
+  const usdNote = openUsd ? `<div style="font-size:.78rem;opacity:.7;font-weight:600">(بالدولار ${openUsd.toFixed(0)}$ ≈ ${fmtShort(usdInSyp)} ل.س بسعر ${fmt(rate)})</div>` : "";
   const oldCard = showOld ? `
     <div class="kpi" style="background:#efe1c9">
       <div class="l">🏦 صافي ما قبل تموز (أيار + حزيران)</div>
-      <div class="v" style="font-size:1.15rem">${fmtShort(prevBalTotal)} ل.س</div>
-      <div style="font-size:.82rem;opacity:.7;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
+      <div class="v" style="font-size:1.15rem">${fmt(prevBalTotal)} ل.س</div>
+      <div style="font-size:.78rem;opacity:.7;font-weight:600">(+ الدولار ${openUsd.toFixed(0)}$ محفوظ منفصل)</div>
     </div>` : "";
 
   document.getElementById("statHighlights").innerHTML = `
-    <div class="kpi hero"><div class="l" style="opacity:.85">💰 إجمالي ربح المحل (كل الفترة)</div><div class="v" style="color:var(--cream)">${fmt(grandTotal)}</div><div style="font-size:.82rem;opacity:.85;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div></div>
+    <div class="kpi hero"><div class="l" style="opacity:.85">💰 إجمالي ربح المحل (بالليرة شامل الدولار)</div><div class="v" style="color:var(--cream)">${fmt(grandTotalSyp)} ل.س</div><div style="font-size:.78rem;opacity:.85;font-weight:600">(منها ${fmtShort(usdInSyp)} ل.س دولار محوّل — ${openUsd.toFixed(0)}$ × ${fmt(rate)})</div></div>
     ${kpi("✨ صافي تموز فما بعد", julyOnward)}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
