@@ -42,7 +42,7 @@ async function openPanel(){
   gate.style.display = "none";
   panel.style.display = "block";
   await loadAll();
-  renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings();
+  renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings(); renderStats();
 }
 
 async function loadAll(){
@@ -678,4 +678,226 @@ async function savePin(){
   await db.from("settings").upsert({ key: "admin_pin", value: v });
   document.getElementById("newPin").value = "";
   toast("تغيّر الرمز ✓");
+}
+
+/* ============ 📈 الإحصائيات ============ */
+const AR_MONTHS = ["كانون الثاني","شباط","آذار","نيسان","أيار","حزيران","تموز","آب","أيلول","تشرين الأول","تشرين الثاني","كانون الأول"];
+const AR_DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const monthLabel = ym => { const [y,m]=ym.split("-"); return AR_MONTHS[+m-1]+" "+y; };
+const CHART_COLORS = ["#5a6b3b","#c9a227","#8a9b5e","#b5843a","#6b8fa3","#a3546b","#7a6ba3","#a37a54"];
+
+const statRange = document.getElementById("statRange");
+if (statRange) statRange.addEventListener("change", renderStats);
+
+function statEntries(){
+  // كل الحركات من 1 تموز (بداية النظام) — نستثني حزيران المستورد
+  let list = ENTRIES.filter(e => e.entry_date >= "2026-07-01");
+  const r = statRange ? statRange.value : "all";
+  if (r !== "all") {
+    const months = [...new Set(list.map(e => e.entry_date.slice(0,7)))].sort().reverse().slice(0, +r);
+    list = list.filter(e => months.includes(e.entry_date.slice(0,7)));
+  }
+  return list;
+}
+
+function renderStats(){
+  if (!document.getElementById("statHighlights")) return;
+  const list = statEntries();
+
+  // ---- تجميع شهري ----
+  const byMonth = {};
+  list.forEach(e => {
+    const ym = e.entry_date.slice(0,7);
+    if (!byMonth[ym]) byMonth[ym] = [];
+    byMonth[ym].push(e);
+  });
+  const months = Object.keys(byMonth).sort();
+  const monthTotals = months.map(ym => ({ ym, t: totals(byMonth[ym]) }));
+
+  // ---- البطاقات المميزة ----
+  const allT = totals(list);
+  // أفضل شهر (بالربح)
+  let bestMonth = null;
+  monthTotals.forEach(m => { if (!bestMonth || m.t.profit > bestMonth.t.profit) bestMonth = m; });
+  // مقارنة آخر شهرين
+  let trend = null;
+  if (monthTotals.length >= 2) {
+    const cur = monthTotals[monthTotals.length-1].t.profit;
+    const prev = monthTotals[monthTotals.length-2].t.profit;
+    if (prev > 0) trend = ((cur - prev) / prev * 100);
+  }
+  // متوسط الدخل اليومي
+  const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").map(e=>e.entry_date))];
+  const totalRev = allT.hRev + allT.productSales + allT.coffee;
+  const avgDay = days.length ? totalRev / days.length : 0;
+
+  const trendTag = trend===null ? "" :
+    `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
+
+  document.getElementById("statHighlights").innerHTML = `
+    ${kpi("✨ صافي الربح (الفترة)", allT.profit, false, true)}
+    <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
+    <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
+    ${kpi("📊 متوسط دخل اليوم", Math.round(avgDay))}
+    ${kpi("💈 إجمالي الإيراد", totalRev)}
+    ${kpi("💸 إجمالي المصاريف", allT.exp, true)}
+  `;
+
+  // ---- الربح عبر الأشهر (أعمدة) ----
+  renderMonthlyBars(monthTotals);
+  // ---- مصادر الدخل (دائري) ----
+  renderSourcesDonut(allT);
+  // ---- توزيع المصاريف (دائري) ----
+  renderExpDonut(list);
+  // ---- أيام الأسبوع ----
+  renderWeekdayBars(list);
+  // ---- الحلاقين ----
+  renderBarbersStats(list);
+  // ---- أفضل الأيام ----
+  renderTopDays(list);
+  // ---- أكثر المنتجات ----
+  renderTopProducts(list);
+}
+
+function renderMonthlyBars(monthTotals){
+  const box = document.getElementById("statMonthlyChart");
+  if (!monthTotals.length) { box.innerHTML = `<div class="empty">لسا ما في بيانات كفاية</div>`; return; }
+  const max = Math.max(...monthTotals.map(m => m.t.profit), 1);
+  const bestVal = Math.max(...monthTotals.map(m => m.t.profit));
+  box.innerHTML = `<div class="mini-bars">` + monthTotals.map(m => {
+    const h = Math.round((m.t.profit / max) * 120);
+    const best = m.t.profit === bestVal;
+    return `<div class="mb">
+      <div class="mb-val">${fmtShort(m.t.profit)}</div>
+      <div class="mb-bar ${best?"best":""}" style="height:${h}px"></div>
+      <div class="mb-lbl">${AR_MONTHS[+m.ym.split("-")[1]-1].slice(0,3)}<br>${m.ym.split("-")[0]}</div>
+    </div>`;
+  }).join("") + `</div>`;
+}
+
+function renderSourcesDonut(t){
+  const parts = [
+    { label: "حلاقة وخدمات", val: t.hRev },
+    { label: "ربح المنتجات", val: t.products },
+    { label: "الكوفي", val: t.coffee },
+  ].filter(p => p.val > 0);
+  document.getElementById("statSourcesChart").innerHTML = donut(parts);
+}
+
+function renderExpDonut(list){
+  const byCat = {};
+  list.filter(e => e.type==="مصروف"||e.type==="مصروف شهري").forEach(e => {
+    const k = e.detail || "أخرى";
+    byCat[k] = (byCat[k]||0) + (+e.amount||0);
+  });
+  const parts = Object.entries(byCat).map(([label,val]) => ({label,val})).sort((a,b)=>b.val-a.val);
+  document.getElementById("statExpChart").innerHTML = parts.length ? donut(parts) : `<div class="empty">ما في مصاريف بالفترة</div>`;
+}
+
+function donut(parts){
+  const total = parts.reduce((s,p)=>s+p.val,0);
+  if (!total) return `<div class="empty">ما في بيانات</div>`;
+  let acc = 0;
+  const stops = parts.map((p,i) => {
+    const start = acc/total*360; acc += p.val;
+    const end = acc/total*360;
+    return `${CHART_COLORS[i%CHART_COLORS.length]} ${start}deg ${end}deg`;
+  }).join(",");
+  const legend = parts.map((p,i) =>
+    `<div class="li"><span class="dot" style="background:${CHART_COLORS[i%CHART_COLORS.length]}"></span>
+     <span>${p.label} — <strong>${(p.val/total*100).toFixed(0)}%</strong> (${fmtShort(p.val)})</span></div>`
+  ).join("");
+  return `<div class="donut-wrap">
+    <div style="width:150px;height:150px;border-radius:50%;background:conic-gradient(${stops});position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:26px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column">
+        <div style="font-size:.72rem;opacity:.6">الإجمالي</div>
+        <div style="font-weight:800;font-size:.9rem">${fmtShort(total)}</div>
+      </div>
+    </div>
+    <div class="donut-legend">${legend}</div>
+  </div>`;
+}
+
+function renderWeekdayBars(list){
+  const byDay = [0,0,0,0,0,0,0], cntDay = [0,0,0,0,0,0,0];
+  const seen = {};
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").forEach(e => {
+    const c = calc(e);
+    const wd = new Date(e.entry_date+"T00:00:00").getDay();
+    byDay[wd] += c.rev;
+    if (!seen[e.entry_date]) { seen[e.entry_date]=wd; }
+  });
+  // عدد أيام فريدة لكل يوم أسبوع
+  Object.values(seen).forEach(wd => cntDay[wd]++);
+  const avg = byDay.map((v,i) => cntDay[i] ? v/cntDay[i] : 0);
+  const max = Math.max(...avg, 1);
+  const bestVal = Math.max(...avg);
+  document.getElementById("statWeekChart").innerHTML = `<div class="mini-bars">` +
+    avg.map((v,i) => {
+      const h = Math.round((v/max)*120);
+      return `<div class="mb">
+        <div class="mb-val">${fmtShort(v)}</div>
+        <div class="mb-bar ${v===bestVal&&v>0?"best":""}" style="height:${Math.max(3,h)}px"></div>
+        <div class="mb-lbl">${AR_DAYS[i].replace("ال","")}</div>
+      </div>`;
+    }).join("") + `</div>
+    <div style="font-size:.8rem;opacity:.6;margin-top:6px">💡 اليوم الذهبي = أعلى متوسط دخل. استغلّه بالعروض والحجوزات.</div>`;
+}
+
+function renderBarbersStats(list){
+  const rows = BARBERS.filter(b => b.active!==false).map(b => {
+    const bl = list.filter(e => BARBER_TYPES.includes(e.type) && e.detail === b.name);
+    let cnt=0, rev=0, comm=0;
+    bl.forEach(e => { const c=calc(e); cnt+=+e.count||0; rev+=c.rev; comm+=c.comm; });
+    return { name:b.name, cnt, rev, comm, net:rev-comm };
+  }).filter(r => r.rev > 0).sort((a,b)=>b.rev-a.rev);
+  if (!rows.length) { document.getElementById("statBarbersChart").innerHTML = `<div class="empty">ما في بيانات</div>`; return; }
+  const max = Math.max(...rows.map(r=>r.rev));
+  document.getElementById("statBarbersChart").innerHTML = rows.map((r,i) => `
+    <div class="bar-row">
+      <span class="bl">${i===0?"🥇 ":i===1?"🥈 ":i===2?"🥉 ":""}${r.name}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${(r.rev/max*100).toFixed(0)}%;background:${CHART_COLORS[i%CHART_COLORS.length]}"></span></span>
+      <span class="bar-val">${fmtShort(r.rev)} · ${r.cnt} حلاقة</span>
+    </div>`).join("");
+}
+
+function renderTopDays(list){
+  const byDay = {};
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").forEach(e => {
+    const c = calc(e);
+    byDay[e.entry_date] = (byDay[e.entry_date]||0) + c.rev;
+  });
+  const top = Object.entries(byDay).map(([d,v])=>({d,v})).sort((a,b)=>b.v-a.v).slice(0,5);
+  if (!top.length) { document.getElementById("statTopDays").innerHTML = `<div class="empty">ما في بيانات</div>`; return; }
+  document.getElementById("statTopDays").innerHTML = `<table>
+    <tr><th>#</th><th>التاريخ</th><th>اليوم</th><th>الدخل</th></tr>` +
+    top.map((r,i) => {
+      const wd = AR_DAYS[new Date(r.d+"T00:00:00").getDay()];
+      return `<tr><td>${["🥇","🥈","🥉","4","5"][i]}</td><td>${r.d}</td><td>${wd}</td><td><strong>${fmt(r.v)}</strong></td></tr>`;
+    }).join("") + `</table>`;
+}
+
+function renderTopProducts(list){
+  const byProd = {};
+  list.filter(e => e.type==="منتج").forEach(e => {
+    const k = e.sub || "منتج";
+    if (!byProd[k]) byProd[k] = { cnt:0, sales:0, profit:0 };
+    byProd[k].cnt++;
+    const c = calc(e);
+    byProd[k].sales += c.rev;
+    byProd[k].profit += c.net;
+  });
+  const top = Object.entries(byProd).map(([name,d])=>({name,...d})).sort((a,b)=>b.sales-a.sales).slice(0,6);
+  if (!top.length) { document.getElementById("statTopProducts").innerHTML = `<div class="empty">ما في مبيعات منتجات بعد</div>`; return; }
+  document.getElementById("statTopProducts").innerHTML = `<table>
+    <tr><th>المنتج</th><th>عدد</th><th>مبيعات</th><th>ربح</th></tr>` +
+    top.map(r => `<tr><td><strong>${r.name}</strong></td><td>${r.cnt}</td><td>${fmt(r.sales)}</td><td class="pos">${fmt(r.profit)}</td></tr>`).join("") + `</table>`;
+}
+
+// اختصار الأرقام (1.2م، 350ألف)
+function fmtShort(n){
+  n = +n || 0;
+  if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,"") + "م";
+  if (Math.abs(n) >= 1000) return Math.round(n/1000) + "ألف";
+  return String(Math.round(n));
 }
