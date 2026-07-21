@@ -235,7 +235,8 @@ tr:last-child td{border-bottom:none}
     <!-- ===== SETTINGS ===== -->
     <section class="view" id="v-settings">
       <div class="card">
-        <h2>💈 خدمات الحلاقة <button class="mini add" onclick="addService()">+ خدمة جديدة</button></h2>
+        <h2>✂️ الخدمات (حلاقة + عناية) <button class="mini add" onclick="addService()">+ خدمة جديدة</button></h2>
+        <p class="muted" style="margin:-8px 0 14px">أضف أو عدّل أي خدمة. حدّد "القسم" (حلاقة أو عناية) ليظهر بالمكان الصح بالموقع. "الوصف الصغير" اختياري بيظهر تحت اسم الخدمة.</p>
         <div class="table-scroll" id="svcTable"></div>
       </div>
       <div class="card">
@@ -244,7 +245,18 @@ tr:last-child td{border-bottom:none}
       </div>
       <div class="card">
         <h2>👥 الحلاقين ونسب العمولة <button class="mini add" onclick="addBarber()">+ حلاق جديد</button></h2>
+        <p class="muted" style="margin:-8px 0 14px">"اللقب" هو اللي بيظهر بالموقع (حلاق أول، ثاني...). العمولة 0.4 = 40%.</p>
         <div class="table-scroll" id="barbTable"></div>
+      </div>
+      <div class="card">
+        <h2>🧾 بنود المصاريف <button class="mini add" onclick="addExpCat()">+ بند جديد</button></h2>
+        <p class="muted" style="margin:-8px 0 14px">البنود اللي بتظهر بقائمة المصاريف (كهربا، أجار، نت...). تقدر تضيف أو تحذف.</p>
+        <div class="table-scroll" id="expTable"></div>
+      </div>
+      <div class="card">
+        <h2>🏪 معلومات المحل (بتظهر بالموقع)</h2>
+        <p class="muted" style="margin:-8px 0 14px">العنوان، الإنستغرام، ساعات الدوام، وأوقات الحجز — كلها بتتحدّث بالموقع مباشرة.</p>
+        <div id="shopBox"></div>
       </div>
       <div class="card">
         <h2>💲 جدول أسعار الحلاقة (عروض) <button class="mini add" onclick="addPrice()">+ سعر جديد</button></h2>

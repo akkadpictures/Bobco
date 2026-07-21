@@ -18,6 +18,8 @@ const SVC_DESC = {
 };
 // خدمات بدون سعر — الحساب لاحقاً
 const NO_PRICE = ["بروتين"];
+// هل الخدمة قسم عناية؟ (يعتمد على عمود section بقاعدة البيانات، مع دعم القديم)
+const isCare = s => (s.section ? s.section === "عناية" : ["تنضيف بشرة","عناية وجه","مساج ظهر","حمام زيت","بروتين"].includes(s.name));
 // تعارض الخدمات — لما تختار وحدة، بتلغي المتعارضين معها (خدمات الراس الأساسية)
 const CONFLICTS = {
   "كامل": ["قص شعر", "لحية", "ستايل", "حلاقة أطفال"],
@@ -55,6 +57,7 @@ async function init(){
   renderServices();
   renderBarberPick();
   renderMenu();
+  applyShopInfo();
   setupNav();
   setupReveal();
   document.getElementById('calPrev').onclick = () => { calMonth--; if(calMonth < 0){ calMonth = 11; calYear--; } renderCalendar(); };
@@ -65,6 +68,20 @@ async function init(){
 }
 
 /* ---------- helpers ---------- */
+function applyShopInfo(){
+  const addr = SETTINGS.shop_address;
+  const hours = SETTINGS.shop_hours_text;
+  const insta = SETTINGS.shop_instagram;
+  const fa = document.getElementById('footAddr');
+  const fh = document.getElementById('footHours');
+  if (fa && addr) fa.textContent = '📍 ' + addr;
+  if (fh && hours) fh.textContent = '🕐 ' + hours;
+  if (insta){
+    const url = 'https://instagram.com/' + insta.replace(/^@/, '');
+    document.querySelectorAll('#footInsta, .soc-pill[href*="instagram"]').forEach(a => a.href = url);
+    const fn = document.getElementById('footInstaName'); if (fn) fn.textContent = '@' + insta.replace(/^@/, '');
+  }
+}
 const svcById = id => SERVICES.find(s => s.id === id);
 const visibleServices = () => SERVICES.slice();
 
@@ -111,7 +128,8 @@ function renderServices(){
     const el = document.createElement('div');
     el.className = 'svc'; el.dataset.id = s.id;
     const noPrice = NO_PRICE.includes(s.name);
-    const desc = SVC_DESC[s.name] ? `<div class="svc-desc">${SVC_DESC[s.name]}</div>` : '';
+    const descTxt = s.description || SVC_DESC[s.name] || '';
+    const desc = descTxt ? `<div class="svc-desc">${descTxt}</div>` : '';
     const metaLeft = noPrice ? '' : `<span>${arNum(s.duration_min)} دقيقة</span>`;
     const metaRight = noPrice ? `<b class="svc-later">الحساب لاحقاً</b>` : `<b>${fmtSYP(s.price)}</b>`;
     el.innerHTML = `<div class="check">✓</div><h3>${s.name}</h3>${desc}
@@ -131,7 +149,7 @@ function renderServices(){
       state.slot = null;
       update();
     };
-    (CARE_NAMES.includes(s.name) ? careBox : barberBox).appendChild(el);
+    (isCare(s) ? careBox : barberBox).appendChild(el);
   });
   document.getElementById('careWrap').style.display = careBox.children.length ? '' : 'none';
 }

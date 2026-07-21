@@ -232,16 +232,15 @@ dayPick.addEventListener("change", renderDay);
 
 function renderDay(){
   const d = dayPick.value;
-  // مصاريف اليوم اليومية فقط — المصاريف الشهرية (أجار/كهربا/نت/مي) ما بتدخل بصورة اليوم
-  const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري");
+  // المصاريف (عادي + شهري) ما بتظهر بصورة اليوم — بس بالملخص الشهري
+  const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري" && e.type !== "مصروف");
   const t = totals(list);
   const total = t.hRev + t.products + t.coffee;
 
   document.getElementById("dayKpis").innerHTML = `
     ${kpi("إجمالي اليوم", total, false, true)}
     ${kpi("حصة الحلاقين", t.hComm)}
-    ${kpi("مصاريف اليوم", t.exp, true)}
-    ${kpi("حصة المحل", total - t.hComm - t.exp)}
+    ${kpi("حصة المحل", total - t.hComm)}
   `;
 
   const rows = BARBERS.map(b => {
@@ -287,7 +286,7 @@ function syncLogForm(){
   if (t === "حلاقة" || t === "خدمة") { lD.textContent = "الحلاق"; dSel.innerHTML = activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
   if (t === "منتج") { lD.textContent = "البائع"; dSel.innerHTML = `<option value="المحل">🏪 المحل (بدون حلاق)</option>` + activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
   if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
-  if (t === "خدمة") { lS.textContent = "الخدمة"; const CARE = ["تنضيف بشرة", "عناية وجه", "مساج ظهر", "حمام زيت", "بروتين"]; sSel.innerHTML = SERVICES.filter(s => s.active !== false && CARE.includes(s.name)).map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
+  if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
@@ -476,13 +475,16 @@ async function setBooking(id, status){
 
 function renderSettings(){
   document.getElementById("svcTable").innerHTML = editTable(SERVICES, "services",
-    [["name", "الخدمة", "text"], ["price", "السعر", "number"], ["duration_min", "الدقائق", "number"]], true);
+    [["name", "الخدمة", "text"], ["section", "القسم", ["حلاقة","عناية"]], ["price", "السعر", "number"], ["duration_min", "الدقائق", "number"], ["description", "وصف صغير (اختياري)", "text"]], true);
   document.getElementById("cofTable").innerHTML = editTable(COFFEE, "coffee_items",
     [["name", "المشروب", "text"], ["category", "الفئة", "text"], ["price", "السعر", "number"]], true);
   document.getElementById("barbTable").innerHTML = editTable(BARBERS, "barbers",
     [["name", "الاسم", "text"], ["title", "اللقب", "text"], ["commission", "العمولة (0.4 = 40%)", "number"]], true);
   document.getElementById("priceTable").innerHTML = editTable(PRICES, "price_periods",
     [["from_date", "من تاريخ", "date"], ["price", "السعر", "number"], ["note", "ملاحظة", "text"]], false);
+  const expBox = document.getElementById("expTable");
+  if (expBox) expBox.innerHTML = editTable(EXPCATS, "expense_categories",
+    [["name", "البند", "text"]], false, true);
   const cp = CUT_PRICES();
   document.getElementById("cutBox").innerHTML = `
     <div class="form-grid">
@@ -499,14 +501,36 @@ function renderSettings(){
       <div class="field"><label>حصة ${SETTINGS.partner_name || "الشريك"}</label><input class="cell" style="border:1px solid var(--line)" id="shPartner" type="number" step="0.05" value="${SETTINGS.partner_share || .5}"></div>
       <button class="mini" onclick="saveShares()">حفظ النسب</button>
     </div>`;
+  const shopBox = document.getElementById("shopBox");
+  if (shopBox) shopBox.innerHTML = `
+    <div class="form-grid">
+      <div class="field"><label>العنوان (بيظهر بأسفل الموقع)</label><input class="cell" style="border:1px solid var(--line)" id="shopAddr" type="text" value="${SETTINGS.shop_address || ""}"></div>
+      <div class="field"><label>حساب إنستغرام (بدون @)</label><input class="cell" style="border:1px solid var(--line)" id="shopInsta" type="text" value="${SETTINGS.shop_instagram || ""}"></div>
+      <div class="field"><label>نص ساعات الدوام</label><input class="cell" style="border:1px solid var(--line)" id="shopHours" type="text" value="${SETTINGS.shop_hours_text || ""}"></div>
+      <div class="field"><label>وقت الفتح (للحجز)</label><input class="cell" style="border:1px solid var(--line)" id="shopOpen" type="time" value="${SETTINGS.open_time || "11:00"}"></div>
+      <div class="field"><label>وقت الإغلاق (للحجز)</label><input class="cell" style="border:1px solid var(--line)" id="shopClose" type="time" value="${SETTINGS.close_time || "23:00"}"></div>
+      <button class="mini" onclick="saveShopInfo()">حفظ معلومات المحل</button>
+    </div>`;
 }
-function editTable(list, table, cols, canToggle){
+function editTable(list, table, cols, canToggle, canDelete){
   if (!list.length) return `<div class="empty">فاضي</div>`;
+  const cell = (r, c) => {
+    if (Array.isArray(c[2])) { // select: c[2] = array of options
+      return `<select class="cell" style="border:1px solid var(--line)" onchange="saveField('${table}',${JSON.stringify(r.id)},'${c[0]}',this.value)">` +
+        c[2].map(o => `<option ${String(r[c[0]] ?? "") === o ? "selected" : ""}>${o}</option>`).join("") + `</select>`;
+    }
+    return `<input class="cell" type="${c[2]}" value="${r[c[0]] ?? ""}" ${c[2] === "number" ? 'step="any" inputmode="numeric"' : ""} onchange="saveField('${table}',${JSON.stringify(r.id)},'${c[0]}',this.value)">`;
+  };
   return `<table><tr>${cols.map(c => `<th>${c[1]}</th>`).join("")}<th></th></tr>` +
     list.map(r => `<tr>
-      ${cols.map(c => `<td><input class="cell" type="${c[2]}" value="${r[c[0]] ?? ""}" ${c[2] === "number" ? 'step="any" inputmode="numeric"' : ""} onchange="saveField('${table}',${JSON.stringify(r.id)},'${c[0]}',this.value)"></td>`).join("")}
-      <td>${canToggle ? `<button class="mini ${r.active ? "danger" : ""}" onclick="toggleRow('${table}',${JSON.stringify(r.id)},${!r.active})">${r.active ? "إخفاء" : "إظهار"}</button>` : ""}</td>
+      ${cols.map(c => `<td>${cell(r, c)}</td>`).join("")}
+      <td style="white-space:nowrap">${canToggle ? `<button class="mini ${r.active ? "danger" : ""}" onclick="toggleRow('${table}',${JSON.stringify(r.id)},${!r.active})">${r.active ? "إخفاء" : "إظهار"}</button>` : ""}${canDelete ? ` <button class="mini danger" onclick="deleteRow('${table}',${JSON.stringify(r.id)})">حذف</button>` : ""}</td>
     </tr>`).join("") + `</table>`;
+}
+async function deleteRow(table, id){
+  if (!confirm("متأكد بدك تحذف؟")) return;
+  await db.from(table).delete().eq("id", id);
+  await loadAll(); renderSettings(); syncLogForm(); renderDash(); toast("انحذف");
 }
 async function saveField(table, id, field, value){
   const { error } = await db.from(table).update({ [field]: value === "" ? null : value }).eq("id", id);
@@ -518,8 +542,8 @@ async function toggleRow(table, id, active){
   await loadAll(); renderSettings(); syncLogForm(); toast(active ? "صار ظاهر بالموقع" : "انخفى من الموقع");
 }
 async function addService(){
-  await db.from("services").insert({ name: "خدمة جديدة", price: 0, sort: SERVICES.length + 1 });
-  await loadAll(); renderSettings();
+  await db.from("services").insert({ name: "خدمة جديدة", price: 0, section: "حلاقة", sort: SERVICES.length + 1 });
+  await loadAll(); renderSettings(); toast("انضافت — عدّل الاسم والقسم والسعر");
 }
 async function addCoffee(){
   await db.from("coffee_items").insert({ name: "مشروب جديد", category: "مشروبات ساخنة", price: 0, sort: COFFEE.length + 1 });
@@ -550,6 +574,22 @@ async function saveShares(){
   if (Math.abs(o + p - 1) > .001) return toast("⚠ مجموع النسب لازم يساوي 1");
   await db.from("settings").upsert([{ key: "owner_share", value: String(o) }, { key: "partner_share", value: String(p) }]);
   await loadAll(); renderDash(); toast("انحفظت النسب ✓");
+}
+async function saveShopInfo(){
+  await db.from("settings").upsert([
+    { key: "shop_address", value: document.getElementById("shopAddr").value.trim() },
+    { key: "shop_instagram", value: document.getElementById("shopInsta").value.trim().replace(/^@/, "") },
+    { key: "shop_hours_text", value: document.getElementById("shopHours").value.trim() },
+    { key: "open_time", value: document.getElementById("shopOpen").value || "11:00" },
+    { key: "close_time", value: document.getElementById("shopClose").value || "23:00" },
+  ]);
+  await loadAll(); toast("انحفظت معلومات المحل ✓ — بتظهر بالموقع خلال دقيقة");
+}
+async function addExpCat(){
+  const name = prompt("اسم البند الجديد (مثال: أجار):");
+  if (!name || !name.trim()) return;
+  await db.from("expense_categories").insert({ name: name.trim(), sort: (EXPCATS.length ? Math.max(...EXPCATS.map(c => +c.sort || 0)) : 0) + 1 });
+  await loadAll(); renderSettings(); syncLogForm(); toast("انضاف البند ✓");
 }
 async function savePin(){
   const v = document.getElementById("newPin").value.trim();
