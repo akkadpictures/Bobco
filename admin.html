@@ -196,7 +196,10 @@ tr:last-child td{border-bottom:none}
           </div>
           <div class="field" id="fDetail"><label id="lDetail">الحلاق</label><select id="eDetail"></select></div>
           <div class="field" id="fSub"><label id="lSub">نوع الحلاقة</label><select id="eSub"></select></div>
+          <div class="field" id="fProdSelect" style="display:none"><label>المنتج</label><select id="eProdSelect"></select></div>
           <div class="field" id="fProdName" style="display:none"><label>اسم المنتج</label><input id="eProdName" placeholder="مثال: واكس"></div>
+          <div class="field" id="fCost" style="display:none"><label>التكلفة (ل.س)</label><input id="eCost" type="number" inputmode="numeric" placeholder="0"></div>
+          <div class="field" id="fExtra" style="display:none"><label>سعر إضافي (اختياري)</label><input id="eExtra" type="number" inputmode="numeric" placeholder="0"></div>
           <div class="field" id="fCount"><label>عدد الحلاقات</label><input id="eCount" type="number" inputmode="numeric" placeholder="0"></div>
           <div class="field" id="fAmount"><label id="lAmount">المبلغ (ل.س)</label><input id="eAmount" type="number" inputmode="numeric" placeholder="0"></div>
           <div class="field" id="fRate" style="display:none"><label>سعر الصرف</label><input id="eRate" type="number" inputmode="numeric" placeholder="0"></div>
@@ -238,6 +241,11 @@ tr:last-child td{border-bottom:none}
         <h2>✂️ الخدمات (حلاقة + عناية) <button class="mini add" onclick="addService()">+ خدمة جديدة</button></h2>
         <p class="muted" style="margin:-8px 0 14px">أضف أو عدّل أي خدمة. حدّد "القسم" (حلاقة أو عناية) ليظهر بالمكان الصح بالموقع. "الوصف الصغير" اختياري بيظهر تحت اسم الخدمة.</p>
         <div class="table-scroll" id="svcTable"></div>
+      </div>
+      <div class="card">
+        <h2>🧴 المنتجات (بيع وتكلفة) <button class="mini add" onclick="addProduct()">+ منتج جديد</button></h2>
+        <p class="muted" style="margin:-8px 0 14px">المنتجات الدائمة اللي بتنباع (واكس، بودرة...). "سعر البيع" و"التكلفة" بيجوا تلقائي وقت التسجيل، والربح بيتحسب لحالو.</p>
+        <div class="table-scroll" id="prodTable"></div>
       </div>
       <div class="card">
         <h2>☕ منيو الكوفي <button class="mini add" onclick="addCoffee()">+ مشروب جديد</button></h2>

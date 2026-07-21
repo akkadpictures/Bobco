@@ -1,5 +1,5 @@
 // ============ Bob & Co — admin ============
-let SETTINGS = {}, BARBERS = [], EXPCATS = [], PRICES = [], SERVICES = [], COFFEE = [], ENTRIES = [];
+let SETTINGS = {}, BARBERS = [], EXPCATS = [], PRICES = [], SERVICES = [], COFFEE = [], ENTRIES = [], PRODUCTS = [];
 
 const RENT_ACC = "مؤونة الأجار";
 const BARBER_TYPES = ["حلاقة", "خدمة", "منتج"];
@@ -46,7 +46,7 @@ async function openPanel(){
 }
 
 async function loadAll(){
-  const [st, b, ec, pp, sv, cf, en] = await Promise.all([
+  const [st, b, ec, pp, sv, cf, en, pr] = await Promise.all([
     db.from("settings").select("*"),
     db.from("barbers").select("*").order("sort"),
     db.from("expense_categories").select("*").order("sort"),
@@ -54,10 +54,11 @@ async function loadAll(){
     db.from("services").select("*").order("sort"),
     db.from("coffee_items").select("*").order("sort"),
     db.from("entries").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }),
+    db.from("products").select("*").order("sort"),
   ]);
   SETTINGS = {}; (st.data || []).forEach(r => SETTINGS[r.key] = r.value);
   BARBERS = b.data || []; EXPCATS = ec.data || []; PRICES = pp.data || [];
-  SERVICES = sv.data || []; COFFEE = cf.data || []; ENTRIES = en.data || [];
+  SERVICES = sv.data || []; COFFEE = cf.data || []; ENTRIES = en.data || []; PRODUCTS = pr.data || [];
 }
 
 function priceAt(dateStr){
@@ -84,8 +85,10 @@ function calc(e){
     return { rev, comm, net: rev - comm, usd: 0 };
   }
   if (e.type === "منتج") {
-    const rev = +e.amount || 0;
-    return { rev, comm: 0, net: rev, usd: 0 };
+    const sale = +e.amount || 0;
+    const cost = +e.cost || 0;
+    const profit = sale - cost;
+    return { rev: sale, comm: 0, net: profit, usd: 0 };
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "مصروف" || e.type === "مصروف شهري") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
@@ -97,7 +100,7 @@ function totals(list){
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
-    if (e.type === "منتج") t.products += c.rev;
+    if (e.type === "منتج") t.products += c.net;
     if (e.type === "كوفي")  t.coffee += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
   });
@@ -177,7 +180,8 @@ function renderCash(){
   let sypIn = 0, exp = 0, toUsd = 0, usd = 0, comm = 0;
   ENTRIES.forEach(e => {
     const c = calc(e);
-    if (BARBER_TYPES.includes(e.type)) { sypIn += c.rev; comm += c.comm; }
+    if (e.type === "حلاقة" || e.type === "خدمة") { sypIn += c.rev; comm += c.comm; }
+    if (e.type === "منتج") sypIn += c.net; // ربح المنتج فقط (التكلفة مطروحة أصلاً)
     if (e.type === "كوفي") sypIn += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
     if (e.type === "دولار") { toUsd += (+e.amount || 0); usd += c.usd; }
@@ -263,7 +267,7 @@ function renderLogForm(){
   syncLogForm();
   document.getElementById("eType").addEventListener("change", syncLogForm);
   document.getElementById("eSub").addEventListener("change", syncSubUI);
-  ["eDetail", "eCount", "eAmount", "eDate"].forEach(id => {
+  ["eDetail", "eCount", "eAmount", "eDate", "eCost", "eExtra"].forEach(id => {
     document.getElementById(id).addEventListener("input", commPreview);
     document.getElementById(id).addEventListener("change", commPreview);
   });
@@ -277,23 +281,52 @@ function syncLogForm(){
   const show = (id, on) => document.getElementById(id).style.display = on ? "" : "none";
   show("fDetail", t !== "كوفي");
   show("fSub", t === "حلاقة" || t === "خدمة" || t === "كوفي");
-  show("fProdName", t === "منتج");
+  show("fProdSelect", t === "منتج");
+  show("fProdName", false);
+  show("fCost", t === "منتج");
+  show("fExtra", t === "منتج");
   show("fCount", t === "حلاقة" || t === "خدمة" || t === "كوفي");
   show("fRate", t === "دولار");
   document.getElementById("lAmount").textContent =
-    t === "حلاقة" ? "خدمات إضافية (ل.س)" : t === "منتج" ? "سعر المنتج (ل.س)" : t === "كوفي" ? "المبلغ (ل.س) — تلقائي مع المشروب" : "المبلغ (ل.س)";
+    t === "حلاقة" ? "خدمات إضافية (ل.س)" : t === "منتج" ? "سعر البيع (ل.س)" : t === "كوفي" ? "المبلغ (ل.س) — تلقائي مع المشروب" : "المبلغ (ل.س)";
   document.querySelector("#fCount label").textContent = t === "حلاقة" ? "عدد الحلاقات" : "العدد";
   const lD = document.getElementById("lDetail");
   const lS = document.getElementById("lSub");
   const activeBarbers = BARBERS.filter(b => b.active !== false);
   if (t === "حلاقة" || t === "خدمة") { lD.textContent = "الحلاق"; dSel.innerHTML = activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
-  if (t === "منتج") { lD.textContent = "البائع"; dSel.innerHTML = `<option value="المحل">🏪 المحل (بدون حلاق)</option>` + activeBarbers.map(b => `<option>${b.name}</option>`).join(""); }
+  if (t === "منتج") {
+    lD.textContent = "البائع"; dSel.innerHTML = `<option value="المحل">🏪 المحل (بدون حلاق)</option>` + activeBarbers.map(b => `<option>${b.name}</option>`).join("");
+    const pSel = document.getElementById("eProdSelect");
+    pSel.innerHTML = PRODUCTS.filter(p => p.active !== false).map(p => `<option value="${p.name}">${p.name} — بيع ${fmt(p.price)} / تكلفة ${fmt(p.cost)}</option>`).join("") + `<option value="__manual">✏️ منتج آخر (يدوي)</option>`;
+    pSel.onchange = applyProductPick;
+    applyProductPick();
+  }
   if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
+}
+function applyProductPick(){
+  const pSel = document.getElementById("eProdSelect");
+  const nameField = document.getElementById("fProdName");
+  const sel = pSel.value;
+  if (sel === "__manual") {
+    nameField.style.display = "";
+    document.getElementById("eProdName").value = "";
+    document.getElementById("eAmount").value = "";
+    document.getElementById("eCost").value = "";
+  } else {
+    nameField.style.display = "none";
+    const p = PRODUCTS.find(x => x.name === sel);
+    if (p) {
+      document.getElementById("eProdName").value = p.name;
+      document.getElementById("eAmount").value = +p.price || 0;
+      document.getElementById("eCost").value = +p.cost || 0;
+    }
+  }
+  commPreview();
 }
 function syncSubUI(){
   const t = document.getElementById("eType").value;
@@ -307,6 +340,16 @@ function syncSubUI(){
 function commPreview(){
   const box = document.getElementById("commPrev");
   const t = document.getElementById("eType").value;
+  if (t === "منتج") {
+    const sale = (+document.getElementById("eAmount").value || 0) + (+document.getElementById("eExtra").value || 0);
+    const cost = +document.getElementById("eCost").value || 0;
+    const profit = sale - cost;
+    box.innerHTML = `
+      <span class="tag t-حلاقة">سعر البيع: ${fmt(sale)} ل.س</span>
+      <span class="tag t-مصروف">التكلفة: ${fmt(cost)} ل.س</span>
+      <span class="tag t-دولار">الربح: ${fmt(profit)} ل.س</span>`;
+    return;
+  }
   if (!BARBER_TYPES.includes(t)) { box.innerHTML = ""; return; }
   const subVal = document.getElementById("eSub").value;
   const cnt = +document.getElementById("eCount").value || 0;
@@ -333,9 +376,18 @@ window.editEntry = id => {
   document.getElementById("eDate").value = e.entry_date;
   if (e.type !== "كوفي" && e.detail) document.getElementById("eDetail").value = e.detail;
   if (e.type === "حلاقة" || e.type === "خدمة" || e.type === "كوفي") document.getElementById("eSub").value = e.sub || "";
-  if (e.type === "منتج") document.getElementById("eProdName").value = e.sub || "";
+  if (e.type === "منتج") {
+    const pSel = document.getElementById("eProdSelect");
+    const known = PRODUCTS.find(p => p.name === e.sub);
+    pSel.value = known ? e.sub : "__manual";
+    applyProductPick();
+    if (!known) document.getElementById("eProdName").value = e.sub || "";
+    document.getElementById("eAmount").value = e.amount ?? "";
+    document.getElementById("eCost").value = e.cost ?? "";
+    document.getElementById("eExtra").value = "";
+  }
   document.getElementById("eCount").value = e.count ?? "";
-  document.getElementById("eAmount").value = e.amount ?? "";
+  if (e.type !== "منتج") document.getElementById("eAmount").value = e.amount ?? "";
   document.getElementById("eRate").value = e.rate ?? "";
   document.getElementById("eNote").value = e.note || "";
   syncSubUI();
@@ -348,7 +400,7 @@ function cancelEdit(){
   EDIT_ID = null;
   document.getElementById("eAdd").textContent = "إضافة";
   document.getElementById("eCancel").style.display = "none";
-  ["eCount", "eAmount", "eRate", "eNote", "eProdName"].forEach(i => document.getElementById(i).value = "");
+  ["eCount", "eAmount", "eRate", "eNote", "eProdName", "eCost", "eExtra"].forEach(i => document.getElementById(i).value = "");
   commPreview();
 }
 async function addEntry(){
@@ -356,10 +408,16 @@ async function addEntry(){
   const subVal = document.getElementById("eSub").value;
   const cnt = +document.getElementById("eCount").value || 0;
   let amount = +document.getElementById("eAmount").value || 0;
+  let cost = 0;
   let sub = null;
   if (t === "حلاقة") sub = subVal || "كامل";
   if (t === "خدمة") { sub = subVal; if (subVal !== "آخر") amount = svcPrice(subVal) * Math.max(1, cnt); }
-  if (t === "منتج") sub = document.getElementById("eProdName").value.trim();
+  if (t === "منتج") {
+    const pSel = document.getElementById("eProdSelect").value;
+    sub = pSel === "__manual" ? document.getElementById("eProdName").value.trim() : pSel;
+    amount = amount + (+document.getElementById("eExtra").value || 0); // سعر البيع + إضافي
+    cost = +document.getElementById("eCost").value || 0;
+  }
   if (t === "كوفي" && subVal) { sub = subVal; amount = drinkPrice(subVal) * Math.max(1, cnt); }
   const e = {
     entry_date: document.getElementById("eDate").value,
@@ -367,6 +425,7 @@ async function addEntry(){
     detail: t === "كوفي" ? null : document.getElementById("eDetail").value,
     count: (t === "حلاقة" || t === "خدمة" || (t === "كوفي" && subVal)) ? Math.max(t === "حلاقة" ? 0 : 1, cnt) : null,
     amount: amount,
+    cost: t === "منتج" ? cost : 0,
     rate: t === "دولار" ? +document.getElementById("eRate").value || null : null,
     sub: sub,
     note: document.getElementById("eNote").value.trim() || null,
@@ -389,6 +448,7 @@ async function addEntry(){
   document.getElementById("eCount").value = ""; document.getElementById("eAmount").value = "";
   document.getElementById("eRate").value = ""; document.getElementById("eNote").value = "";
   document.getElementById("eProdName").value = "";
+  document.getElementById("eCost").value = ""; document.getElementById("eExtra").value = "";
   await loadAll(); renderLog(); renderDay(); renderDash();
 }
 let LOG_SHOWN = 40;
@@ -479,6 +539,9 @@ async function setBooking(id, status){
 function renderSettings(){
   document.getElementById("svcTable").innerHTML = editTable(SERVICES, "services",
     [["name", "الخدمة", "text"], ["section", "القسم", ["حلاقة","عناية"]], ["price", "السعر", "number"], ["duration_min", "الدقائق", "number"], ["description", "وصف صغير (اختياري)", "text"]], true);
+  const prodBox = document.getElementById("prodTable");
+  if (prodBox) prodBox.innerHTML = editTable(PRODUCTS, "products",
+    [["name", "المنتج", "text"], ["price", "سعر البيع", "number"], ["cost", "التكلفة", "number"]], true);
   document.getElementById("cofTable").innerHTML = editTable(COFFEE, "coffee_items",
     [["name", "المشروب", "text"], ["category", "الفئة", "text"], ["price", "السعر", "number"]], true);
   document.getElementById("barbTable").innerHTML = editTable(BARBERS, "barbers",
@@ -551,6 +614,10 @@ async function addService(){
 async function addCoffee(){
   await db.from("coffee_items").insert({ name: "مشروب جديد", category: "مشروبات ساخنة", price: 0, sort: COFFEE.length + 1 });
   await loadAll(); renderSettings();
+}
+async function addProduct(){
+  await db.from("products").insert({ name: "منتج جديد", price: 0, cost: 0, active: true, sort: PRODUCTS.length + 1 });
+  await loadAll(); renderSettings(); syncLogForm(); toast("انضاف — عدّل الاسم وسعر البيع والتكلفة");
 }
 async function addBarber(){
   const name = prompt("اسم الحلاق الجديد:");
