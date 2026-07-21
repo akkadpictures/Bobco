@@ -196,7 +196,7 @@ function renderCash(){
   });
   const syp = sypIn - comm - exp;
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:4px;font-size:.8rem;opacity:.6">💰 صندوق المحل — من 1 تموز 2026 (بداية النظam)</td></tr>
+    <tr><td colspan="2" style="padding-top:4px;font-size:.8rem;opacity:.6">💰 صندوق المحل — من 1 تموز 2026 (بداية النظام)</td></tr>
     <tr><td>دخل ليرة (حلاقة + خدمات + ربح منتجات + مشاريب)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
     <tr><td>عمولات مدفوعة للحلاقين</td><td class="neg">−${fmtSYP(comm)}</td></tr>
     <tr><td>مصاريف فعلية</td><td class="neg">−${fmtSYP(exp)}</td></tr>
