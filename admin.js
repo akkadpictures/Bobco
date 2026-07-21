@@ -92,19 +92,22 @@ function calc(e){
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "مصروف" || e.type === "مصروف شهري") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
+  if (e.type === "رصيد سابق") return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "دولار") return { rev: 0, comm: 0, net: 0, usd: e.rate ? (+e.amount || 0) / +e.rate : 0 };
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
 function totals(list){
-  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0 };
+  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0, prevBal: 0 };
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
     if (e.type === "منتج") { t.products += c.net; t.productSales += c.rev; }
     if (e.type === "كوفي")  t.coffee += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
+    if (e.type === "رصيد سابق") t.prevBal += c.net;
   });
-  t.profit = t.hNet + t.products + t.coffee - t.exp;
+  // الربح العادي (حلاقة+منتجات+كوفي-مصاريف) + الرصيد السابق (للأشهر القديمة)
+  t.profit = t.hNet + t.products + t.coffee - t.exp + t.prevBal;
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
@@ -710,8 +713,8 @@ const statRange = document.getElementById("statRange");
 if (statRange) statRange.addEventListener("change", renderStats);
 
 function statEntries(){
-  // كل الحركات من 1 تموز (بداية النظام) — نستثني حزيران المستورد
-  let list = ENTRIES.filter(e => e.entry_date >= "2026-07-01");
+  // حركات النظام من 1 تموز + حركات "رصيد سابق" (أيار/حزيران للمقارنة)
+  let list = ENTRIES.filter(e => e.entry_date >= "2026-07-01" || e.type === "رصيد سابق");
   const r = statRange ? statRange.value : "all";
   if (r !== "all") {
     const months = [...new Set(list.map(e => e.entry_date.slice(0,7)))].sort().reverse().slice(0, +r);
@@ -754,26 +757,26 @@ function renderStats(){
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
 
-  // التحويشة القديمة (الافتتاح لـ 30/6) — تظهر لما الفلتر يشمل فترة قبل تموز
-  // "كل الفترة" و"آخر 3 أشهر" و"آخر 6 أشهر" كلها بترجع لقبل تموز (عندك تموز شهر واحد)
+  // الرصيد السابق (أيار+حزيران) صار مسجّل كحركات "رصيد سابق"،
+  // فـ allT.profit أصلاً بيشملهن. openSyp/openUsd للعرض بس.
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
-  const showOld = (openSyp || openUsd); // القديم دايماً جزء من الإجمالي
-  const grandTotal = allT.profit + openSyp; // إجمالي المحل شامل القديم
+  const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق ضمن الفترة
+  const showOld = prevBalTotal > 0;
+  // إجمالي المحل = ربح النظام (بيشمل الرصيد السابق أصلاً)
+  const grandTotal = allT.profit;
+  // صافي تموز فما بعد (بدون الرصيد السابق)
+  const julyOnward = allT.profit - prevBalTotal;
   const oldCard = showOld ? `
     <div class="kpi" style="background:#efe1c9">
-      <div class="l">🏦 صافي ما قبل تموز (الافتتاح → 30/6)</div>
-      <div class="v" style="font-size:1.15rem">${fmtShort(openSyp)} ل.س</div>
+      <div class="l">🏦 صافي ما قبل تموز (أيار + حزيران)</div>
+      <div class="v" style="font-size:1.15rem">${fmtShort(prevBalTotal)} ل.س</div>
       <div style="font-size:.82rem;opacity:.7;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
-    </div>
-    <div class="kpi" style="background:var(--olive);color:var(--cream)">
-      <div class="l" style="opacity:.85">💰 إجمالي المحل (شامل القديم)</div>
-      <div class="v" style="color:var(--cream)">${fmt(grandTotal)}</div>
-      <div style="font-size:.82rem;opacity:.85;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
     </div>` : "";
 
   document.getElementById("statHighlights").innerHTML = `
-    ${kpi("✨ صافي ربح النظام (تموز فما بعد)", allT.profit, false, true)}
+    <div class="kpi hero"><div class="l" style="opacity:.85">💰 إجمالي ربح المحل (كل الفترة)</div><div class="v" style="color:var(--cream)">${fmt(grandTotal)}</div><div style="font-size:.82rem;opacity:.85;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div></div>
+    ${kpi("✨ صافي تموز فما بعد", julyOnward)}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
     <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
