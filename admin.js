@@ -88,7 +88,7 @@ function calc(e){
     return { rev, comm: 0, net: rev, usd: 0 };
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
-  if (e.type === "مصروف") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
+  if (e.type === "مصروف" || e.type === "مصروف شهري") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
   if (e.type === "دولار") return { rev: 0, comm: 0, net: 0, usd: e.rate ? (+e.amount || 0) / +e.rate : 0 };
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
@@ -99,7 +99,7 @@ function totals(list){
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
     if (e.type === "منتج") t.products += c.rev;
     if (e.type === "كوفي")  t.coffee += c.rev;
-    if (e.type === "مصروف") t.exp += c.rev;
+    if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
   });
   t.profit = t.hNet + t.products + t.coffee - t.exp;
   return t;
@@ -139,9 +139,10 @@ function renderDash(){
   document.getElementById("barberStats").innerHTML =
     `<table><tr><th>الحلاق</th><th>عدد</th><th>الإيراد</th><th>العمولة</th><th>صافي للمحل</th></tr>${rows}</table>`;
 
+  const isExp = e => e.type === "مصروف" || e.type === "مصروف شهري";
   const exRows = EXPCATS.map(c => {
-    const mv = mE.filter(e => e.type === "مصروف" && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
-    const av = ENTRIES.filter(e => e.type === "مصروف" && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
+    const mv = mE.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
+    const av = ENTRIES.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
     return av || mv ? `<tr><td>${c.name}</td><td>${fmt(mv)}</td><td>${fmt(av)}</td></tr>` : "";
   }).join("");
   document.getElementById("expStats").innerHTML = exRows
@@ -178,7 +179,7 @@ function renderCash(){
     const c = calc(e);
     if (BARBER_TYPES.includes(e.type)) { sypIn += c.rev; comm += c.comm; }
     if (e.type === "كوفي") sypIn += c.rev;
-    if (e.type === "مصروف") exp += (+e.amount || 0);
+    if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
     if (e.type === "دولار") { toUsd += (+e.amount || 0); usd += c.usd; }
   });
   const syp = sypIn - comm - exp - toUsd;
@@ -231,7 +232,8 @@ dayPick.addEventListener("change", renderDay);
 
 function renderDay(){
   const d = dayPick.value;
-  const list = ENTRIES.filter(e => e.entry_date === d);
+  // مصاريف اليوم اليومية فقط — المصاريف الشهرية (أجار/كهربا/نت/مي) ما بتدخل بصورة اليوم
+  const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري");
   const t = totals(list);
   const total = t.hRev + t.products + t.coffee;
 
@@ -287,7 +289,7 @@ function syncLogForm(){
   if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "خدمة") { lS.textContent = "الخدمة"; const CARE = ["تنضيف بشرة", "عناية وجه", "مساج ظهر", "حمام زيت", "بروتين"]; sSel.innerHTML = SERVICES.filter(s => s.active !== false && CARE.includes(s.name)).map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
-  if (t === "مصروف") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
+  if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
 }
@@ -391,17 +393,18 @@ let LOG_SHOWN = 40;
 function renderLog(){
   const rows = ENTRIES.slice(0, LOG_SHOWN).map(e => {
     const c = calc(e);
-    const val = e.type === "دولار" ? c.usd.toFixed(2) + " $" : fmtSYP(Math.abs(e.type === "مصروف" ? c.net : c.rev || c.net));
+    const isExp = e.type === "مصروف" || e.type === "مصروف شهري";
+    const val = e.type === "دولار" ? c.usd.toFixed(2) + " $" : fmtSYP(Math.abs(isExp ? c.net : c.rev || c.net));
     const bayan = (e.detail || "—") + (e.sub ? " · " + e.sub : "");
     const isB = BARBER_TYPES.includes(e.type);
     const commTxt = isB ? fmt(c.comm) : "—";
     const netTxt = isB ? fmt(c.net) : (e.type === "كوفي" ? fmt(c.net) : "—");
     return `<tr>
       <td>${e.entry_date}</td>
-      <td><span class="tag t-${e.type}">${e.type}</span></td>
+      <td><span class="tag t-${e.type === "مصروف شهري" ? "مصروف" : e.type}">${e.type}</span></td>
       <td>${bayan}</td>
       <td>${e.count ?? "—"}</td>
-      <td class="${e.type === "مصروف" ? "neg" : ""}">${e.type === "مصروف" ? "−" : ""}${val}</td>
+      <td class="${isExp ? "neg" : ""}">${isExp ? "−" : ""}${val}</td>
       <td class="neg">${commTxt}</td>
       <td class="pos"><strong>${netTxt}</strong></td>
       <td>${e.note || ""}</td>
@@ -488,7 +491,6 @@ function renderSettings(){
       <div class="field"><label>كامل</label><input class="cell" style="border:1px solid var(--line)" id="cpFull" type="number" value="${cp["كامل"]}"></div>
       <div class="field"><label>طفل</label><input class="cell" style="border:1px solid var(--line)" id="cpKid" type="number" value="${cp["طفل"]}"></div>
       <div class="field"><label>نسبة الخدمات (0.5 = 50%)</label><input class="cell" style="border:1px solid var(--line)" id="cpSrv" type="number" step="0.05" value="${+SETTINGS.services_commission || .5}"></div>
-      <div class="field"><label>نسبة المنتجات (0.5 = 50%)</label><input class="cell" style="border:1px solid var(--line)" id="cpPrd" type="number" step="0.05" value="${+SETTINGS.products_commission || .5}"></div>
       <button class="mini" onclick="saveCutPrices()">حفظ الأسعار والنسب</button>
     </div>`;
   document.getElementById("shareBox").innerHTML = `
@@ -540,7 +542,6 @@ async function saveCutPrices(){
     { key: "price_cut_full", value: String(+document.getElementById("cpFull").value || 90000) },
     { key: "price_cut_kid", value: String(+document.getElementById("cpKid").value || 50000) },
     { key: "services_commission", value: String(+document.getElementById("cpSrv").value || .5) },
-    { key: "products_commission", value: String(+document.getElementById("cpPrd").value || .5) },
   ]);
   await loadAll(); renderSettings(); syncLogForm(); renderDay(); renderDash(); toast("انحفظت ✓");
 }

@@ -23,9 +23,12 @@ button{font-family:var(--ar);cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:var(--ar);font-size:1rem}
 ::selection{background:var(--olive);color:var(--cream)}
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* ===== brand logo (SVG mask — matches main site) ===== */
 .logo{display:inline-block;background:var(--cream);-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
 .logo-en{--m:url('logo-en.svg');aspect-ratio:688/221}
 .logo-ink{background:var(--olive)}
+
 /* ===== gate ===== */
 #gate{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--olive)}
 .gate-card{background:var(--cream);border-radius:24px;padding:44px 34px;width:100%;max-width:400px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.35)}
@@ -124,7 +127,8 @@ tr:last-child td{border-bottom:none}
 <!-- ===== gate ===== -->
 <div id="gate">
   <div class="gate-card">
-<span class="logo logo-en logo-ink" role="img" aria-label="Bob & Co" style="width:180px;margin:0 auto 4px"></span>    <p>لوحة الإدارة — دخول</p>
+    <span class="logo logo-en logo-ink" role="img" aria-label="Bob & Co" style="width:180px;margin:0 auto 4px"></span>
+    <p>لوحة الإدارة — دخول</p>
     <input id="pin" type="password" inputmode="numeric" placeholder="رمز الدخول" autocomplete="off">
     <div class="gate-err" id="gateErr"></div>
     <button class="btn-add" style="width:100%" id="gateBtn">دخول</button>
@@ -135,7 +139,8 @@ tr:last-child td{border-bottom:none}
 <div id="panel" style="display:none">
   <header class="top">
     <div class="top-in">
-<div class="brand"><span class="logo logo-en" role="img" aria-label="Bob & Co" style="width:132px;display:block"></span></div>      <nav class="tabs">
+      <div class="brand"><span class="logo logo-en" role="img" aria-label="Bob & Co" style="width:132px;display:block"></span></div>
+      <nav class="tabs">
         <button class="tab on" data-v="dash">📊 اللوحة</button>
         <button class="tab" data-v="log">📒 السجل اليومي</button>
         <button class="tab" data-v="bookings">📅 الحجوزات</button>
@@ -185,6 +190,7 @@ tr:last-child td{border-bottom:none}
               <option value="منتج">🧴 منتج</option>
               <option value="كوفي">☕ كوفي</option>
               <option value="مصروف">🧾 مصروف</option>
+              <option value="مصروف شهري">🗓️ مصروف شهري</option>
               <option value="دولار">💵 دولار</option>
             </select>
           </div>
