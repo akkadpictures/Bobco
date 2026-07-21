@@ -194,28 +194,24 @@ function renderCash(){
   });
   const julySyp = sypIn - comm - exp;
 
-  // التحويشة القديمة (الافتتاح لـ 30/6) — من الإعدادات
+  // التحويشة (ما قبل تموز) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
-  const rate = +(SETTINGS.usd_rate || 13000);
-  const usdInSyp = openUsd * rate;
 
-  // الصندوق الموحّد بالليرة (شامل الدولار محوّل)
+  // الصندوق الفعلي — ليرة ودولار منفصلين (بدون تحويل)
   const totalSyp = julySyp + openSyp;
-  const grandAll = totalSyp + usdInSyp; // كل شي بالليرة
 
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الكامل — كل اللي معك بالليرة</td></tr>
-    <tr><td><strong>الإجمالي بالليرة (شامل الدولار)</strong></td><td class="pos"><strong style="font-size:1.25rem">${fmtSYP(grandAll)}</strong></td></tr>
-    <tr><td colspan="2" style="font-size:.78rem;opacity:.6;padding-top:2px">منها ${fmtSYP(usdInSyp)} دولار محوّل (${openUsd.toFixed(0)}$ × ${fmt(rate)})</td></tr>
+    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الفعلي — كل اللي معك</td></tr>
+    <tr><td><strong>رصيد الليرة الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(totalSyp)}</strong></td></tr>
+    <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${openUsd.toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;رصيد الليرة (تموز + التحويشة)</td><td>${fmtSYP(totalSyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;— صندوق المحل (تموز)</td><td style="opacity:.7">${fmtSYP(julySyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;— تحويشة الافتتاح (ليرة)</td><td style="opacity:.7">${fmtSYP(openSyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;رصيد الدولار (كاش)</td><td>${openUsd.toFixed(0)} $ <span style="opacity:.6;font-size:.82rem">(≈ ${fmtSYP(usdInSyp)})</span></td></tr>
+    <tr><td>&nbsp;&nbsp;صندوق المحل (تموز)</td><td>${fmtSYP(julySyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;ما قبل تموز — ليرة</td><td>${fmtSYP(openSyp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;ما قبل تموز — دولار</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
-    💡 سعر الصرف المستخدم ${fmt(rate)} ل.س/دولار — تعدّلو من الإعدادات وقت ما يتغيّر. الدولار جاهز للأجار.
+    💡 الليرة والدولار منفصلين متل ما هم فعلياً. الدولار جاهز للأجار وقت ما تحب.
   </div>`;
 }
 
@@ -601,8 +597,8 @@ function renderSettings(){
       <button class="mini" onclick="saveShopInfo()">حفظ معلومات المحل</button>
     </div>
     <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
-    <h2 style="font-size:.98rem">🏦 تحويشة الافتتاح (شغلك من الافتتاح لـ 30/6)</h2>
-    <p class="muted" style="margin:-6px 0 12px">رصيدك القديم قبل ما يبلّش النظام. بينضاف للصندوق والإحصائيات.</p>
+    <h2 style="font-size:.98rem">🏦 رصيد ما قبل تموز (شغلك القديم)</h2>
+    <p class="muted" style="margin:-6px 0 12px">اللي جمعته قبل ما يبلّش النظام. بينضاف للصندوق والإحصائيات. سعر الصرف للعرض بالإحصائيات فقط.</p>
     <div class="form-grid">
       <div class="field"><label>ليرة قديمة (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="openSyp" type="number" value="${SETTINGS.opening_syp || 0}"></div>
       <div class="field"><label>دولار قديم ($)</label><input class="cell" style="border:1px solid var(--line)" id="openUsd" type="number" value="${SETTINGS.opening_usd || 0}"></div>
