@@ -754,19 +754,26 @@ function renderStats(){
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
 
-  // التحويشة القديمة (الافتتاح لـ 30/6) — تظهر لما الفلتر يشمل كل الفترة
+  // التحويشة القديمة (الافتتاح لـ 30/6) — تظهر لما الفلتر يشمل فترة قبل تموز
+  // "كل الفترة" و"آخر 3 أشهر" و"آخر 6 أشهر" كلها بترجع لقبل تموز (عندك تموز شهر واحد)
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
-  const showOld = (statRange ? statRange.value : "all") === "all" && (openSyp || openUsd);
+  const showOld = (openSyp || openUsd); // القديم دايماً جزء من الإجمالي
+  const grandTotal = allT.profit + openSyp; // إجمالي المحل شامل القديم
   const oldCard = showOld ? `
     <div class="kpi" style="background:#efe1c9">
-      <div class="l">🏦 تحويشة الافتتاح → 30/6</div>
+      <div class="l">🏦 صافي ما قبل تموز (الافتتاح → 30/6)</div>
       <div class="v" style="font-size:1.15rem">${fmtShort(openSyp)} ل.س</div>
       <div style="font-size:.82rem;opacity:.7;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
+    </div>
+    <div class="kpi" style="background:var(--olive);color:var(--cream)">
+      <div class="l" style="opacity:.85">💰 إجمالي المحل (شامل القديم)</div>
+      <div class="v" style="color:var(--cream)">${fmt(grandTotal)}</div>
+      <div style="font-size:.82rem;opacity:.85;font-weight:700">+ ${openUsd.toFixed(0)}$ دولار</div>
     </div>` : "";
 
   document.getElementById("statHighlights").innerHTML = `
-    ${kpi("✨ صافي الربح (الفترة)", allT.profit, false, true)}
+    ${kpi("✨ صافي ربح النظام (تموز فما بعد)", allT.profit, false, true)}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
     <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
