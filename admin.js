@@ -96,11 +96,11 @@ function calc(e){
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
 function totals(list){
-  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, coffee: 0, exp: 0, profit: 0 };
+  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0 };
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
-    if (e.type === "منتج") t.products += c.net;
+    if (e.type === "منتج") { t.products += c.net; t.productSales += c.rev; }
     if (e.type === "كوفي")  t.coffee += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
   });
@@ -125,7 +125,8 @@ function renderDash(){
     ${kpi("إيراد الحلاقة والخدمات", m.hRev)}
     ${kpi("عمولات الحلاقين", m.hComm)}
     ${kpi("صافي الحلاقة", m.hNet)}
-    ${kpi("إيراد المنتجات", m.products)}
+    ${kpi("مبيعات المنتجات", m.productSales)}
+    ${kpi("ربح المنتجات", m.products)}
     ${kpi("إيراد الكوفي", m.coffee)}
     ${kpi("المصاريف", m.exp, true)}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
@@ -244,7 +245,8 @@ function renderDay(){
   document.getElementById("dayKpis").innerHTML = `
     ${kpi("إجمالي اليوم", total, false, true)}
     ${kpi("إيراد الحلاقة والخدمات", t.hRev)}
-    ${kpi("إيراد المنتجات", t.products)}
+    ${kpi("مبيعات المنتجات", t.productSales)}
+    ${kpi("ربح المنتجات", t.products)}
     ${kpi("إيراد الكوفي", t.coffee)}
     ${kpi("حصة الحلاقين", t.hComm)}
     ${kpi("حصة المحل", total - t.hComm)}
