@@ -257,16 +257,20 @@ function renderDay(){
   // المصاريف (عادي + شهري) ما بتظهر بصورة اليوم — بس بالملخص الشهري
   const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري" && e.type !== "مصروف");
   const t = totals(list);
-  const total = t.hRev + t.products + t.coffee;
+  // إجمالي اليوم = الكاش الفعلي اللي دخل (المنتجات بسعر البيع الكامل)
+  const total = t.hRev + t.productSales + t.coffee;
+  const prodCost = t.productSales - t.products; // تكلفة المنتجات المباعة
+  const shopShare = total - t.hComm - prodCost;
 
   document.getElementById("dayKpis").innerHTML = `
-    ${kpi("إجمالي اليوم", total, false, true)}
+    ${kpi("إجمالي اليوم (الكاش الداخل)", total, false, true)}
     ${kpi("إيراد الحلاقة والخدمات", t.hRev)}
     ${kpi("مبيعات المنتجات", t.productSales)}
     ${kpi("ربح المنتجات", t.products)}
     ${kpi("إيراد الكوفي", t.coffee)}
     ${kpi("حصة الحلاقين", t.hComm)}
-    ${kpi("حصة المحل", total - t.hComm)}
+    ${kpi("تكلفة المنتجات", prodCost, true)}
+    ${kpi("حصة المحل", shopShare)}
   `;
 
   const rows = BARBERS.map(b => {
