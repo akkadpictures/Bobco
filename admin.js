@@ -86,18 +86,18 @@ function calc(e){
   }
   if (e.type === "منتج") {
     const sale = +e.amount || 0;
-    const cost = +e.cost || 0;
-    const profit = sale - cost;
-    return { rev: sale, comm: 0, net: profit, usd: 0 };
+    return { rev: sale, comm: 0, net: sale, usd: 0 };
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "مصروف" || e.type === "مصروف شهري") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
   if (e.type === "رصيد سابق") return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
+  if (e.type === "تسوية") return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
+  if (e.type === "نقل") return { rev: +e.amount || 0, comm: 0, net: 0, usd: 0 };
   if (e.type === "دولار") return { rev: 0, comm: 0, net: 0, usd: e.rate ? (+e.amount || 0) / +e.rate : 0 };
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
 function totals(list){
-  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0, prevBal: 0 };
+  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0, prevBal: 0, settle: 0 };
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
@@ -105,9 +105,10 @@ function totals(list){
     if (e.type === "كوفي")  t.coffee += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
     if (e.type === "رصيد سابق") t.prevBal += c.net;
+    if (e.type === "تسوية") t.settle += c.net;
   });
   // الربح العادي (حلاقة+منتجات+كوفي-مصاريف) + الرصيد السابق (للأشهر القديمة)
-  t.profit = t.hNet + t.products + t.coffee - t.exp + t.prevBal;
+  t.profit = t.hNet + t.products + t.coffee - t.exp + t.prevBal + t.settle;
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
@@ -129,7 +130,6 @@ function renderDash(){
     ${kpi("عمولات الحلاقين", m.hComm)}
     ${kpi("صافي الحلاقة", m.hNet)}
     ${kpi("مبيعات المنتجات", m.productSales)}
-    ${kpi("ربح المنتجات", m.products)}
     ${kpi("إيراد الكوفي", m.coffee)}
     ${kpi("المصاريف", m.exp, true)}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
@@ -183,16 +183,21 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { sypIn += c.rev; comm += c.comm; }
-    if (e.type === "منتج") sypIn += c.net;
+    if (e.type === "منتج") sypIn += c.rev; // سعر البيع الكامل (التكلفة مسجّلة كمصروف بضاعة)
     if (e.type === "كوفي") sypIn += c.rev;
+    if (e.type === "تسوية") sypIn += c.rev;
     if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
+    if (e.type === "دولار") { toUsd += (+e.amount || 0); usdOut += c.usd; }
+    if (e.type === "نقل") draw += (+e.amount || 0);
   });
-  const julySyp = sypIn - comm - exp;
+  const julySyp = sypIn - comm - exp - toUsd;   // النقل ما بينقص — بس بيغيّر مكان الفلوس
+  const withPartner = julySyp - draw;            // باقي بصندوق الشريك
+  const heldByYou = draw + (+(SETTINGS.opening_syp || 0)); // خزنتك: المنقول + ليرة ما قبل تموز
 
   // التحويشة (ما قبل تموز) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
@@ -200,15 +205,23 @@ function renderCash(){
 
   // الصندوق الفعلي — ليرة ودولار منفصلين (بدون تحويل)
   const totalSyp = julySyp + openSyp;
+  const totalUsd = openUsd + usdOut;
 
   document.getElementById("cashStats").innerHTML = `<table>
     <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الفعلي — كل اللي معك</td></tr>
     <tr><td><strong>رصيد الليرة الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(totalSyp)}</strong></td></tr>
-    <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${openUsd.toFixed(0)} $</strong></td></tr>
+    <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${totalUsd.toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;صندوق المحل (تموز)</td><td>${fmtSYP(julySyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;ما قبل تموز — ليرة</td><td>${fmtSYP(openSyp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;ما قبل تموز — دولار</td><td>${openUsd.toFixed(0)} $</td></tr>
+    <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات + كوفي)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
+    <tr><td>&nbsp;&nbsp;− عمولات الحلاقين</td><td class="neg">${fmtSYP(comm)}</td></tr>
+    <tr><td>&nbsp;&nbsp;− مصاريف</td><td class="neg">${fmtSYP(exp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;− ليرة انقلبت دولار</td><td class="neg">${fmtSYP(toUsd)} <span style="opacity:.6">(${usdOut.toFixed(0)}$)</span></td></tr>
+    <tr><td><strong>&nbsp;&nbsp;= صندوق المحل (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>خزنتك (${fmtSYP(draw)} تموز + ${fmtSYP(openSyp)} قديم)</strong></td><td><strong>${fmtSYP(heldByYou)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;دولار — تموز (عندك)</td><td>${usdOut.toFixed(0)} $</td></tr>
+    <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
     💡 الليرة والدولار منفصلين متل ما هم فعلياً. الدولار جاهز للأجار وقت ما تحب.
@@ -257,19 +270,16 @@ function renderDay(){
   // المصاريف (عادي + شهري) ما بتظهر بصورة اليوم — بس بالملخص الشهري
   const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري" && e.type !== "مصروف");
   const t = totals(list);
-  // إجمالي اليوم = الكاش الفعلي اللي دخل (المنتجات بسعر البيع الكامل)
-  const total = t.hRev + t.productSales + t.coffee;
-  const prodCost = t.productSales - t.products; // تكلفة المنتجات المباعة
-  const shopShare = total - t.hComm - prodCost;
+  // إجمالي اليوم = الكاش الفعلي اللي دخل
+  const total = t.hRev + t.productSales + t.coffee + t.settle;
+  const shopShare = total - t.hComm;
 
   document.getElementById("dayKpis").innerHTML = `
     ${kpi("إجمالي اليوم (الكاش الداخل)", total, false, true)}
     ${kpi("إيراد الحلاقة والخدمات", t.hRev)}
     ${kpi("مبيعات المنتجات", t.productSales)}
-    ${kpi("ربح المنتجات", t.products)}
     ${kpi("إيراد الكوفي", t.coffee)}
     ${kpi("حصة الحلاقين", t.hComm)}
-    ${kpi("تكلفة المنتجات", prodCost, true)}
     ${kpi("حصة المحل", shopShare)}
   `;
 
@@ -329,6 +339,7 @@ function syncLogForm(){
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
+  if (t === "نقل") { lD.textContent = "لوين"; dSel.innerHTML = ["خزنة أكاد", RENT_ACC, (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
 }
 function applyProductPick(){
@@ -486,7 +497,7 @@ function renderLog(){
     const netTxt = isB ? fmt(c.net) : (e.type === "كوفي" ? fmt(c.net) : "—");
     return `<tr>
       <td>${e.entry_date}</td>
-      <td><span class="tag t-${e.type === "مصروف شهري" ? "مصروف" : e.type}">${e.type}</span></td>
+      <td><span class="tag t-${(e.type === "مصروف شهري") ? "مصروف" : (e.type === "نقل" || e.type === "تسوية") ? "دولار" : e.type}">${e.type}</span></td>
       <td>${bayan}</td>
       <td>${e.count ?? "—"}</td>
       <td class="${isExp ? "neg" : ""}">${isExp ? "−" : ""}${val}</td>
