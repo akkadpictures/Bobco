@@ -183,7 +183,7 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdSyp = 0, cofToUsd = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdShop = 0, zUsdCof = 0, cofToUsd = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
@@ -198,7 +198,8 @@ function renderCash(){
     if (e.type === "دولار") {
       const a = +e.amount || 0;
       usdOut += c.usd;
-      if (e.detail === "صندوق زيد") zUsdSyp += a;
+      if (e.detail === "صندوق زيد — حلاقة") zUsdShop += a;
+      else if (e.detail === "صندوق زيد — كوفي") zUsdCof += a;
       else if (e.detail === "صندوق الكوفي") cofToUsd += a;
       else toUsd += a;
     }
@@ -210,7 +211,7 @@ function renderCash(){
   });
   const julySyp = sypIn - comm - exp - toUsd;   // النقل ما بينقص — بس بيغيّر مكان الفلوس
   const withPartner = julySyp - draw;            // باقي بصندوق الشريك
-  const heldByYou = draw + (+(SETTINGS.opening_syp || 0)) - zUsdSyp; // صندوق زيد: المنقول + ليرة ما قبل تموز
+  const heldByYou = draw + (+(SETTINGS.opening_syp || 0)) - zUsdShop; // صندوق زيد: المنقول + ليرة ما قبل تموز
 
   // التحويشة (ما قبل تموز) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
@@ -232,8 +233,8 @@ function renderCash(){
     <tr><td><strong>&nbsp;&nbsp;= صندوق المحل (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الحلاقة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdSyp)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الكوفي</strong></td><td><strong>${fmtSYP(zCof)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الحلاقة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الكوفي</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;دولار — تموز (صندوق زيد)</td><td>${usdOut.toFixed(0)} $</td></tr>
     <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
@@ -360,7 +361,7 @@ function syncLogForm(){
   if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
-  if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["صندوق المحل", "صندوق الكوفي", "صندوق زيد", RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
+  if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["صندوق المحل", "صندوق الكوفي", "صندوق زيد — حلاقة", "صندوق زيد — كوفي", RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
   if (t === "نقل") { lS.textContent = "من أي صندوق"; sSel.innerHTML = `<option value="محل">💈 صندوق المحل</option><option value="كوفي">☕ صندوق الكوفي</option>`; lD.textContent = "لوين"; dSel.innerHTML = ["صندوق زيد", RENT_ACC, "سلفة زيد", "سلفة " + (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
 }
