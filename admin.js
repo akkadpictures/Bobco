@@ -183,15 +183,18 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { sypIn += c.rev; comm += c.comm; }
     if (e.type === "منتج") sypIn += c.rev; // سعر البيع الكامل (التكلفة مسجّلة كمصروف بضاعة)
-    if (e.type === "كوفي") sypIn += c.rev;
+    if (e.type === "كوفي") cofIn += c.rev;
     if (e.type === "تسوية") sypIn += c.rev;
-    if (e.type === "مصروف" || e.type === "مصروف شهري") exp += (+e.amount || 0);
+    if (e.type === "مصروف" || e.type === "مصروف شهري") {
+      if (e.detail === "مصاريف كوفي") cofExp += (+e.amount || 0);
+      else exp += (+e.amount || 0);
+    }
     if (e.type === "دولار") { toUsd += (+e.amount || 0); usdOut += c.usd; }
     if (e.type === "نقل") draw += (+e.amount || 0);
   });
@@ -202,6 +205,7 @@ function renderCash(){
   // التحويشة (ما قبل تموز) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
+  const cofOpen = +(SETTINGS.coffee_opening || 0);
 
   // الصندوق الفعلي — ليرة ودولار منفصلين (بدون تحويل)
   const totalSyp = julySyp + openSyp;
@@ -223,8 +227,15 @@ function renderCash(){
     <tr><td>&nbsp;&nbsp;دولار — تموز (عندك)</td><td>${usdOut.toFixed(0)} $</td></tr>
     <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
+  <table style="margin-top:16px">
+    <tr><td colspan="2" style="font-size:.82rem;opacity:.65;font-weight:800">☕ صندوق الكوفي — منفصل</td></tr>
+    <tr><td>رصيد افتتاحي (حزيران)</td><td>${fmtSYP(cofOpen)}</td></tr>
+    <tr><td>+ مبيعات تموز</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
+    <tr><td>− مصاريف تموز</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
+    <tr><td><strong>= صندوق الكوفي</strong></td><td class="pos"><strong style="font-size:1.1rem">${fmtSYP(cofOpen + cofIn - cofExp)}</strong></td></tr>
+  </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
-    💡 الليرة والدولار منفصلين متل ما هم فعلياً. الدولار جاهز للأجار وقت ما تحب.
+    💡 الليرة والدولار منفصلين متل ما هم فعلياً. صندوق الكوفي مستقل عن صندوق المحل.
   </div>`;
 }
 
