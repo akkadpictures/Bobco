@@ -76,6 +76,3 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 .menu .sec-sub{font-weight:400;opacity:.7}
 
 
-/* لوغو بوب أند كو العربي داخل العنوان — نفس السطر والحجم */
-.about-title{display:inline-flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
-.about-logo{height:1.05em;width:auto;aspect-ratio:535/185;display:inline-block;transform:translateY(1px)}
