@@ -77,5 +77,5 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 .menu .sec-sub{font-weight:400;opacity:.7}
 
 /* لوغو Bob & Co داخل عنوان "عن الصالون" */
-.about-title{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
-.about-logo{width:clamp(120px,17vw,180px);vertical-align:middle;transform:translateY(2px)}
+.about-title{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.about-logo{width:clamp(110px,15vw,155px);transform:none}
