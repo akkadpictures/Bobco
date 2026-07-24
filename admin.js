@@ -802,7 +802,7 @@ function renderStats(){
     if (prev > 0) trend = ((cur - prev) / prev * 100);
   }
   // متوسط الدخل اليومي
-  const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").map(e=>e.entry_date))];
+  const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
   const totalRev = allT.hRev + allT.productSales + allT.coffee;
   const avgDay = days.length ? totalRev / days.length : 0;
 
@@ -921,7 +921,7 @@ function donut(parts){
 function renderWeekdayBars(list){
   const byDay = [0,0,0,0,0,0,0], cntDay = [0,0,0,0,0,0,0];
   const seen = {};
-  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").forEach(e => {
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
     const c = calc(e);
     const wd = new Date(e.entry_date+"T00:00:00").getDay();
     byDay[wd] += c.rev;
@@ -963,7 +963,7 @@ function renderBarbersStats(list){
 
 function renderTopDays(list){
   const byDay = {};
-  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار").forEach(e => {
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
     const c = calc(e);
     byDay[e.entry_date] = (byDay[e.entry_date]||0) + c.rev;
   });
