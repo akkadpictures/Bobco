@@ -223,34 +223,34 @@ function renderCash(){
   const totalUsd = openUsd + usdShop + usdCof;
 
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 الأرصدة الفعلية</td></tr>
-    <tr><td><strong>رصيد الليرة الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(totalSyp)}</strong></td></tr>
-    <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${totalUsd.toFixed(0)} $</strong></td></tr>
+    <tr><td><strong>رصيد الليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(julySyp + openSyp)}</strong></td></tr>
+    <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${(openUsd + usdShop).toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
     <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
     <tr><td>&nbsp;&nbsp;− عمولات الحلاقين</td><td class="neg">${fmtSYP(comm)}</td></tr>
     <tr><td>&nbsp;&nbsp;− مصاريف</td><td class="neg">${fmtSYP(exp)}</td></tr>
     <tr><td>&nbsp;&nbsp;− ليرة انقلبت دولار</td><td class="neg">${fmtSYP(toUsd)} <span style="opacity:.6">(${usdShop.toFixed(0)}$)</span></td></tr>
-    <tr><td><strong>&nbsp;&nbsp;= صندوق المحل (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
+    <tr><td><strong>&nbsp;&nbsp;= صافي الحلاقة (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الحلاقة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الكوفي</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;💵 دولار — من الحلاقة</td><td><strong>${usdShop.toFixed(0)} $</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;💵 دولار — من الكوفي</td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
-  </table>
-  <table style="margin-top:16px">
-    <tr><td colspan="2" style="font-size:.82rem;opacity:.65;font-weight:800">☕ صندوق الكوفي — استثمار منفصل</td></tr>
-    <tr><td>مبيعات الكوفي</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
-    <tr><td>− مصاريف الكوفي</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
-    <tr><td>− منقول لصندوق زيد</td><td class="neg">${fmtSYP(cofOut)}</td></tr>
-    <tr><td>− انقلب دولار</td><td class="neg">${fmtSYP(cofToUsd)} <span style="opacity:.6">(${usdCof.toFixed(0)}$)</span></td></tr>
-    <tr><td><strong>= صندوق الكوفي</strong></td><td class="pos"><strong style="font-size:1.1rem">${fmtSYP(cofIn - cofExp - cofOut - cofToUsd)}</strong></td></tr>
-  </table>
-  <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
-    💡 صندوق الكوفي مستقل عن صندوق الحلاقة (نِسَب وشراكة مختلفة).
-  </div>`;
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${(openUsd + usdShop).toFixed(0)} $</strong></td></tr>
+  </table>`;
+
+  const cofBox = document.getElementById("coffeeCash");
+  if (cofBox) cofBox.innerHTML = `<table>
+    <tr><td><strong>رصيد الليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(cofIn - cofExp - cofOut - cofToUsd + (zCof - zUsdCof))}</strong></td></tr>
+    <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${usdCof.toFixed(0)} $</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;مبيعات الكوفي</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
+    <tr><td>&nbsp;&nbsp;− مصاريف الكوفي</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
+    <tr><td>&nbsp;&nbsp;− ليرة انقلبت دولار</td><td class="neg">${fmtSYP(cofToUsd + zUsdCof)} <span style="opacity:.6">(${usdCof.toFixed(0)}$)</span></td></tr>
+    <tr><td><strong>&nbsp;&nbsp;= صافي الكوفي (تموز)</strong></td><td><strong>${fmtSYP(cofIn - cofExp - cofToUsd - zUsdCof)}</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;بصندوق الكوفي</td><td>${fmtSYP(cofIn - cofExp - cofOut - cofToUsd)}</td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
+  </table>`;
 }
 
 function renderRent(collected){
