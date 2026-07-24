@@ -42,7 +42,7 @@ async function openPanel(){
   gate.style.display = "none";
   panel.style.display = "block";
   await loadAll();
-  renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings(); renderStats();
+  renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings(); renderStats(); renderPartners(); renderCoffeeInvest();
 }
 
 async function loadAll(){
@@ -183,7 +183,7 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
@@ -196,16 +196,19 @@ function renderCash(){
       else exp += (+e.amount || 0);
     }
     if (e.type === "دولار") { toUsd += (+e.amount || 0); usdOut += c.usd; }
-    if (e.type === "نقل") draw += (+e.amount || 0);
+    if (e.type === "نقل") {
+      const a = +e.amount || 0;
+      if (e.sub === "كوفي") { cofOut += a; if (e.detail === "صندوق زيد") zCof += a; }
+      else { draw += a; if (e.detail === "صندوق زيد") zShop += a; }
+    }
   });
   const julySyp = sypIn - comm - exp - toUsd;   // النقل ما بينقص — بس بيغيّر مكان الفلوس
   const withPartner = julySyp - draw;            // باقي بصندوق الشريك
-  const heldByYou = draw + (+(SETTINGS.opening_syp || 0)); // خزنتك: المنقول + ليرة ما قبل تموز
+  const heldByYou = draw + (+(SETTINGS.opening_syp || 0)); // صندوق زيد: المنقول + ليرة ما قبل تموز
 
   // التحويشة (ما قبل تموز) — من الإعدادات
   const openSyp = +(SETTINGS.opening_syp || 0);
   const openUsd = +(SETTINGS.opening_usd || 0);
-  const cofOpen = +(SETTINGS.coffee_opening || 0);
 
   // الصندوق الفعلي — ليرة ودولار منفصلين (بدون تحويل)
   const totalSyp = julySyp + openSyp;
@@ -223,19 +226,20 @@ function renderCash(){
     <tr><td><strong>&nbsp;&nbsp;= صندوق المحل (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>خزنتك (${fmtSYP(draw)} تموز + ${fmtSYP(openSyp)} قديم)</strong></td><td><strong>${fmtSYP(heldByYou)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;دولار — تموز (عندك)</td><td>${usdOut.toFixed(0)} $</td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الحلاقة</strong></td><td><strong>${fmtSYP(zShop + openSyp)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الكوفي</strong></td><td><strong>${fmtSYP(zCof)}</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;دولار — تموز (صندوق زيد)</td><td>${usdOut.toFixed(0)} $</td></tr>
     <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
   <table style="margin-top:16px">
-    <tr><td colspan="2" style="font-size:.82rem;opacity:.65;font-weight:800">☕ صندوق الكوفي — منفصل</td></tr>
-    <tr><td>رصيد افتتاحي (حزيران)</td><td>${fmtSYP(cofOpen)}</td></tr>
-    <tr><td>+ مبيعات تموز</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
-    <tr><td>− مصاريف تموز</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
-    <tr><td><strong>= صندوق الكوفي</strong></td><td class="pos"><strong style="font-size:1.1rem">${fmtSYP(cofOpen + cofIn - cofExp)}</strong></td></tr>
+    <tr><td colspan="2" style="font-size:.82rem;opacity:.65;font-weight:800">☕ صندوق الكوفي — استثمار منفصل</td></tr>
+    <tr><td>مبيعات الكوفي</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
+    <tr><td>− مصاريف الكوفي</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
+    <tr><td>− منقول لصندوق زيد</td><td class="neg">${fmtSYP(cofOut)}</td></tr>
+    <tr><td><strong>= صندوق الكوفي</strong></td><td class="pos"><strong style="font-size:1.1rem">${fmtSYP(cofIn - cofExp - cofOut)}</strong></td></tr>
   </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
-    💡 الليرة والدولار منفصلين متل ما هم فعلياً. صندوق الكوفي مستقل عن صندوق المحل.
+    💡 صندوق الكوفي مستقل عن صندوق الحلاقة (نِسَب وشراكة مختلفة).
   </div>`;
 }
 
@@ -324,7 +328,7 @@ function syncLogForm(){
   const sSel = document.getElementById("eSub");
   const show = (id, on) => document.getElementById(id).style.display = on ? "" : "none";
   show("fDetail", t !== "كوفي");
-  show("fSub", t === "حلاقة" || t === "خدمة" || t === "كوفي");
+  show("fSub", t === "حلاقة" || t === "خدمة" || t === "كوفي" || t === "نقل");
   show("fProdSelect", t === "منتج");
   show("fProdName", false);
   show("fCost", t === "منتج");
@@ -350,7 +354,7 @@ function syncLogForm(){
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
-  if (t === "نقل") { lD.textContent = "لوين"; dSel.innerHTML = ["خزنة أكاد", RENT_ACC, (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
+  if (t === "نقل") { lS.textContent = "من أي صندوق"; sSel.innerHTML = `<option value="محل">💈 صندوق المحل</option><option value="كوفي">☕ صندوق الكوفي</option>`; lD.textContent = "لوين"; dSel.innerHTML = ["صندوق زيد", RENT_ACC, "سلفة أكاد", "سلفة " + (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
 }
 function applyProductPick(){
@@ -463,6 +467,7 @@ async function addEntry(){
     amount = amount + (+document.getElementById("eExtra").value || 0); // سعر البيع + إضافي
     cost = +document.getElementById("eCost").value || 0;
   }
+  if (t === "نقل") sub = subVal || "محل";
   if (t === "كوفي" && subVal) { sub = subVal; amount = drinkPrice(subVal) * Math.max(1, cnt); }
   const e = {
     entry_date: document.getElementById("eDate").value,
@@ -494,7 +499,7 @@ async function addEntry(){
   document.getElementById("eRate").value = ""; document.getElementById("eNote").value = "";
   document.getElementById("eProdName").value = "";
   document.getElementById("eCost").value = ""; document.getElementById("eExtra").value = "";
-  await loadAll(); renderLog(); renderDay(); renderDash();
+  await loadAll(); renderLog(); renderDay(); renderDash(); renderPartners(); renderCoffeeInvest(); renderStats();
 }
 let LOG_SHOWN = 40;
 function renderLog(){
@@ -548,7 +553,7 @@ window.showLessLog = () => { LOG_SHOWN = 40; renderLog(); document.getElementByI
 async function delEntry(id){
   if (!confirm("متأكد بدك تحذف هالحركة؟")) return;
   await db.from("entries").delete().eq("id", id);
-  await loadAll(); renderLog(); renderDay(); renderDash();
+  await loadAll(); renderLog(); renderDay(); renderDash(); renderPartners(); renderCoffeeInvest(); renderStats();
   toast("انحذفت");
 }
 
@@ -1000,4 +1005,101 @@ function fmtShort(n){
   if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,"") + "م";
   if (Math.abs(n) >= 1000) return Math.round(n/1000) + "ألف";
   return String(Math.round(n));
+}
+
+
+/* ===== 🤝 حساب الشركاء ===== */
+function renderPartners(){
+  const box = document.getElementById("partnersBox");
+  if (!box) return;
+  const pn = SETTINGS.partner_name || "الشريك";
+  const share = k => +(SETTINGS[k] || .5);
+  // صافي ربح المحل من 1 تموز (بدون الكوفي — صندوق منفصل)
+  const list = ENTRIES.filter(e => e.entry_date >= "2026-07-01");
+  let rev = 0, comm = 0, exp = 0;
+  list.forEach(e => {
+    const c = calc(e);
+    if (e.type === "حلاقة" || e.type === "خدمة") { rev += c.rev; comm += c.comm; }
+    if (e.type === "منتج") rev += c.rev;
+    if ((e.type === "مصروف" || e.type === "مصروف شهري") && e.detail !== "مصاريف كوفي") exp += (+e.amount || 0);
+  });
+  const profit = rev - comm - exp;
+  const drawOf = who => list.filter(e => e.type === "نقل" && e.detail === "سلفة " + who)
+                            .reduce((s, e) => s + (+e.amount || 0), 0);
+  const rows = [
+    { name: "أكاد (إنت)", sh: share("owner_share"), draw: drawOf("أكاد") },
+    { name: pn, sh: share("partner_share"), draw: drawOf(pn) },
+  ];
+  box.innerHTML = `<table>
+    <tr><th>الشريك</th><th>النسبة</th><th>حصته من الربح</th><th>سحب/سلفة</th><th>الباقي إله</th></tr>
+    ${rows.map(r => {
+      const due = profit * r.sh;
+      return `<tr><td><strong>${r.name}</strong></td><td>${Math.round(r.sh*100)}%</td>
+        <td>${fmt(due)}</td><td class="neg">${fmt(r.draw)}</td>
+        <td class="${due - r.draw >= 0 ? "pos" : "neg"}"><strong>${fmt(due - r.draw)}</strong></td></tr>`;
+    }).join("")}
+    <tr><td colspan="2"><strong>صافي ربح المحل</strong></td><td colspan="3"><strong>${fmtSYP(profit)}</strong></td></tr>
+  </table>
+  <div style="margin-top:8px;font-size:.8rem;opacity:.6;line-height:1.7">
+    💡 السلفة بتتسجّل من السجل اليومي ← 🏦 نقل ← "سلفة [الاسم]". ما بتنقص من الربح — بتتخصم من حصة صاحبها بس.
+  </div>`;
+}
+
+
+/* ===== ☕ استثمار الكوفي ===== */
+function renderCoffeeInvest(){
+  const box = document.getElementById("coffeeInvest");
+  if (!box) return;
+  const rate    = +(SETTINGS.usd_rate || 13000);
+  const capital = +(SETTINGS.coffee_capital_usd || 5000);
+  const start   = SETTINGS.coffee_start || "2026-05-01";
+  const z1 = +(SETTINGS.coffee_zaid_1 || .8),  b1 = +(SETTINGS.coffee_bilal_1 || .2);
+  const z3 = +(SETTINGS.coffee_zaid_3 || .4),  b3 = +(SETTINGS.coffee_bilal_3 || .6);
+  const pn = SETTINGS.partner_name || "بلال";
+
+  // حركات الكوفي مرتّبة بالتاريخ (مبيعات − مصاريف كوفي)
+  const mv = ENTRIES.filter(e => e.type === "كوفي"
+      || ((e.type === "مصروف" || e.type === "مصروف شهري") && e.detail === "مصاريف كوفي"))
+    .map(e => ({ d: e.entry_date, v: e.type === "كوفي" ? (+e.amount || 0) : -(+e.amount || 0) }))
+    .sort((a, b) => a.d < b.d ? -1 : 1);
+
+  let profit = 0, zaidUsd = 0, recDate = null;
+  mv.forEach(m => {
+    profit += m.v;
+    if (!recDate) {
+      zaidUsd += (m.v * z1) / rate;
+      if (zaidUsd >= capital) recDate = m.d;
+    }
+  });
+  const zaidNow = Math.min(zaidUsd, capital);
+  const pct = Math.max(0, Math.min(100, zaidNow / capital * 100));
+
+  const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+  const today = new Date().toISOString().slice(0, 10);
+
+  let phase, ph2End = null;
+  if (!recDate) phase = 1;
+  else {
+    ph2End = new Date(new Date(recDate).getTime() + days(start, recDate) * 86400000)
+             .toISOString().slice(0, 10);
+    phase = today <= ph2End ? 2 : 3;
+  }
+  const curZ = phase === 3 ? z3 : z1;
+  const curB = phase === 3 ? b3 : b1;
+  const phTxt = { 1: "١ — استرداد رأس المال", 2: "٢ — مساواة المدة", 3: "٣ — تشغيل عادي" }[phase];
+
+  box.innerHTML = `<table>
+    <tr><td>المرحلة الحالية</td><td><strong>${phTxt}</strong></td></tr>
+    <tr><td>النسبة المعمول فيها هلق</td><td><strong>زيد ${Math.round(curZ*100)}% · ${pn} ${Math.round(curB*100)}%</strong></td></tr>
+    <tr><td>بداية الاستثمار</td><td>${start}</td></tr>
+    <tr><td>صافي ربح الكوفي التراكمي</td><td class="pos">${fmtSYP(profit)}</td></tr>
+    <tr><td>رجع لزيد من رأس ماله</td><td><strong>${zaidNow.toFixed(0)}$ من ${capital}$</strong></td></tr>
+    ${recDate ? `<tr><td>تاريخ استرداد رأس المال</td><td>${recDate}</td></tr>
+      <tr><td>نهاية مرحلة مساواة المدة</td><td>${ph2End} ${phase===2?`(باقي ${days(today, ph2End)} يوم)`:"— انتهت"}</td></tr>` : ""}
+  </table>
+  <div class="rent-bar" style="margin-top:12px"><i style="width:${pct}%"></i></div>
+  <div style="margin-top:8px;font-size:.8rem;opacity:.65;line-height:1.8">
+    جاهز ${pct.toFixed(1)}% من استرداد الـ ${capital}$ · سعر الصرف ${fmt(rate)}<br>
+    بعد الاسترداد بتضل النسبة ${Math.round(z1*100)}/${Math.round(b1*100)} مدة مساوية لمدة الاسترداد، وبعدها بترجع ${pn} ${Math.round(b3*100)}% · زيد ${Math.round(z3*100)}%.
+  </div>`;
 }
