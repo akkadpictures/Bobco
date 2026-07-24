@@ -133,7 +133,7 @@ function renderDash(){
     ${kpi("إيراد الكوفي", m.coffee)}
     ${kpi("المصاريف", m.exp, true)}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
-    ${kpi("حصتك (" + Math.round(share("owner_share") * 100) + "%)", m.profit * share("owner_share"))}
+    ${kpi("حصة زيد (" + Math.round(share("owner_share") * 100) + "%)", m.profit * share("owner_share"))}
     ${kpi("حصة " + pn + " (" + Math.round(share("partner_share") * 100) + "%)", m.profit * share("partner_share"))}
   `;
 
@@ -164,7 +164,7 @@ function renderDash(){
     <tr><td>ليرة انقلبت لدولار</td><td>${fmtSYP(syp)}</td></tr>
     <tr><td>إجمالي الدولار</td><td><strong>${usdAll.toFixed(2)} $</strong></td></tr>
     <tr><td>منه للمحل</td><td>${usdBy("المحل").toFixed(2)} $</td></tr>
-    <tr><td>منه حصتك</td><td>${usdBy("حصتي").toFixed(2)} $</td></tr>
+    <tr><td>منه حصة زيد</td><td>${usdBy("حصتي").toFixed(2)} $</td></tr>
     <tr><td>منه حصة ${pn}</td><td>${usdBy("حصة " + pn).toFixed(2)} $</td></tr>
     <tr><td>منه ${RENT_ACC}</td><td>${usdBy(RENT_ACC).toFixed(2)} $</td></tr>
   </table>`;
@@ -215,7 +215,7 @@ function renderCash(){
   const totalUsd = openUsd + usdOut;
 
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 صندوقك الفعلي — كل اللي معك</td></tr>
+    <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 الأرصدة الفعلية</td></tr>
     <tr><td><strong>رصيد الليرة الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(totalSyp)}</strong></td></tr>
     <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${totalUsd.toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
@@ -354,7 +354,7 @@ function syncLogForm(){
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["المحل", "حصتي", "حصة " + (SETTINGS.partner_name || "الشريك"), RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
-  if (t === "نقل") { lS.textContent = "من أي صندوق"; sSel.innerHTML = `<option value="محل">💈 صندوق المحل</option><option value="كوفي">☕ صندوق الكوفي</option>`; lD.textContent = "لوين"; dSel.innerHTML = ["صندوق زيد", RENT_ACC, "سلفة أكاد", "سلفة " + (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
+  if (t === "نقل") { lS.textContent = "من أي صندوق"; sSel.innerHTML = `<option value="محل">💈 صندوق المحل</option><option value="كوفي">☕ صندوق الكوفي</option>`; lD.textContent = "لوين"; dSel.innerHTML = ["صندوق زيد", RENT_ACC, "سلفة زيد", "سلفة " + (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
 }
 function applyProductPick(){
@@ -613,7 +613,7 @@ function renderSettings(){
     </div>`;
   document.getElementById("shareBox").innerHTML = `
     <div class="form-grid">
-      <div class="field"><label>حصتك</label><input class="cell" style="border:1px solid var(--line)" id="shOwner" type="number" step="0.05" value="${SETTINGS.owner_share || .5}"></div>
+      <div class="field"><label>حصة زيد</label><input class="cell" style="border:1px solid var(--line)" id="shOwner" type="number" step="0.05" value="${SETTINGS.owner_share || .5}"></div>
       <div class="field"><label>حصة ${SETTINGS.partner_name || "الشريك"}</label><input class="cell" style="border:1px solid var(--line)" id="shPartner" type="number" step="0.05" value="${SETTINGS.partner_share || .5}"></div>
       <button class="mini" onclick="saveShares()">حفظ النسب</button>
     </div>`;
@@ -1027,7 +1027,7 @@ function renderPartners(){
   const drawOf = who => list.filter(e => e.type === "نقل" && e.detail === "سلفة " + who)
                             .reduce((s, e) => s + (+e.amount || 0), 0);
   const rows = [
-    { name: "أكاد (إنت)", sh: share("owner_share"), draw: drawOf("أكاد") },
+    { name: "زيد", sh: share("owner_share"), draw: drawOf("زيد") },
     { name: pn, sh: share("partner_share"), draw: drawOf(pn) },
   ];
   box.innerHTML = `<table>
