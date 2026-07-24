@@ -1,0 +1,30 @@
+<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ar:'Almarai',sans-serif;--serif:'Cormorant Garamond',serif;--caps:'Montserrat',sans-serif;--olive:#5a6b3b;--ink:#282D1C;--cream:#EFE3CA}
+body{background:#EFE3CA;font-family:var(--ar);padding:40px;color:var(--ink)}
+.eyebrow{display:flex;align-items:center;gap:16px;justify-content:center;font-family:var(--serif);font-style:italic;font-size:1rem;letter-spacing:.2em;opacity:.6;margin-bottom:20px}
+.eyebrow::before,.eyebrow::after{content:"";height:1px;width:44px;background:currentColor;opacity:.5}
+.row{margin-bottom:50px;text-align:center;padding-bottom:30px;border-bottom:1px dashed #bbb}
+.lbl{font-family:var(--caps);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#999;margin-bottom:16px}
+/* قديم */
+.old .sec-title{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:800;text-align:center;letter-spacing:-.01em}
+/* جديد */
+.new .sec-title{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:700;text-align:center;letter-spacing:0;line-height:1.4}
+.new .sec-title bdi{font-weight:600;opacity:.9}
+.new .sec-sub{text-align:center;font-weight:400;opacity:.65;margin-top:10px}
+.old .sec-sub{text-align:center;opacity:.72;margin-top:10px}
+</style></head><body>
+<div class="row old">
+  <div class="lbl">قبل — Almarai 800</div>
+  <div class="eyebrow">About the Shop</div>
+  <h2 class="sec-title">عن صالون Bob &amp; Co</h2>
+  <p class="sec-sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p>
+</div>
+<div class="row new">
+  <div class="lbl">بعد — وزن 700 + bdi 600</div>
+  <div class="eyebrow">About the Shop</div>
+  <h2 class="sec-title">عن صالون <bdi>Bob &amp; Co</bdi></h2>
+  <p class="sec-sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p>
+</div>
+</body></html>
