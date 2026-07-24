@@ -71,3 +71,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 #about .sec-title bdi{font-weight:600;opacity:.9}
 #about .sec-sub{font-weight:400;opacity:.65;letter-spacing:.01em}
 #about .about-grid h3{font-weight:700}
+
+/* تنعيم عنوان "منيو الكوفي" — نفس أناقة عن الصالون */
+.menu .sec-title{font-weight:700;letter-spacing:0}
+.menu .sec-sub{font-weight:400;opacity:.7}

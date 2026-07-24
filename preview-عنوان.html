@@ -1,30 +1,23 @@
 <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--ar:'Almarai',sans-serif;--serif:'Cormorant Garamond',serif;--caps:'Montserrat',sans-serif;--olive:#5a6b3b;--ink:#282D1C;--cream:#EFE3CA}
-body{background:#EFE3CA;font-family:var(--ar);padding:40px;color:var(--ink)}
+:root{--ar:'Almarai',sans-serif;--serif:'Cormorant Garamond',serif;--caps:'Montserrat',sans-serif;--olive:#5a6b3b;--olive-deep:#282D1C;--ink:#282D1C;--cream:#EFE3CA}
+body{background:#EFE3CA;font-family:var(--ar);padding:0;margin:0;color:var(--ink)}
 .eyebrow{display:flex;align-items:center;gap:16px;justify-content:center;font-family:var(--serif);font-style:italic;font-size:1rem;letter-spacing:.2em;opacity:.6;margin-bottom:20px}
 .eyebrow::before,.eyebrow::after{content:"";height:1px;width:44px;background:currentColor;opacity:.5}
-.row{margin-bottom:50px;text-align:center;padding-bottom:30px;border-bottom:1px dashed #bbb}
+.row{padding:44px 30px;text-align:center}
 .lbl{font-family:var(--caps);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#999;margin-bottom:16px}
-/* قديم */
-.old .sec-title{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:800;text-align:center;letter-spacing:-.01em}
-/* جديد */
-.new .sec-title{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:700;text-align:center;letter-spacing:0;line-height:1.4}
-.new .sec-title bdi{font-weight:600;opacity:.9}
-.new .sec-sub{text-align:center;font-weight:400;opacity:.65;margin-top:10px}
-.old .sec-sub{text-align:center;opacity:.72;margin-top:10px}
+.dark{background:var(--olive-deep);color:var(--cream)}
+.dark .lbl{color:#8a9b6e}
+.st{font-size:clamp(1.7rem,4vw,2.4rem);text-align:center}
+.old .st{font-weight:800;letter-spacing:-.01em}
+.new .st{font-weight:700;letter-spacing:0;line-height:1.4}
+.new .st bdi{font-weight:600;opacity:.9}
+.sub{text-align:center;margin-top:10px}
+.old .sub{opacity:.72}.new .sub{font-weight:400;opacity:.65}
 </style></head><body>
-<div class="row old">
-  <div class="lbl">قبل — Almarai 800</div>
-  <div class="eyebrow">About the Shop</div>
-  <h2 class="sec-title">عن صالون Bob &amp; Co</h2>
-  <p class="sec-sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p>
-</div>
-<div class="row new">
-  <div class="lbl">بعد — وزن 700 + bdi 600</div>
-  <div class="eyebrow">About the Shop</div>
-  <h2 class="sec-title">عن صالون <bdi>Bob &amp; Co</bdi></h2>
-  <p class="sec-sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p>
-</div>
+<div class="row old"><div class="lbl">✗ قبل — عن الصالون (800)</div><div class="eyebrow">About the Shop</div><h2 class="st">عن صالون Bob &amp; Co</h2><p class="sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p></div>
+<div class="row new" style="border-top:2px solid var(--olive)"><div class="lbl">✓ بعد — عن الصالون (700 + bdi)</div><div class="eyebrow">About the Shop</div><h2 class="st">عن صالون <bdi>Bob &amp; Co</bdi></h2><p class="sub">باربر شوب وكوفي في دمشق — شرق حديقة التجارة</p></div>
+<div class="row old dark"><div class="lbl">✗ قبل — منيو الكوفي (800)</div><div class="eyebrow">The Coffee Bar</div><h2 class="st">منيو الكوفي</h2><p class="sub">قهوة برازيلية في قلب دمشق.</p></div>
+<div class="row new dark" style="border-top:2px solid var(--olive)"><div class="lbl">✓ بعد — منيو الكوفي (700)</div><div class="eyebrow">The Coffee Bar</div><h2 class="st">منيو الكوفي</h2><p class="sub">قهوة برازيلية في قلب دمشق.</p></div>
 </body></html>
