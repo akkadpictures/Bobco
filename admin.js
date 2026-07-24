@@ -183,7 +183,7 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, usdOut = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdShop = 0, zUsdCof = 0, cofToUsd = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdShop = 0, zUsdCof = 0, cofToUsd = 0, usdShop = 0, usdCof = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
@@ -197,7 +197,8 @@ function renderCash(){
     }
     if (e.type === "دولار") {
       const a = +e.amount || 0;
-      usdOut += c.usd;
+      if (e.detail === "صندوق الكوفي" || e.detail === "صندوق زيد — كوفي") usdCof += c.usd;
+      else usdShop += c.usd;
       if (e.detail === "صندوق زيد — حلاقة") zUsdShop += a;
       else if (e.detail === "صندوق زيد — كوفي") zUsdCof += a;
       else if (e.detail === "صندوق الكوفي") cofToUsd += a;
@@ -219,23 +220,24 @@ function renderCash(){
 
   // الصندوق الفعلي — ليرة ودولار منفصلين (بدون تحويل)
   const totalSyp = julySyp + openSyp;
-  const totalUsd = openUsd + usdOut;
+  const totalUsd = openUsd + usdShop + usdCof;
 
   document.getElementById("cashStats").innerHTML = `<table>
     <tr><td colspan="2" style="padding-top:2px;font-size:.82rem;opacity:.65;font-weight:800">💰 الأرصدة الفعلية</td></tr>
     <tr><td><strong>رصيد الليرة الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(totalSyp)}</strong></td></tr>
     <tr><td><strong>رصيد الدولار الكلي</strong></td><td class="pos"><strong style="font-size:1.2rem">${totalUsd.toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات + كوفي)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
+    <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
     <tr><td>&nbsp;&nbsp;− عمولات الحلاقين</td><td class="neg">${fmtSYP(comm)}</td></tr>
     <tr><td>&nbsp;&nbsp;− مصاريف</td><td class="neg">${fmtSYP(exp)}</td></tr>
-    <tr><td>&nbsp;&nbsp;− ليرة انقلبت دولار</td><td class="neg">${fmtSYP(toUsd)} <span style="opacity:.6">(${usdOut.toFixed(0)}$)</span></td></tr>
+    <tr><td>&nbsp;&nbsp;− ليرة انقلبت دولار</td><td class="neg">${fmtSYP(toUsd)} <span style="opacity:.6">(${usdShop.toFixed(0)}$)</span></td></tr>
     <tr><td><strong>&nbsp;&nbsp;= صندوق المحل (تموز)</strong></td><td><strong>${fmtSYP(julySyp)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الحلاقة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — من الكوفي</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;دولار — تموز (صندوق زيد)</td><td>${usdOut.toFixed(0)} $</td></tr>
+    <tr><td>&nbsp;&nbsp;💵 دولار — من الحلاقة</td><td><strong>${usdShop.toFixed(0)} $</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;💵 دولار — من الكوفي</td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
     <tr><td>&nbsp;&nbsp;دولار — ما قبل تموز</td><td>${openUsd.toFixed(0)} $</td></tr>
   </table>
   <table style="margin-top:16px">
@@ -243,7 +245,7 @@ function renderCash(){
     <tr><td>مبيعات الكوفي</td><td class="pos">${fmtSYP(cofIn)}</td></tr>
     <tr><td>− مصاريف الكوفي</td><td class="neg">${fmtSYP(cofExp)}</td></tr>
     <tr><td>− منقول لصندوق زيد</td><td class="neg">${fmtSYP(cofOut)}</td></tr>
-    <tr><td>− انقلب دولار</td><td class="neg">${fmtSYP(cofToUsd)}</td></tr>
+    <tr><td>− انقلب دولار</td><td class="neg">${fmtSYP(cofToUsd)} <span style="opacity:.6">(${usdCof.toFixed(0)}$)</span></td></tr>
     <tr><td><strong>= صندوق الكوفي</strong></td><td class="pos"><strong style="font-size:1.1rem">${fmtSYP(cofIn - cofExp - cofOut - cofToUsd)}</strong></td></tr>
   </table>
   <div style="margin-top:10px;font-size:.8rem;opacity:.6;line-height:1.7">
