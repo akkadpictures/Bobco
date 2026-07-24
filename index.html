@@ -362,6 +362,10 @@ footer .logo{margin-bottom:22px}
 .f-est{font-family:var(--caps);font-size:.68rem;letter-spacing:.4em;text-transform:uppercase;opacity:.4}
 .f-admin{display:inline-block;margin-top:18px;font-size:.78rem;opacity:.28;transition:opacity .2s}
 .f-admin:hover{opacity:.7}
+#about{max-height:0;padding:0;overflow:hidden;transition:max-height .6s ease,padding .6s ease}
+#about.open{max-height:5000px;padding:96px 0}
+.about-close{background:transparent;border:1px solid var(--olive);color:var(--olive);font-family:inherit;font-size:.9rem;padding:9px 26px;border-radius:999px;cursor:pointer}
+.about-close:hover{background:var(--olive);color:var(--cream)}
 </style>
 </head>
 <body>
@@ -372,7 +376,7 @@ footer .logo{margin-bottom:22px}
     <div class="nav-links">
       <a href="#barbers">الحلاقين</a>
       <a href="#menu">الكوفي</a>
-      <a href="#about">عن الصالون</a>
+      <a href="#about" onclick="aboutOpen()">عن الصالون</a>
       <a href="#book" class="nav-book">احجز موعد</a>
     </div>
   </div>
@@ -555,6 +559,9 @@ footer .logo{margin-bottom:22px}
         <p>نعم — بار قهوة مختصة برازيلية جوّا الصالون، تقدر تاخد فنجانك قبل أو أثناء موعدك.</p>
       </div>
     </div>
+    <div style="text-align:center;margin-top:40px">
+      <button class="about-close" onclick="aboutClose()">إغلاق ↑</button>
+    </div>
   </div>
 </section>
 
@@ -573,6 +580,11 @@ footer .logo{margin-bottom:22px}
 
 <div id="toast"></div>
 
+<script>
+function aboutOpen(){document.getElementById("about").classList.add("open");}
+function aboutClose(){document.getElementById("about").classList.remove("open");location.hash="#top";}
+if(location.hash==="#about")aboutOpen();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
