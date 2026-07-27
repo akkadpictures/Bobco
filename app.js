@@ -382,8 +382,8 @@ async function submitBooking(){
     `الخدمات: ${svcNames}\n` +
     `الإجمالي: ${fmtSYP(sum)}` + proteinTxt + `\n` +
     `منستناك بـ Bob & Co ☕✂`;
-  document.getElementById('waShop').href = `https://wa.me/${SHOP_WA}?text=${encodeURIComponent(detailsRaw)}`;
-  document.getElementById('waSelf').href = `https://wa.me/?text=${encodeURIComponent(selfRaw)}`;
+  document.getElementById('waShop').href = `https://api.whatsapp.com/send?phone=${SHOP_WA}&text=${encodeURIComponent(detailsRaw)}`;
+  document.getElementById('waSelf').href = `https://api.whatsapp.com/send?text=${encodeURIComponent(selfRaw)}`;
 
   // لما يكبس "أرسل واتساب" → يتثبّت الحجز (يتحوّل من "بانتظار التأكيد" لـ "جديد")
   const bookingId = inserted ? inserted.id : null;
