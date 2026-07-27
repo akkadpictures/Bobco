@@ -352,7 +352,6 @@ async function submitBooking(){
   const b = BARBERS.find(x => x.id === state.barber);
   const barberName = b ? b.name : "";
   const svcNames = items.map(s => s.name).join("، ");
-  const proteinLine = hasProtein ? `%0Aملاحظة: حساب البروتين لاحقاً` : '';
 
   document.getElementById('confirmText').innerHTML =
     `أهلاً ${name}! لتثبيت موعدك مع <b>${barberName}</b> يوم <b>${fmtDate(state.date)}</b> الساعة <b>${arNum(state.slot)}</b><br>` +
@@ -362,28 +361,29 @@ async function submitBooking(){
   document.getElementById('confirmCode').textContent = code;
 
   const SHOP_WA = "963949534048";
-  const detailsMsg =
-    `حجز جديد — Bob & Co%0A` +
-    `رمز الحجز: ${code}%0A` +
-    `الاسم: ${encodeURIComponent(name)}%0A` +
-    `الموبايل: ${encodeURIComponent(phone)}%0A` +
-    `الحلاق: ${encodeURIComponent(barberName)}%0A` +
-    `الخدمات: ${encodeURIComponent(svcNames)}%0A` +
-    `التاريخ: ${encodeURIComponent(fmtDate(state.date))}%0A` +
-    `الوقت: ${encodeURIComponent(state.slot)}%0A` +
-    `المدة: ${mins} دقيقة%0A` +
-    `الإجمالي: ${encodeURIComponent(fmtSYP(sum))}` + proteinLine;
-  const selfMsg =
-    `تأكيد حجز — Bob & Co%0A` +
-    `رمز الحجز: ${code}%0A` +
-    `الاسم: ${encodeURIComponent(name)}%0A` +
-    `الحلاق: ${encodeURIComponent(barberName)}%0A` +
-    `التاريخ: ${encodeURIComponent(fmtDate(state.date))} — الساعة ${encodeURIComponent(state.slot)}%0A` +
-    `الخدمات: ${encodeURIComponent(svcNames)}%0A` +
-    `الإجمالي: ${encodeURIComponent(fmtSYP(sum))}` + proteinLine + `%0A` +
+  const proteinTxt = hasProtein ? `\nملاحظة: حساب البروتين لاحقاً` : '';
+  const detailsRaw =
+    `حجز جديد — Bob & Co\n` +
+    `رمز الحجز: ${code}\n` +
+    `الاسم: ${name}\n` +
+    `الموبايل: ${phone}\n` +
+    `الحلاق: ${barberName}\n` +
+    `الخدمات: ${svcNames}\n` +
+    `التاريخ: ${fmtDate(state.date)}\n` +
+    `الوقت: ${state.slot}\n` +
+    `المدة: ${mins} دقيقة\n` +
+    `الإجمالي: ${fmtSYP(sum)}` + proteinTxt;
+  const selfRaw =
+    `تأكيد حجز — Bob & Co\n` +
+    `رمز الحجز: ${code}\n` +
+    `الاسم: ${name}\n` +
+    `الحلاق: ${barberName}\n` +
+    `التاريخ: ${fmtDate(state.date)} — الساعة ${state.slot}\n` +
+    `الخدمات: ${svcNames}\n` +
+    `الإجمالي: ${fmtSYP(sum)}` + proteinTxt + `\n` +
     `منستناك بـ Bob & Co ☕✂`;
-  document.getElementById('waShop').href = `https://wa.me/${SHOP_WA}?text=${detailsMsg}`;
-  document.getElementById('waSelf').href = `https://wa.me/?text=${selfMsg}`;
+  document.getElementById('waShop').href = `https://wa.me/${SHOP_WA}?text=${encodeURIComponent(detailsRaw)}`;
+  document.getElementById('waSelf').href = `https://wa.me/?text=${encodeURIComponent(selfRaw)}`;
 
   // لما يكبس "أرسل واتساب" → يتثبّت الحجز (يتحوّل من "بانتظار التأكيد" لـ "جديد")
   const bookingId = inserted ? inserted.id : null;
