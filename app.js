@@ -335,16 +335,16 @@ async function submitBooking(){
   const hasProtein = items.some(s => NO_PRICE.includes(s.name));
   const laterNote = hasProtein ? ' · حساب البروتين لاحقاً' : '';
 
-  const { error } = await db.from("bookings").insert({
+  const { data: inserted, error } = await db.from("bookings").insert({
     customer_name: name, phone,
     barber_id: state.barber,
     service_id: ids[0],
     service_ids: ids,
     booking_date: iso(state.date),
     booking_time: state.slot,
-    status: "جديد",
+    status: "بانتظار التأكيد",
     note: 'رمز الحجز: ' + code + laterNote
-  });
+  }).select("id").single();
 
   btn.disabled = false; btn.textContent = "ثبّت الحجز";
   if(error){ console.error(error); return toast("صار خطأ، جرب مرة تانية"); }
@@ -355,9 +355,10 @@ async function submitBooking(){
   const proteinLine = hasProtein ? `%0Aملاحظة: حساب البروتين لاحقاً` : '';
 
   document.getElementById('confirmText').innerHTML =
-    `أهلاً ${name}! موعدك مع <b>${barberName}</b> يوم <b>${fmtDate(state.date)}</b> الساعة <b>${arNum(state.slot)}</b><br>` +
+    `أهلاً ${name}! لتثبيت موعدك مع <b>${barberName}</b> يوم <b>${fmtDate(state.date)}</b> الساعة <b>${arNum(state.slot)}</b><br>` +
     `${arNum(items.length)} خدمات · ${arNum(mins)} دقيقة · ${fmtSYP(sum)}` +
-    (hasProtein ? `<br><span style="opacity:.7">+ بروتين (الحساب لاحقاً)</span>` : '');
+    (hasProtein ? `<br><span style="opacity:.7">+ بروتين (الحساب لاحقاً)</span>` : '') +
+    `<br><br><b style="color:var(--olive)">اضغط الزر الأخضر تحت لإرسال حجزك وتثبيته 👇</b>`;
   document.getElementById('confirmCode').textContent = code;
 
   const SHOP_WA = "963949534048";
@@ -383,6 +384,17 @@ async function submitBooking(){
     `منستناك بـ Bob & Co ☕✂`;
   document.getElementById('waShop').href = `https://wa.me/${SHOP_WA}?text=${detailsMsg}`;
   document.getElementById('waSelf').href = `https://wa.me/?text=${selfMsg}`;
+
+  // لما يكبس "أرسل واتساب" → يتثبّت الحجز (يتحوّل من "بانتظار التأكيد" لـ "جديد")
+  const bookingId = inserted ? inserted.id : null;
+  const waBtn = document.getElementById('waShop');
+  waBtn.onclick = async () => {
+    if (bookingId) {
+      await db.from("bookings").update({ status: "جديد" }).eq("id", bookingId);
+    }
+    const chk = document.getElementById('confirmCheck');
+    if (chk) chk.textContent = "✓ تم إرسال حجزك — منستناك!";
+  };
 
   document.getElementById('bookLayout').style.display = 'none';
   document.getElementById('confirmBox').classList.add('show');

@@ -578,15 +578,22 @@ async function renderBookings(){
   else q = q.gte("booking_date", new Date().toISOString().slice(0, 10));
   const { data } = await q;
   const STATES = ["جديد", "مؤكد", "منجز", "ملغى"];
-  const rows = (data || []).map(b => `<tr>
+  // عدد الحجوزات المعلّقة (بانتظار التأكيد) — للتنبيه
+  const pending = (data || []).filter(b => b.status === "بانتظار التأكيد").length;
+  const tab = document.querySelector('.tab[data-v="bookings"]');
+  if (tab) tab.innerHTML = "📅 الحجوزات" + (pending ? ` <span style="background:#c0392b;color:#fff;border-radius:999px;padding:1px 8px;font-size:.75rem">${pending}</span>` : "");
+  const rows = (data || []).map(b => {
+    const isPending = b.status === "بانتظار التأكيد";
+    return `<tr${isPending ? ' style="background:#fdf3e3"' : ''}>
     <td>${b.booking_date}<br><strong>${b.booking_time}</strong></td>
     <td><strong>${b.customer_name}</strong><br><a href="tel:${b.phone}" dir="ltr">${b.phone}</a></td>
     <td>${b.barbers?.name || "—"}</td>
     <td>${b.services?.name || "—"}</td>
-    <td><span class="tag s-${b.status}">${b.status}</span></td>
+    <td><span class="tag s-${b.status}">${b.status}</span>${isPending ? ' <span style="font-size:.72rem;opacity:.7">⚠️ ما أرسل واتساب</span>' : ''}</td>
     <td>${STATES.filter(s => s !== b.status).map(s =>
       `<button class="mini ${s === "ملغى" ? "danger" : ""}" onclick="setBooking('${b.id}','${s}')">${s}</button>`).join(" ")}</td>
-  </tr>`).join("");
+  </tr>`;
+  }).join("");
   document.getElementById("bookTable").innerHTML = rows
     ? `<tr><th>الموعد</th><th>الزبون</th><th>الحلاق</th><th>الخدمة</th><th>الحالة</th><th>تغيير</th></tr>` + rows
     : `<tr><td class="empty">ما في حجوزات ${bookDate.value ? "بهاليوم" : "قادمة"}</td></tr>`;
