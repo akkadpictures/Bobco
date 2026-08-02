@@ -223,7 +223,7 @@ function renderCash(){
   const totalUsd = openUsd + usdShop + usdCof;
 
   document.getElementById("cashStats").innerHTML = `<table>
-    <tr><td><strong>رصيد الليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(julySyp + openSyp)}</strong></td></tr>
+    <tr><td><strong>رصيد الليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(withPartner + zShop + openSyp - zUsdShop)}</strong></td></tr>
     <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${(openUsd + usdShop).toFixed(0)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
     <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
