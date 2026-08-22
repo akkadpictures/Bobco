@@ -875,6 +875,8 @@ function renderStats(){
   renderWeekdayBars(list);
   // ---- الحلاقين ----
   renderBarbersStats(list);
+  // ---- أنواع الخدمات (حتى اليدوي عن طريق الملاحظة) ----
+  renderServiceTypes(list);
   // ---- أفضل الأيام ----
   renderTopDays(list);
   // ---- أكثر المنتجات ----
@@ -981,6 +983,36 @@ function renderBarbersStats(list){
       <span class="bar-track"><span class="bar-fill" style="width:${(r.rev/max*100).toFixed(0)}%;background:${CHART_COLORS[i%CHART_COLORS.length]}"></span></span>
       <span class="bar-val">${fmtShort(r.rev)} · ${r.cnt} حلاقة</span>
     </div>`).join("");
+}
+
+function renderServiceTypes(list){
+  const box = document.getElementById("statServiceTypes");
+  if (!box) return;
+  const agg = {};
+  const add = (name, cnt, rev) => {
+    if (!rev) return;
+    if (!agg[name]) agg[name] = { cnt: 0, rev: 0 };
+    agg[name].cnt += cnt; agg[name].rev += rev;
+  };
+  list.forEach(e => {
+    const c = calc(e);
+    if (e.type === "حلاقة") {
+      const name = e.sub === "آخر" ? ((e.note || "يدوي — بدون اسم").trim()) : (e.sub || "حلاقة");
+      add(name, +e.count || 1, c.rev);
+    }
+    if (e.type === "خدمة") {
+      const name = (e.sub && e.sub !== "آخر") ? e.sub : ((e.note || "خدمة يدوية").trim());
+      add(name, 1, c.rev);
+    }
+  });
+  const rows = Object.entries(agg).map(([n, v]) => ({ n, ...v })).sort((a, b) => b.rev - a.rev);
+  if (!rows.length) { box.innerHTML = `<div class="empty">ما في بيانات</div>`; return; }
+  const totalRev = rows.reduce((s, r) => s + r.rev, 0);
+  box.innerHTML = `<table>
+    <tr><th>الخدمة</th><th>العدد</th><th>الإيراد</th><th>٪</th></tr>` +
+    rows.map(r => `<tr><td><strong>${r.n}</strong></td><td>${r.cnt}</td><td>${fmt(r.rev)}</td><td>${(r.rev / totalRev * 100).toFixed(0)}%</td></tr>`).join("") +
+    `</table>
+    <div class="muted" style="font-size:.78rem;margin-top:8px">اليدوي ("آخر") بينحسب من الملاحظة — اكتبو اسم الخدمة بالملاحظة وبتطلع هون لحالها.</div>`;
 }
 
 function renderTopDays(list){
