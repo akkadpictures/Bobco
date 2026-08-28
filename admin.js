@@ -894,7 +894,7 @@ function renderMonthlyBars(monthTotals){
     return `<div class="mb">
       <div class="mb-val">${fmtShort(m.t.profit)}</div>
       <div class="mb-bar ${best?"best":""}" style="height:${h}px"></div>
-      <div class="mb-lbl">${AR_MONTHS[+m.ym.split("-")[1]-1].slice(0,3)}<br>${m.ym.split("-")[0]}</div>
+      <div class="mb-lbl">${AR_MONTHS[+m.ym.split("-")[1]-1]}<br>${m.ym.split("-")[0]}</div>
     </div>`;
   }).join("") + `</div>`;
 }
