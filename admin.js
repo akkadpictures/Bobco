@@ -754,7 +754,7 @@ async function savePin(){
 }
 
 /* ============ 📈 الإحصائيات ============ */
-const AR_MONTHS = ["كانون الثاني","شباط","آذار","نيسان","أيار","حزيران","تموز","آب","أيلول","تشرين الأول","تشرين الثاني","كانون الأول"];
+const AR_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const AR_DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const monthLabel = ym => { const [y,m]=ym.split("-"); return AR_MONTHS[+m-1]+" "+y; };
 const CHART_COLORS = ["#5a6b3b","#c9a227","#8a9b5e","#b5843a","#6b8fa3","#a3546b","#7a6ba3","#a37a54"];
