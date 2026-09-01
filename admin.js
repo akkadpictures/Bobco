@@ -97,18 +97,21 @@ function calc(e){
   return { rev: 0, comm: 0, net: 0, usd: 0 };
 }
 function totals(list){
-  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, profit: 0, prevBal: 0, settle: 0 };
+  const t = { hRev: 0, hComm: 0, hNet: 0, products: 0, productSales: 0, coffee: 0, exp: 0, inv: 0, profit: 0, prevBal: 0, settle: 0 };
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
     if (e.type === "منتج") { t.products += c.net; t.productSales += c.rev; }
     if (e.type === "كوفي")  t.coffee += c.rev;
-    if (e.type === "مصروف" || e.type === "مصروف شهري") t.exp += c.rev;
+    if (e.type === "مصروف" || e.type === "مصروف شهري") {
+      if (e.detail === "شراء بضاعة (للبيع)") t.inv += c.rev;
+      else t.exp += c.rev;
+    }
     if (e.type === "رصيد سابق") t.prevBal += c.net;
     if (e.type === "تسوية") t.settle += c.net;
   });
   // الربح العادي (حلاقة+منتجات+كوفي-مصاريف) + الرصيد السابق (للأشهر القديمة)
-  t.profit = t.hNet + t.products + t.coffee - t.exp + t.prevBal + t.settle;
+  t.profit = t.hNet + t.products + t.coffee - t.exp - t.inv + t.prevBal + t.settle;
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
@@ -131,7 +134,8 @@ function renderDash(){
     ${kpi("صافي الحلاقة", m.hNet)}
     ${kpi("مبيعات المنتجات", m.productSales)}
     ${kpi("إيراد الكوفي", m.coffee)}
-    ${kpi("المصاريف", m.exp, true)}
+    ${kpi("المصاريف التشغيلية", m.exp, true)}
+    ${m.inv ? kpi("🛍 شراء بضاعة (للبيع)", m.inv, true) : ""}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
     ${kpi("حصة زيد (" + Math.round(share("owner_share") * 100) + "%)", m.profit * share("owner_share"))}
     ${kpi("حصة " + pn + " (" + Math.round(share("partner_share") * 100) + "%)", m.profit * share("partner_share"))}
@@ -173,7 +177,7 @@ function renderDash(){
   document.getElementById("monthsStats").innerHTML = months.length
     ? `<table><tr><th>الشهر</th><th>حلاقة</th><th>منتجات</th><th>كوفي</th><th>مصاريف</th><th>✨ الربح</th></tr>` +
       months.map(mm => { const t = totals(ENTRIES.filter(e => inMonth(e, mm)));
-        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.products)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
+        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.products)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp + t.inv)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
     : `<div class="empty">لسا ما في بيانات</div>`;
 
   renderRent(usdBy(RENT_ACC));
