@@ -202,6 +202,7 @@ function renderCash(){
     if (e.type === "دولار") {
       const a = +e.amount || 0;
       if (e.detail === "صندوق الكوفي" || e.detail === "صندوق زيد — كوفي") usdCof += c.usd;
+      else if (e.detail === "مؤونة الأجار") { /* محجوزة — ذمة برا الصندوق، بتظهر ببطاقة المؤونة بس */ }
       else usdShop += c.usd;
       if (e.detail === "صندوق زيد — حلاقة") zUsdShop += a;
       else if (e.detail === "صندوق زيد — كوفي") zUsdCof += a;
