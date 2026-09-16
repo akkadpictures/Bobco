@@ -240,6 +240,7 @@ function renderCash(){
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${Math.round(openUsd + usdShop)} $</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — مؤونة (بنك)</strong></td><td><strong>${Math.round(rentUsd)} $</strong></td></tr>
   </table>`;
 
   const cofBox = document.getElementById("coffeeCash");
