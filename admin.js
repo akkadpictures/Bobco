@@ -187,7 +187,7 @@ function renderDash(){
 function renderCash(){
   // رصيد صندوق تموز (شغل النظام من 1 تموز)
   const CASH_START = "2026-07-01";
-  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdShop = 0, zUsdCof = 0, cofToUsd = 0, usdShop = 0, usdCof = 0;
+  let sypIn = 0, exp = 0, comm = 0, toUsd = 0, draw = 0, cofIn = 0, cofExp = 0, cofOut = 0, zShop = 0, zCof = 0, zUsdShop = 0, zUsdCof = 0, cofToUsd = 0, usdShop = 0, usdCof = 0, rentUsd = 0;
   ENTRIES.forEach(e => {
     if (e.entry_date < CASH_START) return;
     const c = calc(e);
@@ -202,7 +202,7 @@ function renderCash(){
     if (e.type === "دولار") {
       const a = +e.amount || 0;
       if (e.detail === "صندوق الكوفي" || e.detail === "صندوق زيد — كوفي") usdCof += c.usd;
-      else if (e.detail === "مؤونة الأجار") { /* محجوزة — ذمة برا الصندوق، بتظهر ببطاقة المؤونة بس */ }
+      else if (e.detail === "مؤونة الأجار") rentUsd += c.usd; // محجوزة — ذمة برا الصندوق
       else usdShop += c.usd;
       if (e.detail === "صندوق زيد — حلاقة") zUsdShop += a;
       else if (e.detail === "صندوق زيد — كوفي") zUsdCof += a;
@@ -229,7 +229,7 @@ function renderCash(){
 
   document.getElementById("cashStats").innerHTML = `<table>
     <tr><td><strong>رصيد الليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(withPartner + zShop + openSyp - zUsdShop)}</strong></td></tr>
-    <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${(openUsd + usdShop).toFixed(0)} $</strong></td></tr>
+    <tr><td><strong>رصيد الدولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${Math.round(openUsd + usdShop)} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
     <tr><td>&nbsp;&nbsp;دخل ليرة (حلاقة + خدمات + منتجات)</td><td class="pos">${fmtSYP(sypIn)}</td></tr>
     <tr><td>&nbsp;&nbsp;− عمولات الحلاقين</td><td class="neg">${fmtSYP(comm)}</td></tr>
@@ -239,7 +239,7 @@ function renderCash(){
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;صندوق الشريك</td><td>${fmtSYP(withPartner)}</td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zShop + openSyp - zUsdShop)}</strong></td></tr>
-    <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${(openUsd + usdShop).toFixed(0)} $</strong></td></tr>
+    <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${Math.round(openUsd + usdShop)} $</strong></td></tr>
   </table>`;
 
   const cofBox = document.getElementById("coffeeCash");
