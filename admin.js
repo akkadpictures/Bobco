@@ -836,14 +836,25 @@ function renderStats(){
   let bestMonth = null;
   monthTotals.forEach(m => { if (!bestMonth || m.t.profit > bestMonth.t.profit) bestMonth = m; });
   // مقارنة آخر شهرين
-  let trend = null, curDaily = 0, prevDaily = 0;
-  if (monthTotals.length >= 2) {
-    const workDays = ym => [...new Set(ENTRIES.filter(e => e.entry_date.slice(0,7) === ym && (e.type==="حلاقة"||e.type==="خدمة"||e.type==="كوفي"||e.type==="منتج")).map(e=>e.entry_date))].length;
-    const curM = monthTotals[monthTotals.length-1], prevM = monthTotals[monthTotals.length-2];
-    const dc = workDays(curM.ym), dp = workDays(prevM.ym);
-    curDaily = dc ? curM.t.profit / dc : 0;
-    prevDaily = dp ? prevM.t.profit / dp : 0;
-    if (prevDaily > 0) trend = ((curDaily - prevDaily) / prevDaily * 100);
+  let trend = null, curDaily = 0, prevDaily = 0, hasPrev = false;
+  if (monthTotals.length >= 1) {
+    // المقارنة دايماً مع الشهر السابق من كل البيانات، حتى لو الفلتر عشهر واحد
+    const allData = ENTRIES.filter(e => e.entry_date >= "2026-07-01");
+    const allYms = [...new Set(allData.map(e => e.entry_date.slice(0,7)))].sort();
+    const curYm = monthTotals[monthTotals.length-1].ym;
+    const idx = allYms.indexOf(curYm);
+    const prevYm = idx > 0 ? allYms[idx-1] : null;
+    const workDays = ym => [...new Set(allData.filter(e => e.entry_date.slice(0,7) === ym && (e.type==="حلاقة"||e.type==="خدمة"||e.type==="كوفي"||e.type==="منتج")).map(e=>e.entry_date))].length;
+    const curT = totals(allData.filter(e => e.entry_date.slice(0,7) === curYm));
+    const dc = workDays(curYm);
+    curDaily = dc ? curT.profit / dc : 0;
+    if (prevYm) {
+      const prevT = totals(allData.filter(e => e.entry_date.slice(0,7) === prevYm));
+      const dp = workDays(prevYm);
+      prevDaily = dp ? prevT.profit / dp : 0;
+      hasPrev = prevDaily !== 0;
+      if (prevDaily > 0) trend = ((curDaily - prevDaily) / prevDaily * 100);
+    }
   }
   // متوسط الدخل اليومي
   const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
@@ -888,7 +899,7 @@ function renderStats(){
     ${includesOld ? kpi("✨ صافي تموز فما بعد", julyOnward) : ""}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
-    <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${monthTotals.length>=2?fmt(Math.round(prevDaily)):"—"})</span></div></div>
+    <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${hasPrev?fmt(Math.round(prevDaily)):"—"})</span></div></div>
     ${kpi("💈 متوسط دخل الحلاقة والخدمات /يوم", Math.round(avgHRev))}
     ${kpi("✂️ متوسط صافي الحلاقة /يوم", Math.round(avgHNet))}
     ${kpi("☕ متوسط صافي الكوفي /يوم", Math.round(avgCof))}
