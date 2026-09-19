@@ -848,8 +848,14 @@ function renderStats(){
   // متوسط الدخل اليومي
   const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
   const totalRev = allT.hRev + allT.productSales + allT.coffee;
-  const avgDay = days.length ? totalRev / days.length : 0;
-  const avgProfitDay = days.length ? allT.profit / days.length : 0;
+  const dN = days.length || 1;
+  const cofExpAll = list.filter(e => (e.type==="مصروف"||e.type==="مصروف شهري") && e.detail==="مصاريف كوفي").reduce((a,e)=>a+(+e.amount||0),0);
+  const shopExpOnly = allT.exp - cofExpAll;
+  const avgHRev  = allT.hRev / dN;                       // دخل الحلاقة والخدمات
+  const avgHNet  = (allT.hNet - shopExpOnly) / dN;       // صافي الحلاقة بعد العمولات والمصاريف
+  const avgCof   = (allT.coffee - cofExpAll) / dN;       // صافي الكوفي
+  const avgProd  = allT.products / dN;                   // ربح المنتجات
+  const avgAll   = allT.profit / dN;                     // الصافي الإجمالي
 
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
@@ -883,8 +889,11 @@ function renderStats(){
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
     <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${monthTotals.length>=2?fmt(Math.round(prevDaily)):"—"})</span></div></div>
-    ${kpi("📊 متوسط الإيراد اليومي (خام)", Math.round(avgDay))}
-    ${kpi("✨ متوسط الربح الصافي اليومي", Math.round(avgProfitDay))}
+    ${kpi("💈 متوسط دخل الحلاقة والخدمات /يوم", Math.round(avgHRev))}
+    ${kpi("✂️ متوسط صافي الحلاقة /يوم", Math.round(avgHNet))}
+    ${kpi("☕ متوسط صافي الكوفي /يوم", Math.round(avgCof))}
+    ${kpi("🧴 متوسط ربح المنتجات /يوم", Math.round(avgProd))}
+    ${kpi("✨ متوسط الربح الصافي الإجمالي /يوم", Math.round(avgAll), false, true)}
     ${kpi("💈 إجمالي الإيراد", totalRev)}
     ${kpi("💸 إجمالي المصاريف", allT.exp, true)}
   `;
