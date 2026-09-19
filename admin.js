@@ -780,6 +780,16 @@ function ensureYearOptions(){
       statRange.appendChild(opt);
     }
   });
+  // خيار لكل شهر لحالو حسب البيانات الموجودة
+  const mns = [...new Set(ENTRIES.filter(e => e.entry_date >= "2026-07-01").map(e => e.entry_date.slice(0,7)))].sort();
+  mns.forEach(ym => {
+    if (![...statRange.options].some(o => o.value === "m:" + ym)) {
+      const opt = document.createElement("option");
+      opt.value = "m:" + ym;
+      opt.textContent = "شهر " + monthLabel(ym);
+      statRange.appendChild(opt);
+    }
+  });
 }
 
 function statEntries(){
@@ -794,6 +804,9 @@ function statEntries(){
   } else if (r === "3" || r === "6") {
     const months = allMonths.slice().reverse().slice(0, +r);
     list = list.filter(e => months.includes(e.entry_date.slice(0,7)));
+  } else if (r.startsWith("m:")) {
+    const ym = r.slice(2);
+    list = list.filter(e => e.entry_date.slice(0,7) === ym);
   } else if (r.startsWith("year-")) {
     const y = r.slice(5);
     list = list.filter(e => e.entry_date.slice(0,4) === y);
@@ -823,16 +836,20 @@ function renderStats(){
   let bestMonth = null;
   monthTotals.forEach(m => { if (!bestMonth || m.t.profit > bestMonth.t.profit) bestMonth = m; });
   // مقارنة آخر شهرين
-  let trend = null;
+  let trend = null, curDaily = 0, prevDaily = 0;
   if (monthTotals.length >= 2) {
-    const cur = monthTotals[monthTotals.length-1].t.profit;
-    const prev = monthTotals[monthTotals.length-2].t.profit;
-    if (prev > 0) trend = ((cur - prev) / prev * 100);
+    const workDays = ym => [...new Set(ENTRIES.filter(e => e.entry_date.slice(0,7) === ym && (e.type==="حلاقة"||e.type==="خدمة"||e.type==="كوفي"||e.type==="منتج")).map(e=>e.entry_date))].length;
+    const curM = monthTotals[monthTotals.length-1], prevM = monthTotals[monthTotals.length-2];
+    const dc = workDays(curM.ym), dp = workDays(prevM.ym);
+    curDaily = dc ? curM.t.profit / dc : 0;
+    prevDaily = dp ? prevM.t.profit / dp : 0;
+    if (prevDaily > 0) trend = ((curDaily - prevDaily) / prevDaily * 100);
   }
   // متوسط الدخل اليومي
   const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
   const totalRev = allT.hRev + allT.productSales + allT.coffee;
   const avgDay = days.length ? totalRev / days.length : 0;
+  const avgProfitDay = days.length ? allT.profit / days.length : 0;
 
   const trendTag = trend===null ? "" :
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
@@ -865,8 +882,9 @@ function renderStats(){
     ${includesOld ? kpi("✨ صافي تموز فما بعد", julyOnward) : ""}
     ${oldCard}
     <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
-    <div class="kpi"><div class="l">📈 مقارنة بالشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(monthTotals[monthTotals.length-1].t.profit):"—"}</div></div>
-    ${kpi("📊 متوسط دخل اليوم", Math.round(avgDay))}
+    <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length>=2?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${monthTotals.length>=2?fmt(Math.round(prevDaily)):"—"})</span></div></div>
+    ${kpi("📊 متوسط الإيراد اليومي (خام)", Math.round(avgDay))}
+    ${kpi("✨ متوسط الربح الصافي اليومي", Math.round(avgProfitDay))}
     ${kpi("💈 إجمالي الإيراد", totalRev)}
     ${kpi("💸 إجمالي المصاريف", allT.exp, true)}
   `;
