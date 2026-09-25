@@ -87,7 +87,8 @@ function calc(e){
   }
   if (e.type === "منتج") {
     const sale = +e.amount || 0;
-    return { rev: sale, comm: 0, net: sale, usd: 0 };
+    // ربح البيعة = السعر − تكلفة القطعة (البضاعة رأس مال مشغّل، مو مصروف)
+    return { rev: sale, comm: 0, net: sale - (+e.cost || 0), usd: 0 };
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
@@ -112,10 +113,21 @@ function totals(list){
     if (e.type === "تسوية") t.settle += c.net;
   });
   // الربح العادي (حلاقة+منتجات+كوفي-مصاريف) + الرصيد السابق (للأشهر القديمة)
-  t.profit = t.hNet + t.products + t.coffee - t.exp - t.inv + t.prevBal + t.settle;
+  t.profit = t.hNet + t.products + t.coffee - t.exp + t.prevBal + t.settle; // شراء البضاعة (t.inv) رأس مال مشغّل — ما بينطرح من الربح
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
+// 💼 رأس المال المشغّل بالبضاعة = كل شراء بضاعة − تكلفة القطع المباعة (من أول دفعة مسجّلة)
+const INV_START = "2026-08-31";
+function stockCapital(){
+  let bought = 0, sold = 0;
+  ENTRIES.forEach(e => {
+    if (e.entry_date < INV_START) return;
+    if (e.detail === "شراء بضاعة (للبيع)" && e.type !== "منتج") bought += (+e.amount || 0);
+    if (e.type === "منتج") sold += (+e.cost || 0);
+  });
+  return bought - sold;
+}
 // ===== 💵 الدولار — مربوط بسعر صرف اليوم (يتحدّث تلقائياً من السوق) =====
 const RATE = () => +(SETTINGS.usd_rate || 13000);
 function fmtUSD(v){
@@ -164,7 +176,8 @@ function renderDash(){
     ${kpi("مبيعات المنتجات", m.productSales)}
     ${kpi("إيراد الكوفي", m.coffee)}
     ${kpi("المصاريف التشغيلية", m.exp, true)}
-    ${m.inv ? kpi("🛍 شراء بضاعة (للبيع)", m.inv, true) : ""}
+    ${m.inv ? kpi("🛍 بضاعة جديدة (رأس مال مشغّل)", m.inv) : ""}
+    ${kpi("💼 رأس المال بالبضاعة (مخزون)", stockCapital())}
     ${kpi("✨ صافي الربح", m.profit, false, true)}
     ${kpi("حصة زيد (" + Math.round(share("owner_share") * 100) + "%)", m.profit * share("owner_share"))}
     ${kpi("حصة " + pn + " (" + Math.round(share("partner_share") * 100) + "%)", m.profit * share("partner_share"))}
@@ -179,7 +192,7 @@ function renderDash(){
   document.getElementById("barberStats").innerHTML =
     `<table><tr><th>الحلاق</th><th>عدد</th><th>الإيراد</th><th>العمولة</th><th>صافي للمحل</th></tr>${rows}</table>`;
 
-  const isExp = e => e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول";
+  const isExp = e => (e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") && e.detail !== "شراء بضاعة (للبيع)";
   const exRows = EXPCATS.map(c => {
     const mv = mE.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
     const av = ENTRIES.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
@@ -206,7 +219,7 @@ function renderDash(){
   document.getElementById("monthsStats").innerHTML = months.length
     ? `<table><tr><th>الشهر</th><th>حلاقة</th><th>منتجات</th><th>كوفي</th><th>مصاريف</th><th>✨ الربح</th></tr>` +
       months.map(mm => { const t = totals(ENTRIES.filter(e => inMonth(e, mm)));
-        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.products)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp + t.inv)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
+        return `<tr><td>${mm}</td><td>${fmt(t.hNet)}</td><td>${fmt(t.products)}</td><td>${fmt(t.coffee)}</td><td class="neg">${fmt(t.exp)}</td><td><strong>${fmt(t.profit)}</strong></td></tr>`; }).join("") + `</table>`
     : `<div class="empty">لسا ما في بيانات</div>`;
 
   renderRent(usdBy(RENT_ACC));
@@ -985,7 +998,7 @@ function renderSourcesDonut(t){
 
 function renderExpDonut(list){
   const byCat = {};
-  list.filter(e => e.type==="مصروف"||e.type==="مصروف شهري"||e.type==="مصروف ممول").forEach(e => {
+  list.filter(e => (e.type==="مصروف"||e.type==="مصروف شهري"||e.type==="مصروف ممول") && e.detail!=="شراء بضاعة (للبيع)").forEach(e => {
     const k = e.detail || "أخرى";
     byCat[k] = (byCat[k]||0) + (+e.amount||0);
   });
@@ -1144,8 +1157,8 @@ function renderPartners(){
   list.forEach(e => {
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { rev += c.rev; comm += c.comm; }
-    if (e.type === "منتج") rev += c.rev;
-    if ((e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") && e.detail !== "مصاريف كوفي") exp += (+e.amount || 0);
+    if (e.type === "منتج") rev += c.net; // ربح البيعة بعد التكلفة
+    if ((e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") && e.detail !== "مصاريف كوفي" && e.detail !== "شراء بضاعة (للبيع)") exp += (+e.amount || 0);
   });
   const profit = rev - comm - exp;
   const drawOf = who => list.filter(e => e.type === "نقل" && e.detail === "سلفة " + who)
