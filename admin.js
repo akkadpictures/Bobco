@@ -43,6 +43,7 @@ async function openPanel(){
   panel.style.display = "block";
   await loadAll();
   renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings(); renderStats(); renderPartners(); renderCoffeeInvest();
+  syncRate();
 }
 
 async function loadAll(){
@@ -115,7 +116,34 @@ function totals(list){
   return t;
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
-const kpi = (l, v, neg, hero) => `<div class="kpi ${hero ? "hero" : ""}"><div class="l">${l}</div><div class="v ${neg && v ? "neg" : ""}">${fmtSYP(v)}</div></div>`;
+// ===== 💵 الدولار — مربوط بسعر صرف اليوم (يتحدّث تلقائياً من السوق) =====
+const RATE = () => +(SETTINGS.usd_rate || 13000);
+function fmtUSD(v){
+  const u = (+v || 0) / RATE(), a = Math.abs(u);
+  const s = a >= 10 ? new Intl.NumberFormat("en-US").format(Math.round(a)) : a.toFixed(1).replace(/\.0$/, "");
+  return (u < 0 ? "−" : "") + "$" + s;
+}
+const usdLine = v => `<div class="u"><span dir="ltr">≈ ${fmtUSD(v)}</span></div>`;
+const todayDam = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Damascus" }).format(new Date());
+function rateNote(){
+  const fresh = SETTINGS.usd_rate_date === todayDam();
+  const at = (SETTINGS.usd_rate_at || "").slice(11, 16);
+  return `<div class="rate-note ${fresh ? "" : "stale"}">💵 سعر الصرف ${fresh ? "اليوم" : "(آخر سعر متوفر " + (SETTINGS.usd_rate_date || "—") + ")"}: <strong>${fmt(RATE())} ل.س</strong>${fresh && at ? " · تحديث " + at : ""}</div>`;
+}
+async function syncRate(){
+  try {
+    const { data, error } = await db.rpc("refresh_usd_rate");
+    if (error || !data) return;
+    if (data.rate) SETTINGS.usd_rate = String(data.rate);
+    if (data.date) SETTINGS.usd_rate_date = String(data.date);
+    if (data.at) SETTINGS.usd_rate_at = String(data.at).length > 5 ? String(data.at) : data.date + " " + data.at;
+    renderDash(); renderDay(); renderStats();
+  } catch (_) {}
+}
+setInterval(() => { if (panel.style.display === "block") syncRate(); }, 30 * 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && panel.style.display === "block") syncRate(); });
+
+const kpi = (l, v, neg, hero) => `<div class="kpi ${hero ? "hero" : ""}"><div class="l">${l}</div><div class="v ${neg && v ? "neg" : ""}">${fmtSYP(v)}</div>${usdLine(v)}</div>`;
 
 const dashMonth = document.getElementById("dashMonth");
 dashMonth.value = new Date().toISOString().slice(0, 7);
@@ -129,6 +157,7 @@ function renderDash(){
   const pn = SETTINGS.partner_name || "الشريك";
 
   document.getElementById("kpis").innerHTML = `
+    ${rateNote()}
     ${kpi("إيراد الحلاقة والخدمات", m.hRev)}
     ${kpi("عمولات الحلاقين", m.hComm)}
     ${kpi("صافي الحلاقة", m.hNet)}
@@ -306,6 +335,7 @@ function renderDay(){
   const shopShare = total - t.hComm;
 
   document.getElementById("dayKpis").innerHTML = `
+    ${rateNote()}
     ${kpi("إجمالي اليوم (الكاش الداخل)", total, false, true)}
     ${kpi("إيراد الحلاقة والخدمات", t.hRev)}
     ${kpi("مبيعات المنتجات", t.productSales)}
@@ -656,7 +686,7 @@ function renderSettings(){
     <div class="form-grid">
       <div class="field"><label>ليرة قديمة (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="openSyp" type="number" value="${SETTINGS.opening_syp || 0}"></div>
       <div class="field"><label>دولار قديم ($)</label><input class="cell" style="border:1px solid var(--line)" id="openUsd" type="number" value="${SETTINGS.opening_usd || 0}"></div>
-      <div class="field"><label>سعر صرف الدولار (ل.س)</label><input class="cell" style="border:1px solid var(--line)" id="usdRate" type="number" value="${SETTINGS.usd_rate || 13000}"></div>
+      <div class="field"><label>سعر صرف الدولار (ل.س) — تلقائي كل ساعة${SETTINGS.usd_rate_at ? " · آخر تحديث " + SETTINGS.usd_rate_at : ""}</label><input class="cell" style="border:1px solid var(--line)" id="usdRate" type="number" value="${SETTINGS.usd_rate || 13000}"></div>
       <button class="mini" onclick="saveOpening()">حفظ</button>
     </div>`;
 }
@@ -872,7 +902,7 @@ function renderStats(){
     `<span class="trend ${trend>2?"up":trend<-2?"down":"flat"}">${trend>0?"▲":trend<0?"▼":"■"} ${Math.abs(trend).toFixed(0)}%</span>`;
 
   // سعر الصرف (من الإعدادات) لتحويل الدولار وعرضه بين قوسين
-  const rate = +(SETTINGS.usd_rate || 13000);
+  const rate = RATE();
   const openUsd = +(SETTINGS.opening_usd || 0);
   const usdInSyp = openUsd * rate; // قيمة الدولار بالليرة
   const prevBalTotal = allT.prevBal; // مجموع الرصيد السابق (ليرة) ضمن الفترة المختارة
@@ -890,16 +920,17 @@ function renderStats(){
   const oldCard = includesOld ? `
     <div class="kpi" style="background:#efe1c9">
       <div class="l">🏦 صافي ما قبل تموز (أيار + حزيران)</div>
-      <div class="v" style="font-size:1.15rem">${fmt(prevBalTotal)} ل.س</div>
+      <div class="v" style="font-size:1.15rem">${fmt(prevBalTotal)} ل.س</div>${usdLine(prevBalTotal)}
       <div style="font-size:.78rem;opacity:.7;font-weight:600">(+ الدولار ${openUsd.toFixed(0)}$ محفوظ منفصل)</div>
     </div>` : "";
 
   document.getElementById("statHighlights").innerHTML = `
-    <div class="kpi hero"><div class="l" style="opacity:.85">${heroLabel}</div><div class="v" style="color:var(--cream)">${fmt(grandTotalSyp)} ل.س</div>${heroNote}</div>
+    ${rateNote()}
+    <div class="kpi hero"><div class="l" style="opacity:.85">${heroLabel}</div><div class="v" style="color:var(--cream)">${fmt(grandTotalSyp)} ل.س</div>${usdLine(grandTotalSyp)}${heroNote}</div>
     ${includesOld ? kpi("✨ صافي تموز فما بعد", julyOnward) : ""}
     ${oldCard}
-    <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div></div>
-    <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${hasPrev?fmt(Math.round(prevDaily)):"—"})</span></div></div>
+    <div class="kpi"><div class="l">🏆 أفضل شهر</div><div class="v" style="font-size:1.1rem">${bestMonth?monthLabel(bestMonth.ym):"—"}</div><div style="font-size:.8rem;opacity:.65">${bestMonth?fmt(bestMonth.t.profit)+" ل.س":""}</div>${bestMonth?usdLine(bestMonth.t.profit):""}</div>
+    <div class="kpi"><div class="l">📈 معدل الربح اليومي مقابل الشهر السابق ${trendTag}</div><div class="v">${monthTotals.length?fmt(Math.round(curDaily)):"—"} <span style="font-size:.75rem;opacity:.6">/يوم (السابق ${hasPrev?fmt(Math.round(prevDaily)):"—"})</span></div>${monthTotals.length?usdLine(curDaily):""}</div>
     ${kpi("💈 متوسط دخل الحلاقة والخدمات /يوم", Math.round(avgHRev))}
     ${kpi("✂️ متوسط صافي الحلاقة /يوم", Math.round(avgHNet))}
     ${kpi("☕ متوسط صافي الكوفي /يوم", Math.round(avgCof))}
