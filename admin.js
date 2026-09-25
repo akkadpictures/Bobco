@@ -122,6 +122,44 @@ function totals(list){
 }
 const inMonth = (e, ym) => e.entry_date.startsWith(ym);
 // 💼 رأس المال المشغّل بالبضاعة = كل شراء بضاعة − تكلفة القطع المباعة (من أول دفعة مسجّلة)
+// 💼 هل رأس المال المشغّل عم يرجع؟ — البضاعة من 1 أيلول (القطع اللي إلها تكلفة مسجّلة)
+function renderCapital(){
+  const box = document.getElementById("capitalStats");
+  if (!box) return;
+  let invested = 0, firstBuy = null;
+  const by = {};
+  ENTRIES.forEach(e => {
+    if (e.entry_date < CAP_START) return;
+    if (isCapBuy(e)) { invested += +e.amount || 0; if (!firstBuy || e.entry_date < firstBuy) firstBuy = e.entry_date; }
+    if (e.type === "منتج" && +e.cost > 0) {
+      const k = (e.sub || "—").trim();
+      const r = by[k] || (by[k] = { n: 0, sale: 0, cost: 0 });
+      r.n += 1; r.sale += +e.amount || 0; r.cost += +e.cost || 0;
+    }
+  });
+  const rows = Object.entries(by).map(([name, r]) => ({ name, ...r, profit: r.sale - r.cost })).sort((a, b) => b.profit - a.profit);
+  const sale = rows.reduce((s, r) => s + r.sale, 0), cost = rows.reduce((s, r) => s + r.cost, 0), profit = sale - cost;
+  const stock = invested - cost;
+  const verdict = m => m >= .5 ? `<span class="trend up">ممتاز</span>` : m >= .3 ? `<span class="trend flat">مقبول</span>` : `<span class="trend down">ضعيف — ارفع السعر</span>`;
+  const x = (a, b) => b ? (a / b).toFixed(2) + "×" : "—";
+  const pct = (a, b) => b ? Math.round(a / b * 100) + "%" : "—";
+  // سرعة الدوران: قديش تكلفة عم تنباع باليوم ← كم شهر ليخلص المخزون
+  const days = firstBuy ? Math.max(1, Math.round((new Date(todayDam()) - new Date(firstBuy)) / 864e5)) : 0;
+  const perDay = days ? cost / days : 0;
+  const monthsLeft = perDay ? stock / perDay / 30 : null;
+  const turn = monthsLeft === null ? "—" : monthsLeft > 24 ? "أكتر من سنتين ⚠️" : "~" + monthsLeft.toFixed(1) + " شهر";
+  box.innerHTML = `<table>
+    <tr><td>💰 المصاري المشغّلة بالبضاعة</td><td><strong>${fmtSYP(invested)}</strong> <span class="muted">(${fmtUSD(invested)})</span></td></tr>
+    <tr><td>↩️ رجع منها (تكلفة القطع المباعة)</td><td>${fmtSYP(cost)} <span class="muted">(${pct(cost, invested)})</span></td></tr>
+    <tr><td>✨ ربح فوقها</td><td class="pos"><strong>${fmtSYP(profit)}</strong></td></tr>
+    <tr><td>📈 كل ليرة بتحطها بترجع</td><td><strong>${x(sale, cost)}</strong> — هامش ${pct(profit, cost)} ${cost ? verdict(profit / cost) : ""}</td></tr>
+    <tr><td>📦 باقي مجمّد بالمخزون</td><td>${fmtSYP(stock)} <span class="muted">(${fmtUSD(stock)})</span></td></tr>
+    <tr><td>⏳ بهالسرعة المخزون بيخلص خلال</td><td>${turn}</td></tr>
+  </table>` + (rows.length ? `<table style="margin-top:14px">
+    <tr><th>المنتج</th><th>بيعات</th><th>مبيع</th><th>تكلفة</th><th>ربح</th><th>العائد</th></tr>
+    ${rows.map(r => `<tr><td><strong>${r.name}</strong></td><td>${r.n}</td><td>${fmt(r.sale)}</td><td>${fmt(r.cost)}</td><td class="pos">${fmt(r.profit)}</td><td>${x(r.sale, r.cost)} ${verdict(r.profit / r.cost)}</td></tr>`).join("")}
+  </table>` : `<div class="empty">لسا ما انباعت قطع من البضاعة الجديدة</div>`);
+}
 function stockCapital(){
   let bought = 0, sold = 0;
   ENTRIES.forEach(e => {
@@ -171,6 +209,7 @@ function renderDash(){
   const share = k => +(SETTINGS[k] || .5);
   const pn = SETTINGS.partner_name || "الشريك";
 
+  renderCapital();
   document.getElementById("kpis").innerHTML = `
     ${rateNote()}
     ${kpi("إيراد الحلاقة والخدمات", m.hRev)}
