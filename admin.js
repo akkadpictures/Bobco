@@ -90,7 +90,7 @@ function calc(e){
     return { rev: sale, comm: 0, net: sale, usd: 0 };
   }
   if (e.type === "كوفي")  return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
-  if (e.type === "مصروف" || e.type === "مصروف شهري") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
+  if (e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") return { rev: +e.amount || 0, comm: 0, net: -(+e.amount || 0), usd: 0 };
   if (e.type === "رصيد سابق") return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "تسوية") return { rev: +e.amount || 0, comm: 0, net: +e.amount || 0, usd: 0 };
   if (e.type === "نقل") return { rev: +e.amount || 0, comm: 0, net: 0, usd: 0 };
@@ -104,7 +104,7 @@ function totals(list){
     if (e.type === "حلاقة" || e.type === "خدمة") { t.hRev += c.rev; t.hComm += c.comm; t.hNet += c.net; }
     if (e.type === "منتج") { t.products += c.net; t.productSales += c.rev; }
     if (e.type === "كوفي")  t.coffee += c.rev;
-    if (e.type === "مصروف" || e.type === "مصروف شهري") {
+    if (e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") {
       if (e.detail === "شراء بضاعة (للبيع)") t.inv += c.rev;
       else t.exp += c.rev;
     }
@@ -179,7 +179,7 @@ function renderDash(){
   document.getElementById("barberStats").innerHTML =
     `<table><tr><th>الحلاق</th><th>عدد</th><th>الإيراد</th><th>العمولة</th><th>صافي للمحل</th></tr>${rows}</table>`;
 
-  const isExp = e => e.type === "مصروف" || e.type === "مصروف شهري";
+  const isExp = e => e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول";
   const exRows = EXPCATS.map(c => {
     const mv = mE.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
     const av = ENTRIES.filter(e => isExp(e) && e.detail === c.name).reduce((s, e) => s + (+e.amount || 0), 0);
@@ -328,7 +328,7 @@ dayPick.addEventListener("change", renderDay);
 function renderDay(){
   const d = dayPick.value;
   // المصاريف (عادي + شهري) ما بتظهر بصورة اليوم — بس بالملخص الشهري
-  const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري" && e.type !== "مصروف");
+  const list = ENTRIES.filter(e => e.entry_date === d && e.type !== "مصروف شهري" && e.type !== "مصروف" && e.type !== "مصروف ممول");
   const t = totals(list);
   // إجمالي اليوم = الكاش الفعلي اللي دخل
   const total = t.hRev + t.productSales + t.coffee + t.settle;
@@ -398,7 +398,7 @@ function syncLogForm(){
   if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
-  if (t === "مصروف" || t === "مصروف شهري") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
+  if (t === "مصروف" || t === "مصروف شهري" || t === "مصروف ممول") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
   if (t === "دولار") { lD.textContent = "من حساب مين"; dSel.innerHTML = ["صندوق المحل", "صندوق الكوفي", "صندوق زيد — حلاقة", "صندوق زيد — كوفي", RENT_ACC].map(x => `<option>${x}</option>`).join(""); }
   if (t === "نقل") { lS.textContent = "من أي صندوق"; sSel.innerHTML = `<option value="محل">💈 صندوق المحل</option><option value="كوفي">☕ صندوق الكوفي</option>`; lD.textContent = "لوين"; dSel.innerHTML = ["صندوق زيد", RENT_ACC, "سلفة زيد", "سلفة " + (SETTINGS.partner_name || "الشريك")].map(x => `<option>${x}</option>`).join(""); }
   syncSubUI();
@@ -551,7 +551,7 @@ let LOG_SHOWN = 40;
 function renderLog(){
   const rows = ENTRIES.slice(0, LOG_SHOWN).map(e => {
     const c = calc(e);
-    const isExp = e.type === "مصروف" || e.type === "مصروف شهري";
+    const isExp = e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول";
     const val = e.type === "دولار" ? c.usd.toFixed(2) + " $" : fmtSYP(Math.abs(isExp ? c.net : c.rev || c.net));
     const bayan = (e.detail || "—") + (e.sub ? " · " + e.sub : "");
     const isB = BARBER_TYPES.includes(e.type);
@@ -559,7 +559,7 @@ function renderLog(){
     const netTxt = isB ? fmt(c.net) : (e.type === "كوفي" ? fmt(c.net) : "—");
     return `<tr>
       <td>${e.entry_date}</td>
-      <td><span class="tag t-${(e.type === "مصروف شهري") ? "مصروف" : (e.type === "نقل" || e.type === "تسوية") ? "دولار" : e.type}">${e.type}</span></td>
+      <td><span class="tag t-${(e.type === "مصروف شهري" || e.type === "مصروف ممول") ? "مصروف" : (e.type === "نقل" || e.type === "تسوية") ? "دولار" : e.type}">${e.type}</span></td>
       <td>${bayan}</td>
       <td>${e.count ?? "—"}</td>
       <td class="${isExp ? "neg" : ""}">${isExp ? "−" : ""}${val}</td>
@@ -887,10 +887,10 @@ function renderStats(){
     }
   }
   // متوسط الدخل اليومي
-  const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
+  const days = [...new Set(list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="مصروف ممول"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").map(e=>e.entry_date))];
   const totalRev = allT.hRev + allT.productSales + allT.coffee;
   const dN = days.length || 1;
-  const cofExpAll = list.filter(e => (e.type==="مصروف"||e.type==="مصروف شهري") && e.detail==="مصاريف كوفي").reduce((a,e)=>a+(+e.amount||0),0);
+  const cofExpAll = list.filter(e => (e.type==="مصروف"||e.type==="مصروف شهري"||e.type==="مصروف ممول") && e.detail==="مصاريف كوفي").reduce((a,e)=>a+(+e.amount||0),0);
   const shopExpOnly = allT.exp - cofExpAll;
   const avgHRev  = allT.hRev / dN;                       // دخل الحلاقة والخدمات
   const avgHNet  = (allT.hNet - shopExpOnly) / dN;       // صافي الحلاقة بعد العمولات والمصاريف
@@ -985,7 +985,7 @@ function renderSourcesDonut(t){
 
 function renderExpDonut(list){
   const byCat = {};
-  list.filter(e => e.type==="مصروف"||e.type==="مصروف شهري").forEach(e => {
+  list.filter(e => e.type==="مصروف"||e.type==="مصروف شهري"||e.type==="مصروف ممول").forEach(e => {
     const k = e.detail || "أخرى";
     byCat[k] = (byCat[k]||0) + (+e.amount||0);
   });
@@ -1020,7 +1020,7 @@ function donut(parts){
 function renderWeekdayBars(list){
   const byDay = [0,0,0,0,0,0,0], cntDay = [0,0,0,0,0,0,0];
   const seen = {};
-  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="مصروف ممول"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
     const c = calc(e);
     const wd = new Date(e.entry_date+"T00:00:00").getDay();
     byDay[wd] += c.rev;
@@ -1092,7 +1092,7 @@ function renderServiceTypes(list){
 
 function renderTopDays(list){
   const byDay = {};
-  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
+  list.filter(e => e.type!=="مصروف"&&e.type!=="مصروف شهري"&&e.type!=="مصروف ممول"&&e.type!=="دولار"&&e.type!=="نقل"&&e.type!=="رصيد سابق").forEach(e => {
     const c = calc(e);
     byDay[e.entry_date] = (byDay[e.entry_date]||0) + c.rev;
   });
@@ -1145,7 +1145,7 @@ function renderPartners(){
     const c = calc(e);
     if (e.type === "حلاقة" || e.type === "خدمة") { rev += c.rev; comm += c.comm; }
     if (e.type === "منتج") rev += c.rev;
-    if ((e.type === "مصروف" || e.type === "مصروف شهري") && e.detail !== "مصاريف كوفي") exp += (+e.amount || 0);
+    if ((e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") && e.detail !== "مصاريف كوفي") exp += (+e.amount || 0);
   });
   const profit = rev - comm - exp;
   const drawOf = who => list.filter(e => e.type === "نقل" && e.detail === "سلفة " + who)
@@ -1183,7 +1183,7 @@ function renderCoffeeInvest(){
 
   // حركات الكوفي مرتّبة بالتاريخ (مبيعات − مصاريف كوفي)
   const mv = ENTRIES.filter(e => e.type === "كوفي"
-      || ((e.type === "مصروف" || e.type === "مصروف شهري") && e.detail === "مصاريف كوفي"))
+      || ((e.type === "مصروف" || e.type === "مصروف شهري" || e.type === "مصروف ممول") && e.detail === "مصاريف كوفي"))
     .map(e => ({ d: e.entry_date, v: e.type === "كوفي" ? (+e.amount || 0) : -(+e.amount || 0) }))
     .sort((a, b) => a.d < b.d ? -1 : 1);
 
