@@ -131,14 +131,15 @@ function renderCapital(){
   ENTRIES.forEach(e => {
     if (e.entry_date < CAP_START) return;
     if (isCapBuy(e)) { invested += +e.amount || 0; if (!firstBuy || e.entry_date < firstBuy) firstBuy = e.entry_date; }
-    if (e.type === "منتج" && +e.cost > 0) {
+    if (e.type === "منتج") {
       const k = (e.sub || "—").trim();
       const r = by[k] || (by[k] = { n: 0, sale: 0, cost: 0 });
       r.n += 1; r.sale += +e.amount || 0; r.cost += +e.cost || 0;
     }
   });
   const rows = Object.entries(by).map(([name, r]) => ({ name, ...r, profit: r.sale - r.cost })).sort((a, b) => b.profit - a.profit);
-  const sale = rows.reduce((s, r) => s + r.sale, 0), cost = rows.reduce((s, r) => s + r.cost, 0), profit = sale - cost;
+  const capRows = rows.filter(r => r.cost > 0); // حسابات رأس المال عالبضاعة المكلفة بس
+  const sale = capRows.reduce((s, r) => s + r.sale, 0), cost = capRows.reduce((s, r) => s + r.cost, 0), profit = sale - cost;
   const stock = invested - cost;
   const verdict = m => m >= .5 ? `<span class="trend up">ممتاز</span>` : m >= .3 ? `<span class="trend flat">مقبول</span>` : `<span class="trend down">ضعيف — ارفع السعر</span>`;
   const x = (a, b) => b ? (a / b).toFixed(2) + "×" : "—";
@@ -157,7 +158,7 @@ function renderCapital(){
     <tr><td>⏳ بهالسرعة المخزون بيخلص خلال</td><td>${turn}</td></tr>
   </table>` + (rows.length ? `<table style="margin-top:14px">
     <tr><th>المنتج</th><th>بيعات</th><th>مبيع</th><th>تكلفة</th><th>ربح</th><th>العائد</th></tr>
-    ${rows.map(r => `<tr><td><strong>${r.name}</strong></td><td>${r.n}</td><td>${fmt(r.sale)}</td><td>${fmt(r.cost)}</td><td class="pos">${fmt(r.profit)}</td><td>${x(r.sale, r.cost)} ${verdict(r.profit / r.cost)}</td></tr>`).join("")}
+    ${rows.map(r => `<tr><td><strong>${r.name}</strong></td><td>${r.n}</td><td>${fmt(r.sale)}</td><td>${r.cost ? fmt(r.cost) : "—"}</td><td class="pos">${fmt(r.profit)}</td><td>${r.cost ? x(r.sale, r.cost) + " " + verdict(r.profit / r.cost) : `<span class="trend up">ربح صافي</span>`}</td></tr>`).join("")}
   </table>` : `<div class="empty">لسا ما انباعت قطع من البضاعة الجديدة</div>`);
 }
 function stockCapital(){
