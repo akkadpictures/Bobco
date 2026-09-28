@@ -285,7 +285,11 @@ function renderCash(){
       if (e.detail === "مصاريف كوفي") cofExp += (+e.amount || 0);
       else exp += (+e.amount || 0);
     }
-    if (e.type === "دولار") {
+    if (e.type === "دولار" && e.detail === RENT_ACC && +e.rate === 1) {
+      // نقل دولار جاهز من صندوق زيد للمؤونة: بيطلع من صندوق زيد وبيدخل المؤونة — ما بيمس الليرة
+      const a = +e.amount || 0;
+      rentUsd += a; usdShop -= a;
+    } else if (e.type === "دولار") {
       const a = +e.amount || 0;
       if (e.detail === "صندوق الكوفي" || e.detail === "صندوق زيد — كوفي") usdCof += c.usd;
       else if (e.detail === "مؤونة الأجار") rentUsd += c.usd; // محجوزة — ذمة برا الصندوق
