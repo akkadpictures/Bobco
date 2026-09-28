@@ -50,6 +50,19 @@ async function openPanel(){
   syncRate();
 }
 
+// Supabase بيرجّع 1000 سطر كحد أقصى بالطلب — منجيب كل السجل على دفعات حتى ما تنقص القيود القديمة
+async function fetchAllRows(makeQuery, step = 1000){
+  let all = [], from = 0;
+  while (true) {
+    const { data, error } = await makeQuery().range(from, from + step - 1);
+    if (error) { console.error(error); return { data: all, error }; }
+    all = all.concat(data || []);
+    if (!data || data.length < step) break;
+    from += step;
+  }
+  return { data: all };
+}
+
 async function loadAll(){
   const [st, b, ec, pp, sv, cf, en, pr] = await Promise.all([
     db.from("settings").select("*"),
@@ -58,7 +71,7 @@ async function loadAll(){
     db.from("price_periods").select("*").order("from_date"),
     db.from("services").select("*").order("sort"),
     db.from("coffee_items").select("*").order("sort"),
-    db.from("entries").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }),
+    fetchAllRows(() => db.from("entries").select("*").order("entry_date", { ascending: false }).order("created_at", { ascending: false }).order("id")),
     db.from("products").select("*").order("sort"),
   ]);
   SETTINGS = {}; (st.data || []).forEach(r => SETTINGS[r.key] = r.value);
