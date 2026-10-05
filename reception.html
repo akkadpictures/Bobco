@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bob &amp; Co — الاستقبال</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --olive:#343925; --olive-deep:#282D1C; --cream:#EFE3CA; --cream-soft:#F6EFDF;
   --ink:#0F0F0F; --line:rgba(52,57,37,.16);
   --pos:#2f5c33; --neg:#9c3b2e;
-  --ar:'Almarai',sans-serif; --caps:'Montserrat',sans-serif;
+  --ar:'Almarai',sans-serif; --caps:'Montserrat',sans-serif; --serif:'Cormorant Garamond',serif;
   --st-wait:#b98524; --st-conf:#3c6ca8; --st-here:#1d7f74; --st-done:#2f5c33; --st-no:#9c3b2e; --st-cancel:#8a8a80;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -30,7 +31,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 /* ===== app shell ===== */
 #app{display:none;max-width:1280px;margin:0 auto;padding:14px 14px 90px}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-header .logo{font-family:var(--caps);font-weight:700;letter-spacing:.12em;color:var(--olive);font-size:.95rem}
+header .logo{font-weight:800;color:var(--olive);font-size:1.05rem}
 .tabs{display:flex;gap:6px;margin-inline-start:auto}
 .tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:.9rem;background:#fff;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
@@ -121,6 +122,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 
   <!-- ===== Calendar ===== -->
   <section class="view on" id="v-cal">
+    <div style="font-weight:800;font-size:1.15rem;color:var(--olive);margin-bottom:8px" id="dayLabel"></div>
     <div class="cal-head">
       <button class="nav" id="prevDay">‹</button>
       <input type="date" id="calDate">
@@ -243,11 +245,19 @@ async function loadInquiries(){
 
 /* ---------- grid helpers ---------- */
 function slotGrid(){
-  const [oh, om] = (SETTINGS.open_time || "12:00").split(":").map(Number);
-  const [ch, cm] = (SETTINGS.close_time || "22:00").split(":").map(Number);
+  const [oh, om] = (SETTINGS.rec_open_time || SETTINGS.open_time || "10:30").split(":").map(Number);
+  const [ch, cm] = (SETTINGS.rec_close_time || SETTINGS.close_time || "23:30").split(":").map(Number);
   const step = Number(SETTINGS.slot_minutes || 30);
   return { open: oh*60+om, close: ch*60+cm, step };
 }
+const AR_DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+function updDayLabel(){
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  document.getElementById("dayLabel").textContent =
+    `${AR_DAYS[curDate.getDay()]} · ${curDate.getDate()}/${curDate.getMonth()+1}/${curDate.getFullYear()}  —  ⏰ هلق: ${t}`;
+}
+setInterval(() => { if(document.getElementById("dayLabel")) updDayLabel(); }, 30000);
 const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
 const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
 function bookingMins(b){
@@ -270,6 +280,7 @@ function initCal(){
   drawCal();
 }
 async function drawCal(){
+  updDayLabel();
   await loadDay();
   const { open, close, step } = slotGrid();
   const cols = BARBER_VIEW ? BARBERS.filter(b => String(b.id) === String(BARBER_VIEW)) : BARBERS;
@@ -282,8 +293,11 @@ async function drawCal(){
         toMin(x.booking_time) < t && toMin(x.booking_time) + bookingMins(x) > t);
       if (appt){
         const rows = Math.max(1, Math.ceil(bookingMins(appt) / step));
-        html += `<td class="cell"><div class="appt" style="background:${stColor(appt.status)};height:${rows*46-5}px" onclick="event.stopPropagation();openAppt('${appt.id}')">
-          <b>${appt.customer_name||"—"}</b>${svcNames(appt)||""}<span class="src">${appt.status}${appt.source ? " · " + appt.source : ""}</span></div></td>`;
+        const endT = toLabel(toMin(appt.booking_time) + bookingMins(appt));
+        const hue = [...appt.id].reduce((a,c) => a + c.charCodeAt(0), 0) % 360;
+        html += `<td class="cell"><div class="appt" style="background:hsl(${hue},30%,36%);border-inline-start:6px solid ${stColor(appt.status)};height:${rows*46-5}px" onclick="event.stopPropagation();openAppt('${appt.id}')">
+          <b>${appt.customer_name||"—"} <span style="font-weight:400;font-size:.72rem">⏱ ${appt.booking_time}–${endT}</span></b>
+          ${svcNames(appt)||""}<span class="src">${appt.status}${appt.source ? " · " + appt.source : ""}</span></div></td>`;
       } else if (covered){
         html += `<td class="cell"></td>`;
       } else {
@@ -320,7 +334,7 @@ function openBook(barberId, time){
   const sheet = document.getElementById("bookSheet");
   sheet.innerHTML = `
     <h3>حجز جديد — ${b.name} · ${time} · ${iso(curDate)}</h3>
-    <div class="frow"><label>رقم الزبون</label><input id="bkPhone" inputmode="tel" placeholder="09..."><div id="bkHit"></div></div>
+    <div class="frow"><label>موبايل الزبون <span style="font-weight:400;opacity:.6">(اختياري — بس هو اللي بيبني داتا الزباين وبيجمع زياراتو)</span></label><input id="bkPhone" inputmode="tel" placeholder="09xxxxxxxx"><div id="bkHit"></div></div>
     <div class="frow"><label>الاسم</label><input id="bkName" placeholder="اسم الزبون"></div>
     <div class="frow"><label>الخدمات</label><div class="svc-list" id="bkSvcs">${SERVICES.map(s =>
       `<button class="svc" data-id="${s.id}" onclick="togSvc(this)">${s.name}<small>${s.duration_min||30}د</small></button>`).join("")}</div>

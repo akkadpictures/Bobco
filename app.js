@@ -161,7 +161,7 @@ function renderBarberPick(){
   BARBERS.forEach(b => {
     const el = document.createElement('div');
     el.className = 'bpick'; el.dataset.id = b.id;
-    el.innerHTML = `<div class="avatar">${(b.name||"؟").trim()[0]}</div><h3>${b.name}</h3><p>${b.title||"حلاق"}</p>`;
+    el.innerHTML = `<h3 style="font-size:1.25rem;margin-top:8px">${b.name}</h3><p>${b.title||"حلاق"}</p>`;
     el.onclick = () => { state.barber = b.id; state.slot = null; update(); };
     box.appendChild(el);
   });
