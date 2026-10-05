@@ -278,6 +278,15 @@ function updDayLabel(){
     `${AR_DAYS[curDate.getDay()]} · ${curDate.getDate()}/${curDate.getMonth()+1}/${curDate.getFullYear()}  —  الساعة الآن ${t}`;
 }
 setInterval(() => { if(document.getElementById("dayLabel")) updDayLabel(); }, 30000);
+// 🔄 تحديث تلقائي: الجدول بيلقط أي حجز جديد لحالو — بلا ريفرش ولا استيعاب 😄
+setInterval(() => {
+  const calOn = document.getElementById("v-cal").classList.contains("on");
+  const sheetOpen = document.querySelector(".overlay.on");
+  if (document.visibilityState === "visible" && calOn && !sheetOpen && document.getElementById("app").style.display !== "none") drawCal();
+}, 60000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && document.getElementById("app").style.display !== "none") drawCal();
+});
 const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
 const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
 function bookingMins(b){
