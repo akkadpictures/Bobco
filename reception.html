@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bob &amp; Co — الاستقبال</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --olive:#343925; --olive-deep:#282D1C; --cream:#EFE3CA; --cream-soft:#F6EFDF;
+  --ink:#0F0F0F; --line:rgba(52,57,37,.16);
+  --pos:#2f5c33; --neg:#9c3b2e;
+  --ar:'Almarai',sans-serif; --caps:'Montserrat',sans-serif;
+  --st-wait:#b98524; --st-conf:#3c6ca8; --st-here:#1d7f74; --st-done:#2f5c33; --st-no:#9c3b2e; --st-cancel:#8a8a80;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--ar);background:var(--cream-soft);color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button{font-family:var(--ar);cursor:pointer;border:none;background:none}
+input,select,textarea{font-family:var(--ar);font-size:1rem}
+/* ===== gate ===== */
+#gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--olive)}
+.gate-card{background:var(--cream);border-radius:20px;padding:36px 30px;width:min(360px,92vw);text-align:center}
+.gate-card h1{font-family:var(--caps);letter-spacing:.14em;font-size:1rem;color:var(--olive)}
+.gate-card h2{font-size:1.4rem;margin:6px 0 20px}
+.gate-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:1.3rem;letter-spacing:.3em;background:#fff}
+.gate-card button{width:100%;margin-top:12px;background:var(--olive);color:var(--cream);padding:13px;border-radius:12px;font-weight:800;font-size:1rem}
+#gateErr{color:var(--neg);font-size:.85rem;margin-top:10px;min-height:1.2em}
+/* ===== app shell ===== */
+#app{display:none;max-width:1280px;margin:0 auto;padding:14px 14px 90px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+header .logo{font-family:var(--caps);font-weight:700;letter-spacing:.12em;color:var(--olive);font-size:.95rem}
+.tabs{display:flex;gap:6px;margin-inline-start:auto}
+.tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:.9rem;background:#fff;color:var(--olive)}
+.tab.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
+.view{display:none}.view.on{display:block}
+/* ===== calendar ===== */
+.cal-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.cal-head .nav{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:800}
+.cal-head input[type=date]{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
+.day-stats{display:flex;gap:8px;flex-wrap:wrap;margin-inline-start:auto;font-size:.8rem;font-weight:700}
+.day-stats span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.grid-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;max-height:72vh;position:relative}
+table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
+.grid th{position:sticky;top:0;background:var(--olive);color:var(--cream);padding:10px 6px;font-size:.9rem;z-index:5;min-width:150px}
+.grid th.time{min-width:58px;right:0;position:sticky;z-index:6}
+.grid td{border-bottom:1px solid rgba(52,57,37,.07);border-inline-start:1px solid rgba(52,57,37,.07);height:46px;vertical-align:top;position:relative;padding:0}
+.grid td.time{position:sticky;right:0;background:var(--cream-soft);font-size:.75rem;font-weight:800;text-align:center;color:var(--olive);z-index:4;border-inline-start:none;padding-top:4px}
+.grid td.cell{cursor:pointer;min-width:150px}
+.grid td.cell:active{background:rgba(52,57,37,.05)}
+.appt{position:absolute;inset-inline:3px;top:2px;border-radius:9px;padding:5px 8px;color:#fff;font-size:.76rem;line-height:1.35;overflow:hidden;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.appt b{display:block;font-size:.82rem}
+.appt .src{opacity:.8;font-size:.68rem}
+.nowline{position:absolute;inset-inline:0;height:2px;background:var(--neg);z-index:3;pointer-events:none}
+/* ===== modal ===== */
+.overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.overlay.on{display:flex}
+.sheet{background:var(--cream-soft);border-radius:22px 22px 0 0;width:min(640px,100vw);max-height:92vh;overflow:auto;padding:20px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+.sheet h3{margin-bottom:14px;font-size:1.15rem}
+.frow{margin-bottom:12px}
+.frow label{display:block;font-size:.8rem;font-weight:800;opacity:.7;margin-bottom:5px}
+.frow input,.frow select,.frow textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:700;font-size:.85rem;background:#fff}
+.chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
+.svc-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.svc{border:1px solid var(--line);border-radius:11px;padding:9px 11px;font-size:.84rem;font-weight:700;background:#fff;display:flex;justify-content:space-between;gap:6px}
+.svc.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
+.svc small{opacity:.65;font-weight:400}
+.btn{display:block;width:100%;background:var(--olive);color:var(--cream);padding:14px;border-radius:13px;font-weight:800;font-size:1.02rem;margin-top:14px}
+.btn.ghost{background:#fff;color:var(--olive);border:1px solid var(--line)}
+.btn.danger{background:var(--neg)}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.status-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
+.status-btn{padding:11px 4px;border-radius:11px;color:#fff;font-weight:800;font-size:.82rem;opacity:.45}
+.status-btn.on{opacity:1;outline:3px solid rgba(15,15,15,.25)}
+.cust-hit{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;margin-top:6px;font-size:.88rem;font-weight:700}
+.muted{opacity:.6;font-size:.8rem}
+/* ===== customers & inquiries ===== */
+.panelbox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
+.search{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;background:#fff}
+.cust-row{display:flex;justify-content:space-between;gap:8px;padding:12px 4px;border-bottom:1px solid rgba(52,57,37,.08);font-size:.92rem;align-items:center}
+.cust-row b{display:block}
+.pill{background:var(--cream);border-radius:999px;padding:4px 11px;font-size:.75rem;font-weight:800;color:var(--olive);white-space:nowrap}
+.inq-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
+.inq-btn{background:var(--olive);color:var(--cream);border-radius:14px;padding:18px 8px;font-weight:800;font-size:.95rem}
+.inq-btn small{display:block;font-weight:400;font-size:.72rem;opacity:.75;margin-top:3px}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.kcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
+.kcard .v{font-size:1.5rem;font-weight:800;color:var(--olive)}
+.kcard .l{font-size:.75rem;opacity:.65;font-weight:700}
+.toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;display:none}
+@media(max-width:700px){ .grid th{min-width:128px} .grid td.cell{min-width:128px} .svc-list{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <h1>BOB &amp; CO</h1>
+    <h2 id="gateTitle">نظام الاستقبال</h2>
+    <input id="pin" type="password" inputmode="numeric" placeholder="••••">
+    <button id="gateBtn">دخول</button>
+    <div id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <span class="logo">BOB &amp; CO — RECEPTION</span>
+    <nav class="tabs" id="mainTabs">
+      <button class="tab on" data-v="cal">📅 المواعيد</button>
+      <button class="tab" data-v="cust">👥 الزباين</button>
+      <button class="tab" data-v="inq">📊 الاستفسارات</button>
+    </nav>
+  </header>
+
+  <!-- ===== Calendar ===== -->
+  <section class="view on" id="v-cal">
+    <div class="cal-head">
+      <button class="nav" id="prevDay">‹</button>
+      <input type="date" id="calDate">
+      <button class="nav" id="nextDay">›</button>
+      <button class="nav" id="todayBtn">اليوم</button>
+      <div class="day-stats" id="dayStats"></div>
+    </div>
+    <div class="grid-wrap" id="gridWrap"></div>
+    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
+  </section>
+
+  <!-- ===== Customers ===== -->
+  <section class="view" id="v-cust">
+    <div class="panelbox">
+      <input class="search" id="custSearch" placeholder="🔍 دوّر باسم أو رقم...">
+      <div id="custList"></div>
+    </div>
+  </section>
+
+  <!-- ===== Inquiries ===== -->
+  <section class="view" id="v-inq">
+    <div class="kgrid" id="inqStats"></div>
+    <div class="panelbox">
+      <p style="font-weight:800;margin-bottom:10px">وصلنا استفسار؟ كبسة وحدة بتسجلو:</p>
+      <div class="inq-btns" id="inqBtns"></div>
+      <div id="inqList"></div>
+    </div>
+  </section>
+</div>
+
+<!-- booking sheet -->
+<div class="overlay" id="bookOv"><div class="sheet" id="bookSheet"></div></div>
+<!-- appointment detail sheet -->
+<div class="overlay" id="apptOv"><div class="sheet" id="apptSheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+/* ============ Bob & Co — Reception ============ */
+let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [];
+let curDate = new Date();
+const params = new URLSearchParams(location.search);
+const BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
+const STATUSES = [
+  { k:"بانتظار التأكيد", c:"var(--st-wait)" },
+  { k:"مؤكد",            c:"var(--st-conf)" },
+  { k:"وصل",             c:"var(--st-here)" },
+  { k:"خلص",             c:"var(--st-done)" },
+  { k:"ما إجا",          c:"var(--st-no)" },
+  { k:"ملغي",            c:"var(--st-cancel)" },
+];
+const stColor = s => (STATUSES.find(x => x.k === s) || STATUSES[1]).c;
+const SOURCES = ["تلفون","واتساب","انستغرام","مر عالمحل","زبون قديم"];
+const INQ_CHANNELS = ["انستغرام","واتساب","تلفون","فيسبوك","مر عالمحل"];
+const iso = d => d.toISOString().slice(0,10);
+const fmt = n => new Intl.NumberFormat("en-US").format(Math.round(n||0));
+const toast = m => { const t = document.getElementById("toast"); t.textContent = m; t.style.display = "block"; setTimeout(()=>t.style.display="none", 2200); };
+
+/* ---------- gate ---------- */
+async function tryPin(){
+  const v = document.getElementById("pin").value.trim();
+  const key = BARBER_VIEW ? "crew_pin" : "reception_pin";
+  const { data } = await db.from("settings").select("value").eq("key", key).single();
+  if (data && v === data.value) { sessionStorage.setItem("bobco_rec", key); openApp(); }
+  else { document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة"; document.getElementById("pin").value = ""; }
+}
+document.getElementById("gateBtn").onclick = tryPin;
+document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "Enter") tryPin(); });
+if (BARBER_VIEW) document.getElementById("gateTitle").textContent = "جدول الحلاق";
+if (sessionStorage.getItem("bobco_rec")) openApp();
+
+async function openApp(){
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  await loadBase();
+  if (BARBER_VIEW) { document.getElementById("mainTabs").style.display = "none"; }
+  initCal();
+  renderCustomers(); renderInquiries();
+}
+
+/* ---------- data ---------- */
+async function loadBase(){
+  const [st, br, sv] = await Promise.all([
+    db.from("settings").select("*"),
+    db.from("barbers").select("*").eq("active", true).order("sort"),
+    db.from("services").select("*").eq("active", true).order("sort"),
+  ]);
+  (st.data||[]).forEach(r => SETTINGS[r.key] = r.value);
+  BARBERS = br.data||[]; SERVICES = sv.data||[];
+}
+async function loadDay(){
+  const { data } = await db.from("bookings").select("*").eq("booking_date", iso(curDate)).order("booking_time");
+  BOOKINGS = data||[];
+}
+async function loadCustomers(q){
+  let qr = db.from("customers").select("*").order("created_at", { ascending:false }).limit(60);
+  if (q) qr = qr.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+  const { data } = await qr; CUSTOMERS = data||[];
+}
+async function loadInquiries(){
+  const first = iso(curDate).slice(0,7) + "-01";
+  const { data } = await db.from("inquiries").select("*").gte("at", first).order("at", { ascending:false });
+  INQUIRIES = data||[];
+}
+
+/* ---------- grid helpers ---------- */
+function slotGrid(){
+  const [oh, om] = (SETTINGS.open_time || "12:00").split(":").map(Number);
+  const [ch, cm] = (SETTINGS.close_time || "22:00").split(":").map(Number);
+  const step = Number(SETTINGS.slot_minutes || 30);
+  return { open: oh*60+om, close: ch*60+cm, step };
+}
+const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
+const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
+function bookingMins(b){
+  if (b.duration_min) return +b.duration_min;
+  const ids = (b.service_ids && b.service_ids.length) ? b.service_ids : (b.service_id ? [b.service_id] : []);
+  const sum = ids.reduce((s,id) => { const sv = SERVICES.find(x => x.id === id); return s + (sv ? (+sv.duration_min || 30) : 30); }, 0);
+  return sum || Number(SETTINGS.slot_minutes || 30);
+}
+const svcNames = b => ((b.service_ids && b.service_ids.length) ? b.service_ids : (b.service_id ? [b.service_id] : []))
+  .map(id => (SERVICES.find(x => x.id === id) || {}).name).filter(Boolean).join(" + ");
+
+/* ---------- calendar ---------- */
+function initCal(){
+  const d = document.getElementById("calDate");
+  d.value = iso(curDate);
+  d.onchange = () => { curDate = new Date(d.value + "T12:00:00"); drawCal(); };
+  document.getElementById("prevDay").onclick = () => { curDate.setDate(curDate.getDate()-1); d.value = iso(curDate); drawCal(); };
+  document.getElementById("nextDay").onclick = () => { curDate.setDate(curDate.getDate()+1); d.value = iso(curDate); drawCal(); };
+  document.getElementById("todayBtn").onclick = () => { curDate = new Date(); d.value = iso(curDate); drawCal(); };
+  drawCal();
+}
+async function drawCal(){
+  await loadDay();
+  const { open, close, step } = slotGrid();
+  const cols = BARBER_VIEW ? BARBERS.filter(b => String(b.id) === String(BARBER_VIEW)) : BARBERS;
+  let html = `<table class="grid"><tr><th class="time">⏰</th>${cols.map(b => `<th>${b.name}</th>`).join("")}</tr>`;
+  for (let t = open; t < close; t += step){
+    html += `<tr><td class="time">${toLabel(t)}</td>`;
+    for (const b of cols){
+      const appt = BOOKINGS.find(x => x.barber_id === b.id && x.booking_time === toLabel(t) && x.status !== "ملغي" && x.status !== "ملغى");
+      const covered = BOOKINGS.some(x => x.barber_id === b.id && x.status !== "ملغي" && x.status !== "ملغى" &&
+        toMin(x.booking_time) < t && toMin(x.booking_time) + bookingMins(x) > t);
+      if (appt){
+        const rows = Math.max(1, Math.ceil(bookingMins(appt) / step));
+        html += `<td class="cell"><div class="appt" style="background:${stColor(appt.status)};height:${rows*46-5}px" onclick="event.stopPropagation();openAppt('${appt.id}')">
+          <b>${appt.customer_name||"—"}</b>${svcNames(appt)||""}<span class="src">${appt.status}${appt.source ? " · " + appt.source : ""}</span></div></td>`;
+      } else if (covered){
+        html += `<td class="cell"></td>`;
+      } else {
+        html += `<td class="cell" onclick="${BARBER_VIEW ? "" : `openBook(${b.id},'${toLabel(t)}')`}"></td>`;
+      }
+    }
+    html += `</tr>`;
+  }
+  html += `</table>`;
+  const wrap = document.getElementById("gridWrap");
+  wrap.innerHTML = html;
+  // now line
+  const now = new Date();
+  if (iso(now) === iso(curDate)){
+    const mins = now.getHours()*60 + now.getMinutes();
+    if (mins >= open && mins <= close){
+      const px = 44 + ((mins - open) / step) * 46;
+      wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${px}px"></div>`);
+    }
+  }
+  // day stats
+  const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى");
+  const done = act.filter(b => b.status === "خلص"), no = act.filter(b => b.status === "ما إجا");
+  const paid = act.reduce((s,b) => s + (+b.amount||0), 0);
+  document.getElementById("dayStats").innerHTML =
+    `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span><span>💰 قيد: ${fmt(paid)} ل.س</span>`;
+}
+
+/* ---------- booking sheet ---------- */
+let bookState = {};
+function openBook(barberId, time){
+  bookState = { barber_id: barberId, time, services: new Set(), source: null, customer: null };
+  const b = BARBERS.find(x => x.id === barberId);
+  const sheet = document.getElementById("bookSheet");
+  sheet.innerHTML = `
+    <h3>حجز جديد — ${b.name} · ${time} · ${iso(curDate)}</h3>
+    <div class="frow"><label>رقم الزبون</label><input id="bkPhone" inputmode="tel" placeholder="09..."><div id="bkHit"></div></div>
+    <div class="frow"><label>الاسم</label><input id="bkName" placeholder="اسم الزبون"></div>
+    <div class="frow"><label>الخدمات</label><div class="svc-list" id="bkSvcs">${SERVICES.map(s =>
+      `<button class="svc" data-id="${s.id}" onclick="togSvc(this)">${s.name}<small>${s.duration_min||30}د</small></button>`).join("")}</div>
+      <p class="muted" id="bkDur" style="margin-top:6px"></p></div>
+    <div class="frow"><label>مصدر الحجز</label><div class="chips">${SOURCES.map(s =>
+      `<button class="chip" data-s="${s}" onclick="togSrc(this)">${s}</button>`).join("")}</div></div>
+    <div class="frow"><label>ملاحظة (اختياري)</label><input id="bkNote"></div>
+    <button class="btn" onclick="saveBook()">ثبّت الحجز</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+  document.getElementById("bookOv").classList.add("on");
+  let tmr;
+  document.getElementById("bkPhone").oninput = e => {
+    clearTimeout(tmr);
+    const v = e.target.value.trim(); if (v.length < 3) return document.getElementById("bkHit").innerHTML = "";
+    tmr = setTimeout(async () => {
+      const { data } = await db.from("customers").select("*").ilike("phone", `%${v}%`).limit(3);
+      document.getElementById("bkHit").innerHTML = (data||[]).map(c =>
+        `<div class="cust-hit" onclick="pickCust('${c.id}','${c.name.replace(/'/g,"")}','${c.phone}')">👤 ${c.name} — ${c.phone}</div>`).join("");
+    }, 350);
+  };
+}
+function pickCust(id, name, phone){
+  bookState.customer = id;
+  document.getElementById("bkName").value = name;
+  document.getElementById("bkPhone").value = phone;
+  document.getElementById("bkHit").innerHTML = `<p class="muted">✓ زبون مسجل</p>`;
+}
+function togSvc(el){
+  const id = +el.dataset.id;
+  bookState.services.has(id) ? bookState.services.delete(id) : bookState.services.add(id);
+  el.classList.toggle("on");
+  const mins = [...bookState.services].reduce((s,i) => s + (+(SERVICES.find(x=>x.id===i)||{}).duration_min || 30), 0);
+  document.getElementById("bkDur").textContent = mins ? `مدة الموعد: ${mins} دقيقة` : "";
+}
+function togSrc(el){
+  bookState.source = el.dataset.s;
+  document.querySelectorAll("#bookSheet .chip").forEach(c => c.classList.toggle("on", c === el));
+}
+async function saveBook(){
+  const name = document.getElementById("bkName").value.trim();
+  const phone = document.getElementById("bkPhone").value.trim();
+  if (!name) return toast("اكتب اسم الزبون");
+  const ids = [...bookState.services];
+  const mins = ids.reduce((s,i) => s + (+(SERVICES.find(x=>x.id===i)||{}).duration_min || 30), 0) || Number(SETTINGS.slot_minutes||30);
+  // customer upsert
+  if (phone){
+    const { data: ex } = await db.from("customers").select("id").eq("phone", phone).maybeSingle();
+    if (!ex) await db.from("customers").insert({ name, phone });
+  }
+  const { error } = await db.from("bookings").insert({
+    customer_name: name, phone: phone || null,
+    barber_id: bookState.barber_id,
+    service_id: ids[0] || null, service_ids: ids.length ? ids : null,
+    booking_date: iso(curDate), booking_time: bookState.time,
+    duration_min: mins, status: "مؤكد",
+    source: bookState.source || "تلفون", created_by: "reception",
+    note: document.getElementById("bkNote").value.trim() || null
+  });
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ انحجز"); drawCal();
+}
+
+/* ---------- appointment sheet ---------- */
+function openAppt(id){
+  const a = BOOKINGS.find(x => x.id === id); if (!a) return;
+  const sheet = document.getElementById("apptSheet");
+  sheet.innerHTML = `
+    <h3>${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
+    <p class="muted">${svcNames(a)||"بدون خدمات محددة"}${a.phone ? " · 📞 " + a.phone : ""}${a.source ? " · " + a.source : ""}</p>
+    ${a.note ? `<p class="muted">📝 ${a.note}</p>` : ""}
+    ${BARBER_VIEW ? "" : `
+    <div class="status-row">${STATUSES.map(s =>
+      `<button class="status-btn ${a.status===s.k?"on":""}" style="background:${s.c}" onclick="setStatus('${a.id}','${s.k}')">${s.k}</button>`).join("")}</div>
+    <div class="frow"><label>💰 قيد الحساب (ل.س) — تسجيل غير رسمي للضبط</label>
+      <input id="apAmount" inputmode="numeric" value="${a.amount||""}" placeholder="مثلاً 90000"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveAmount('${a.id}')">احفظ القيد</button>
+      <button class="btn danger" onclick="setStatus('${a.id}','ملغي')">إلغاء الموعد</button>
+    </div>`}
+    <button class="btn ghost" onclick="closeOv('apptOv')">سكّر</button>`;
+  document.getElementById("apptOv").classList.add("on");
+}
+async function setStatus(id, st){
+  await db.from("bookings").update({ status: st }).eq("id", id);
+  closeOv("apptOv"); toast("✓ " + st); drawCal();
+}
+async function saveAmount(id){
+  const v = +document.getElementById("apAmount").value || null;
+  await db.from("bookings").update({ amount: v }).eq("id", id);
+  closeOv("apptOv"); toast("✓ انقيد"); drawCal();
+}
+function closeOv(id){ document.getElementById(id).classList.remove("on"); }
+
+/* ---------- customers ---------- */
+async function renderCustomers(q){
+  await loadCustomers(q);
+  const phones = CUSTOMERS.map(c => c.phone);
+  let counts = {};
+  if (phones.length){
+    const { data } = await db.from("bookings").select("phone").in("phone", phones);
+    (data||[]).forEach(b => counts[b.phone] = (counts[b.phone]||0) + 1);
+  }
+  document.getElementById("custList").innerHTML = CUSTOMERS.map(c =>
+    `<div class="cust-row"><div><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
+     <span class="pill">${counts[c.phone]||0} زيارة</span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
+}
+let custTmr;
+document.getElementById("custSearch").oninput = e => { clearTimeout(custTmr); custTmr = setTimeout(() => renderCustomers(e.target.value.trim()), 350); };
+
+/* ---------- inquiries ---------- */
+async function renderInquiries(){
+  await loadInquiries();
+  document.getElementById("inqBtns").innerHTML = INQ_CHANNELS.map(ch =>
+    `<button class="inq-btn" onclick="logInq('${ch}')">${ch}<small>سجل استفسار</small></button>`).join("");
+  const today = INQUIRIES.filter(i => i.at.slice(0,10) === iso(new Date()));
+  const conv = INQUIRIES.filter(i => i.converted);
+  const byCh = {}; INQUIRIES.forEach(i => byCh[i.channel] = (byCh[i.channel]||0)+1);
+  const top = Object.entries(byCh).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`).join(" · ") || "—";
+  document.getElementById("inqStats").innerHTML = `
+    <div class="kcard"><div class="v">${today.length}</div><div class="l">استفسارات اليوم</div></div>
+    <div class="kcard"><div class="v">${INQUIRIES.length}</div><div class="l">هالشهر</div></div>
+    <div class="kcard"><div class="v">${conv.length}</div><div class="l">تحولو لحجز</div></div>
+    <div class="kcard"><div class="v">${INQUIRIES.length ? Math.round(conv.length/INQUIRIES.length*100) : 0}%</div><div class="l">نسبة التحويل</div></div>`;
+  document.getElementById("inqList").innerHTML =
+    `<p class="muted" style="margin-bottom:8px">قنوات الشهر: ${top}</p>` +
+    INQUIRIES.slice(0,25).map(i =>
+      `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${new Date(i.at).toLocaleString("ar-SY",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>
+       <button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
+         onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ صار حجز" : "صار حجز؟"}</button></div>`).join("");
+}
+async function logInq(ch){
+  await db.from("inquiries").insert({ channel: ch });
+  toast("✓ انسجل استفسار " + ch); renderInquiries();
+}
+async function togConv(id, v){
+  await db.from("inquiries").update({ converted: v }).eq("id", id);
+  renderInquiries();
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t.dataset.v));
+  if (t.dataset.v === "cust") renderCustomers();
+  if (t.dataset.v === "inq") renderInquiries();
+});
+</script>
+</body>
+</html>

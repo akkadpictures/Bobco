@@ -209,11 +209,22 @@ function slotGrid(){
 async function getTaken(barberId, dateStr){
   const key = barberId + "|" + dateStr;
   if(takenCache[key]) return takenCache[key];
-  const { data } = await db.from("bookings").select("booking_time,status")
+  const { data } = await db.from("bookings").select("booking_time,status,duration_min,service_ids,service_id")
     .eq("barber_id", barberId).eq("booking_date", dateStr);
-  const taken = new Set((data||[])
-    .filter(r => r.status !== "ملغى" && r.status !== "ملغي")
-    .map(r => r.booking_time));
+  const { step } = slotGrid();
+  const toM = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  const toL = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
+  const taken = new Set();
+  (data||[]).filter(r => r.status !== "ملغى" && r.status !== "ملغي").forEach(r => {
+    // كل حجز بيحجب كل الفترات اللي بيغطيها حسب مدتو (مواعيد الاستقبال والأونلاين سوا)
+    let mins = +r.duration_min || 0;
+    if(!mins){
+      const ids = (r.service_ids && r.service_ids.length) ? r.service_ids : (r.service_id ? [r.service_id] : []);
+      mins = ids.reduce((s,id) => { const sv = SERVICES.find(x => x.id === id); return s + (sv ? (+sv.duration_min || step) : step); }, 0) || step;
+    }
+    const start = toM(r.booking_time);
+    for(let t = start; t < start + mins; t += step) taken.add(toL(t));
+  });
   takenCache[key] = taken;
   return taken;
 }
