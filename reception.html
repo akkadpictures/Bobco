@@ -23,8 +23,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 /* ===== gate ===== */
 #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--olive)}
 .gate-card{background:var(--cream);border-radius:20px;padding:36px 30px;width:min(360px,92vw);text-align:center}
-.gate-card h1{font-family:var(--caps);letter-spacing:.14em;font-size:1rem;color:var(--olive)}
-.gate-card h2{font-size:1.4rem;margin:6px 0 20px}
+.gate-card h2{font-size:1.4rem}
 .gate-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:1.3rem;letter-spacing:.3em;background:#fff}
 .gate-card button{width:100%;margin-top:12px;background:var(--olive);color:var(--cream);padding:13px;border-radius:12px;font-weight:800;font-size:1rem}
 #gateErr{color:var(--neg);font-size:.85rem;margin-top:10px;min-height:1.2em}
@@ -91,25 +90,28 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
 .kcard .v{font-size:1.5rem;font-weight:800;color:var(--olive)}
 .kcard .l{font-size:.75rem;opacity:.65;font-weight:700}
-.toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;display:none}
+.toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:.3s}
+.toast.show{opacity:1}
 @media(max-width:700px){ .grid th{min-width:128px} .grid td.cell{min-width:128px} .svc-list{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
 
 <div id="gate">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:26px">
+  <img src="logo-en.svg" alt="Bob &amp; Co" style="width:190px">
   <div class="gate-card">
-    <h1>BOB &amp; CO</h1>
-    <h2 id="gateTitle">نظام الاستقبال</h2>
+    <h2 id="gateTitle" style="margin:4px 0 20px">نظام الاستقبال</h2>
     <input id="pin" type="password" inputmode="numeric" placeholder="••••">
     <button id="gateBtn">دخول</button>
     <div id="gateErr"></div>
+  </div>
   </div>
 </div>
 
 <div id="app">
   <header>
-    <span class="logo">BOB &amp; CO — RECEPTION</span>
+    <span class="logo" style="display:flex;align-items:center;gap:10px"><img src="logo-en.svg" alt="" style="width:86px;filter:brightness(.25)"> الاستقبال</span>
     <nav class="tabs" id="mainTabs">
       <button class="tab on" data-v="cal">📅 المواعيد</button>
       <button class="tab" data-v="cust">👥 الزباين</button>
@@ -161,7 +163,8 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [];
 let curDate = new Date();
 const params = new URLSearchParams(location.search);
-const BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
+let BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
+const CREW_MODE = params.get("crew");     // دخول الحلاقين: بعد الرمز بيختار الحلاق اسمو
 const STATUSES = [
   { k:"بانتظار التأكيد", c:"var(--st-wait)" },
   { k:"مؤكد",            c:"var(--st-conf)" },
@@ -174,29 +177,43 @@ const stColor = s => (STATUSES.find(x => x.k === s) || STATUSES[1]).c;
 const SOURCES = ["تلفون","واتساب","انستغرام","مر عالمحل","زبون قديم"];
 const INQ_CHANNELS = ["انستغرام","واتساب","تلفون","فيسبوك","مر عالمحل"];
 const iso = d => d.toISOString().slice(0,10);
-const fmt = n => new Intl.NumberFormat("en-US").format(Math.round(n||0));
-const toast = m => { const t = document.getElementById("toast"); t.textContent = m; t.style.display = "block"; setTimeout(()=>t.style.display="none", 2200); };
+// fmt و toast جايين من config.js المشترك — ما منعيد تعريفهن
 
 /* ---------- gate ---------- */
 async function tryPin(){
-  const v = document.getElementById("pin").value.trim();
-  const key = BARBER_VIEW ? "crew_pin" : "reception_pin";
-  const { data } = await db.from("settings").select("value").eq("key", key).single();
-  if (data && v === data.value) { sessionStorage.setItem("bobco_rec", key); openApp(); }
-  else { document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة"; document.getElementById("pin").value = ""; }
+  try{
+    const v = document.getElementById("pin").value.trim();
+    const key = (BARBER_VIEW || CREW_MODE) ? "crew_pin" : "reception_pin";
+    const { data, error } = await db.from("settings").select("value").eq("key", key).maybeSingle();
+    if (error) throw error;
+    if (data && v === data.value) { sessionStorage.setItem("bobco_rec", key); openApp(); }
+    else { document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة"; document.getElementById("pin").value = ""; }
+  }catch(e){
+    document.getElementById("gateErr").textContent = "صار خطأ بالاتصال — جرب ريفرش";
+    console.error(e);
+  }
 }
 document.getElementById("gateBtn").onclick = tryPin;
 document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "Enter") tryPin(); });
-if (BARBER_VIEW) document.getElementById("gateTitle").textContent = "جدول الحلاق";
+if (BARBER_VIEW || CREW_MODE) document.getElementById("gateTitle").textContent = "جدول الحلاقين";
 if (sessionStorage.getItem("bobco_rec")) openApp();
 
 async function openApp(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   await loadBase();
+  if (CREW_MODE && !BARBER_VIEW){ pickBarber(); return; }
   if (BARBER_VIEW) { document.getElementById("mainTabs").style.display = "none"; }
   initCal();
-  renderCustomers(); renderInquiries();
+  if (!BARBER_VIEW){ renderCustomers(); renderInquiries(); }
+}
+function pickBarber(){
+  document.getElementById("mainTabs").style.display = "none";
+  document.getElementById("v-cal").innerHTML = `
+    <div class="panelbox" style="max-width:420px;margin:40px auto;text-align:center">
+      <h3 style="margin-bottom:16px">مين انت؟ 💈</h3>
+      ${BARBERS.map(b => `<button class="btn" style="margin-top:10px" onclick="BARBER_VIEW='${b.id}';location.search='?barber=${b.id}'">${b.name}</button>`).join("")}
+    </div>`;
 }
 
 /* ---------- data ---------- */
