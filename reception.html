@@ -24,14 +24,14 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 /* ===== gate ===== */
 #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--olive)}
 .gate-card{background:var(--cream);border-radius:20px;padding:36px 30px;width:min(360px,92vw);text-align:center}
-.gate-card h2{font-size:1.4rem}
+.gate-card h2{font-size:1.35rem;font-weight:400}
 .gate-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:1.3rem;letter-spacing:.3em;background:#fff}
 .gate-card button{width:100%;margin-top:12px;background:var(--olive);color:var(--cream);padding:13px;border-radius:12px;font-weight:800;font-size:1rem}
 #gateErr{color:var(--neg);font-size:.85rem;margin-top:10px;min-height:1.2em}
 /* ===== app shell ===== */
 #app{display:none;max-width:1280px;margin:0 auto;padding:14px 14px 90px}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-header .logo{font-weight:800;color:var(--olive);font-size:1.05rem}
+header .logo{font-weight:400;color:var(--olive);font-size:1.05rem;letter-spacing:.02em}
 .tabs{display:flex;gap:6px;margin-inline-start:auto}
 .tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:.9rem;background:#fff;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
@@ -103,7 +103,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
   <img src="logo-en.svg" alt="Bob &amp; Co" style="width:190px">
   <div class="gate-card">
     <h2 id="gateTitle" style="margin:4px 0 20px">نظام الاستقبال</h2>
-    <input id="pin" type="password" inputmode="numeric" placeholder="••••">
+    <input id="pin" type="password" placeholder="كلمة السر">
     <button id="gateBtn">دخول</button>
     <div id="gateErr"></div>
   </div>
@@ -117,12 +117,13 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="tab on" data-v="cal">📅 المواعيد</button>
       <button class="tab" data-v="cust">👥 الزباين</button>
       <button class="tab" data-v="inq">📊 الاستفسارات</button>
+      <button class="tab" data-v="tasks">✅ المهام</button>
     </nav>
   </header>
 
   <!-- ===== Calendar ===== -->
   <section class="view on" id="v-cal">
-    <div style="font-weight:800;font-size:1.15rem;color:var(--olive);margin-bottom:8px" id="dayLabel"></div>
+    <div style="font-weight:400;font-size:1.08rem;color:var(--olive);margin-bottom:8px" id="dayLabel"></div>
     <div class="cal-head">
       <button class="nav" id="prevDay">‹</button>
       <input type="date" id="calDate">
@@ -152,6 +153,17 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
     </div>
   </section>
 </div>
+
+  <!-- ===== Tasks ===== -->
+  <section class="view" id="v-tasks">
+    <div class="panelbox">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input class="search" id="taskTitle" placeholder="مهمة جديدة... (مثلاً: اتصال تأكيد مواعيد بكرا)" style="margin:0">
+        <button class="btn" style="width:auto;margin:0;padding:12px 22px" onclick="addTask()">أضف</button>
+      </div>
+      <div id="taskList"></div>
+    </div>
+  </section>
 
 <!-- booking sheet -->
 <div class="overlay" id="bookOv"><div class="sheet" id="bookSheet"></div></div>
@@ -185,11 +197,19 @@ const iso = d => d.toISOString().slice(0,10);
 async function tryPin(){
   try{
     const v = document.getElementById("pin").value.trim();
-    const key = (BARBER_VIEW || CREW_MODE) ? "crew_pin" : "reception_pin";
-    const { data, error } = await db.from("settings").select("value").eq("key", key).maybeSingle();
-    if (error) throw error;
-    if (data && v === data.value) { sessionStorage.setItem("bobco_rec", key); openApp(); }
-    else { document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة"; document.getElementById("pin").value = ""; }
+    if (BARBER_VIEW || CREW_MODE){
+      // كل حلاق بكلمة سرو الخاصة — بتاخدو عجدولو مباشرة
+      const { data, error } = await db.from("barbers").select("id,pin").eq("active", true);
+      if (error) throw error;
+      const hit = (data||[]).find(b => b.pin && b.pin === v);
+      if (hit){ BARBER_VIEW = String(hit.id); sessionStorage.setItem("bobco_rec", "barber:" + hit.id); openApp(); return; }
+    } else {
+      const { data, error } = await db.from("settings").select("value").eq("key", "reception_pin").maybeSingle();
+      if (error) throw error;
+      if (data && v === data.value) { sessionStorage.setItem("bobco_rec", "reception"); openApp(); return; }
+    }
+    document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة";
+    document.getElementById("pin").value = "";
   }catch(e){
     document.getElementById("gateErr").textContent = "صار خطأ بالاتصال — جرب ريفرش";
     console.error(e);
@@ -198,24 +218,19 @@ async function tryPin(){
 document.getElementById("gateBtn").onclick = tryPin;
 document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "Enter") tryPin(); });
 if (BARBER_VIEW || CREW_MODE) document.getElementById("gateTitle").textContent = "جدول الحلاقين";
-if (sessionStorage.getItem("bobco_rec")) openApp();
+const _sess = sessionStorage.getItem("bobco_rec");
+if (_sess){
+  if (_sess.startsWith("barber:")) BARBER_VIEW = _sess.split(":")[1];
+  if (_sess === "reception" || _sess.startsWith("barber:")) openApp();
+}
 
 async function openApp(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   await loadBase();
-  if (CREW_MODE && !BARBER_VIEW){ pickBarber(); return; }
   if (BARBER_VIEW) { document.getElementById("mainTabs").style.display = "none"; }
   initCal();
   if (!BARBER_VIEW){ renderCustomers(); renderInquiries(); }
-}
-function pickBarber(){
-  document.getElementById("mainTabs").style.display = "none";
-  document.getElementById("v-cal").innerHTML = `
-    <div class="panelbox" style="max-width:420px;margin:40px auto;text-align:center">
-      <h3 style="margin-bottom:16px">مين انت؟ 💈</h3>
-      ${BARBERS.map(b => `<button class="btn" style="margin-top:10px" onclick="BARBER_VIEW='${b.id}';location.search='?barber=${b.id}'">${b.name}</button>`).join("")}
-    </div>`;
 }
 
 /* ---------- data ---------- */
@@ -474,12 +489,45 @@ async function togConv(id, v){
   renderInquiries();
 }
 
+/* ---------- tasks ---------- */
+let TASKS = [];
+async function renderTasks(){
+  const { data } = await db.from("tasks").select("*").order("done").order("created_at", { ascending:false }).limit(80);
+  TASKS = data||[];
+  const row = t => `
+    <div class="cust-row" style="${t.done ? "opacity:.45" : ""}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onclick="togTask('${t.id}',${!t.done})" style="width:26px;height:26px;border-radius:8px;border:2px solid var(--olive);background:${t.done ? "var(--olive)" : "#fff"};color:var(--cream);font-weight:800">${t.done ? "✓" : ""}</button>
+        <div><b style="${t.done ? "text-decoration:line-through" : ""}">${t.title}</b>
+        <span class="muted">${new Date(t.created_at).toLocaleDateString("ar-SY",{day:"numeric",month:"numeric"})}${t.assigned_by ? " · من " + t.assigned_by : ""}</span></div>
+      </div>
+      <button class="pill" style="border:none;cursor:pointer" onclick="delTask('${t.id}')">🗑</button>
+    </div>`;
+  const open = TASKS.filter(t => !t.done), done = TASKS.filter(t => t.done);
+  document.getElementById("taskList").innerHTML =
+    (open.map(row).join("") || `<p class="muted">ما في مهام مفتوحة — برافو 👏</p>`) +
+    (done.length ? `<p class="muted" style="margin:14px 0 4px;font-weight:800">خلصانة (${done.length})</p>` + done.slice(0,15).map(row).join("") : "");
+}
+async function addTask(){
+  const v = document.getElementById("taskTitle").value.trim();
+  if (!v) return;
+  await db.from("tasks").insert({ title: v, assigned_by: "رشا" });
+  document.getElementById("taskTitle").value = "";
+  toast("✓ انضافت"); renderTasks();
+}
+async function togTask(id, v){
+  await db.from("tasks").update({ done: v, done_at: v ? new Date().toISOString() : null }).eq("id", id);
+  renderTasks();
+}
+async function delTask(id){ await db.from("tasks").delete().eq("id", id); renderTasks(); }
+
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t.dataset.v));
   if (t.dataset.v === "cust") renderCustomers();
   if (t.dataset.v === "inq") renderInquiries();
+  if (t.dataset.v === "tasks") renderTasks();
 });
 </script>
 </body>

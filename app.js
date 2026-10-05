@@ -105,8 +105,7 @@ function renderBarbersSection(){
   const g = document.getElementById("barbersGrid");
   g.innerHTML = BARBERS.map(b => `
     <div class="barber-card rv">
-      <div class="monogram">${(b.name||"؟").trim()[0]}</div>
-      <h3>${b.name}</h3>
+      <h3 style="margin-top:6px">${b.name}</h3>
       <div class="role">${b.title||"حلاق"}</div>
       <button class="btn btn-olive" onclick="chooseBarber(${b.id})">احجز معه</button>
     </div>`).join("");
