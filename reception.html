@@ -45,6 +45,7 @@ header .logo{font-weight:400;color:var(--olive);font-size:1.05rem;letter-spacing
 .grid-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;max-height:72vh;position:relative}
 table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grid th{position:sticky;top:0;background:var(--olive);color:var(--cream);padding:10px 6px;font-size:.9rem;z-index:5;min-width:150px}
+.barber-mode .grid th{font-size:1.45rem;font-weight:400;padding:16px 6px;letter-spacing:.02em}
 .grid th.time{min-width:58px;right:0;position:sticky;z-index:6}
 .grid td{border-bottom:1px solid rgba(52,57,37,.07);border-inline-start:1px solid rgba(52,57,37,.07);height:46px;vertical-align:top;position:relative;padding:0}
 .grid td.time{position:sticky;right:0;background:var(--cream-soft);font-size:.75rem;font-weight:800;text-align:center;color:var(--olive);z-index:4;border-inline-start:none;padding-top:4px}
@@ -228,7 +229,11 @@ async function openApp(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   await loadBase();
-  if (BARBER_VIEW) { document.getElementById("mainTabs").style.display = "none"; }
+  if (BARBER_VIEW) {
+    document.getElementById("mainTabs").style.display = "none";
+    document.querySelector("header .logo").innerHTML = `<img src="logo-en.svg" alt="" style="width:86px;filter:brightness(.25)"> جدول المواعيد`;
+    document.body.classList.add("barber-mode");
+  }
   initCal();
   if (!BARBER_VIEW){ renderCustomers(); renderInquiries(); }
 }
@@ -270,7 +275,7 @@ function updDayLabel(){
   const now = new Date();
   const t = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
   document.getElementById("dayLabel").textContent =
-    `${AR_DAYS[curDate.getDay()]} · ${curDate.getDate()}/${curDate.getMonth()+1}/${curDate.getFullYear()}  —  ⏰ هلق: ${t}`;
+    `${AR_DAYS[curDate.getDay()]} · ${curDate.getDate()}/${curDate.getMonth()+1}/${curDate.getFullYear()}  —  الساعة الآن ${t}`;
 }
 setInterval(() => { if(document.getElementById("dayLabel")) updDayLabel(); }, 30000);
 const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;

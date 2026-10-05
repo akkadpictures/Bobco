@@ -230,13 +230,14 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 
 .sec{padding:96px 0}
 .barbers-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px;margin-top:52px}
-.barber-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:38px 24px 30px;text-align:center;transition:transform .3s ease,box-shadow .3s ease}
+.barber-card{background:var(--olive) var(--pattern) top/260px repeat;border:1px solid var(--olive-deep);border-radius:20px;padding:40px 24px 32px;text-align:center;transition:transform .3s ease,box-shadow .3s ease}
 .barber-card:hover{transform:translateY(-6px);box-shadow:0 18px 42px rgba(52,57,37,.16)}
 .monogram{width:86px;height:86px;margin:0 auto 18px;border-radius:50%;border:1px solid var(--olive);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:2.4rem;color:var(--olive);position:relative}
 .monogram::after{content:"";position:absolute;inset:5px;border-radius:50%;border:1px dashed rgba(52,57,37,.35)}
-.barber-card h3{font-size:1.3rem;font-weight:800}
-.barber-card .role{font-size:.85rem;opacity:.6;margin:2px 0 18px}
-.barber-card .btn{padding:10px 26px;font-size:.92rem}
+.barber-card h3{font-size:1.75rem;font-weight:400;color:var(--cream);letter-spacing:.01em}
+.barber-card .role{font-size:.85rem;color:var(--cream);opacity:.7;margin:4px 0 20px}
+.barber-card .btn{padding:10px 26px;font-size:.92rem;background:var(--cream);color:var(--olive);border-color:var(--cream)}
+.barber-card:hover{box-shadow:0 18px 42px rgba(40,45,28,.35)}
 
 /* ===== Booking (detailed) ===== */
 .booking{background:var(--olive) var(--pattern) top/260px repeat;color:var(--cream);position:relative}
