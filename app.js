@@ -205,9 +205,20 @@ function slotGrid(){
   return { open: oh*60+om, close: ch*60+cm, step };
 }
 
+function isDayOff(barberId, dateStr){
+  const b = BARBERS.find(x => x.id === barberId);
+  if (!b || b.day_off === null || b.day_off === undefined) return false;
+  return new Date(dateStr + "T12:00:00").getDay() === +b.day_off;
+}
 async function getTaken(barberId, dateStr){
   const key = barberId + "|" + dateStr;
   if(takenCache[key]) return takenCache[key];
+  if (isDayOff(barberId, dateStr)){
+    // يوم عطلة الحلاق — كل الفترات مقفولة
+    const all = new Set(); const { open, close, step } = slotGrid();
+    for(let t = open; t < close; t += step) all.add(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
+    takenCache[key] = all; return all;
+  }
   const { data } = await db.from("bookings").select("booking_time,status,duration_min,service_ids,service_id")
     .eq("barber_id", barberId).eq("booking_date", dateStr);
   const { step } = slotGrid();
@@ -244,6 +255,14 @@ async function renderSlots(){
 
   if(!state.barber){
     hint.textContent = 'اختار الحلاق لتظهر الأوقات المتاحة';
+    return;
+  }
+
+  // يوم عطلة الحلاق الأسبوعي — محجوب بالكامل
+  const pickedBarber = BARBERS.find(x => x.id === state.barber);
+  if (pickedBarber && pickedBarber.day_off !== null && pickedBarber.day_off !== undefined && state.date.getDay() === pickedBarber.day_off){
+    box.innerHTML = `<span class="slots-empty">🌴 هاد يوم عطلة ${pickedBarber.name} الأسبوعية — اختار يوم تاني أو حلاق تاني</span>`;
+    hint.textContent = '';
     return;
   }
 
