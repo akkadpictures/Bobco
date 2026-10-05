@@ -271,13 +271,13 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .combo-note.show{display:block}
 
 .barbers-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-.bpick{border:1px solid var(--line);border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;background:#fff;transition:.2s;user-select:none}
-.bpick:hover{border-color:var(--olive)}
-.bpick.on{border-color:var(--olive);background:var(--olive);color:var(--cream)}
+.bpick{border:1px solid var(--olive-deep);border-radius:14px;padding:20px 12px;text-align:center;cursor:pointer;background:var(--olive) var(--pattern) top/260px repeat;color:var(--cream);transition:.2s;user-select:none}
+.bpick:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(40,45,28,.3)}
+.bpick.on{background:var(--cream);color:var(--olive);border-color:var(--cream);box-shadow:0 0 0 3px var(--olive-deep) inset}
 .bpick .avatar{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;border:1px solid var(--olive);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:1.5rem;color:var(--olive);background:#fff}
 .bpick.on .avatar{border-color:var(--cream)}
-.bpick h3{font-size:1rem;font-weight:800}
-.bpick p{font-size:.78rem;opacity:.6;margin-top:2px}
+.bpick h3{font-size:1.35rem;font-weight:400;letter-spacing:.01em}
+.bpick p{font-size:.78rem;opacity:.75;margin-top:3px}
 .bpick.on p{opacity:.8}
 
 .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
