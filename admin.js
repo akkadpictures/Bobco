@@ -79,10 +79,18 @@ async function loadAll(){
   SERVICES = sv.data || []; COFFEE = cf.data || []; ENTRIES = en.data || []; PRODUCTS = pr.data || [];
 }
 
-function priceAt(dateStr){
+function priceAt(dateStr, sub){
+  sub = sub || "كامل";
   let p = 0;
-  for (const r of PRICES) if (r.from_date <= dateStr) p = +r.price;
+  for (const r of PRICES) if ((r.sub || "كامل") === sub && r.from_date <= dateStr) p = +r.price;
   return p;
+}
+// سعر نوع الحلاقة بتاريخ معيّن: إذا إلو فترة سعر مسجّلة (جدول فترات الأسعار) بيمشي عليها،
+// وإلا عالسعر الثابت. هيك رفع السعر بيبلش من تاريخو وما بيغيّر ولا يوم قديم.
+function cutPriceAt(sub, dateStr){
+  if (PRICES.some(r => (r.sub || "كامل") === sub && r.from_date <= dateStr)) return priceAt(dateStr, sub);
+  const cp = CUT_PRICES();
+  return cp[sub] != null ? cp[sub] : priceAt(dateStr);
 }
 function commissionOf(name, dateStr){
   const b = BARBERS.find(x => x.name === name);
@@ -92,7 +100,7 @@ function commissionOf(name, dateStr){
 }
 function calc(e){
   if (e.type === "حلاقة") {
-    const unit = e.sub === "آخر" ? 0 : (e.sub && CUT_PRICES()[e.sub] != null ? CUT_PRICES()[e.sub] : priceAt(e.entry_date));
+    const unit = e.sub === "آخر" ? 0 : (e.sub ? cutPriceAt(e.sub, e.entry_date) : priceAt(e.entry_date));
     const rev = (+e.count || 0) * unit + (+e.amount || 0);
     const comm = Math.round(rev * commissionOf(e.detail, e.entry_date));
     return { rev, comm, net: rev - comm, usd: 0 };
@@ -487,7 +495,7 @@ function syncLogForm(){
     pSel.onchange = applyProductPick;
     applyProductPick();
   }
-  if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.entries(CUT_PRICES()).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
+  if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.keys(CUT_PRICES()).map(n => [n, cutPriceAt(n, document.getElementById("eDate").value || new Date().toISOString().slice(0, 10))]).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري" || t === "مصروف ممول") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
@@ -742,7 +750,7 @@ function renderSettings(){
   document.getElementById("barbTable").innerHTML = editTable(BARBERS, "barbers",
     [["name", "الاسم", "text"], ["title", "اللقب", "text"], ["commission", "العمولة (0.4 = 40%)", "number"]], true);
   document.getElementById("priceTable").innerHTML = editTable(PRICES, "price_periods",
-    [["from_date", "من تاريخ", "date"], ["price", "السعر", "number"], ["note", "ملاحظة", "text"]], false);
+    [["sub", "النوع", ["كامل", "شعر", "دقن", "طفل"]], ["from_date", "من تاريخ", "date"], ["price", "السعر", "number"], ["note", "ملاحظة", "text"]], false);
   const expBox = document.getElementById("expTable");
   if (expBox) expBox.innerHTML = editTable(EXPCATS, "expense_categories",
     [["name", "البند", "text"]], false, true);
