@@ -34,6 +34,13 @@ let calYear = today.getFullYear(), calMonth = today.getMonth();
 const MAX_AHEAD = 2;
 
 let takenCache = {};
+// عطل يوم محدد اللي بتحطها السكرتيرة من الاستقبال — مفتاحها "رقم الحلاق|التاريخ"
+let OFF_DAYS = new Set();
+async function loadOffDays(){
+  const { data } = await db.from("bookings").select("barber_id,booking_date,status")
+    .eq("source", "عطلة").gte("booking_date", iso(today));
+  OFF_DAYS = new Set((data || []).filter(r => r.status !== "ملغى" && r.status !== "ملغي").map(r => r.barber_id + "|" + r.booking_date));
+}
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const fmtDate = d => DAY_NAMES[d.getDay()] + ' ' + arNum(d.getDate()) + ' ' + MONTHS[d.getMonth()];
@@ -52,6 +59,7 @@ async function init(){
   SERVICES = s.data || [];
   COFFEE = c.data || [];
   (st.data || []).forEach(r => SETTINGS[r.key] = r.value);
+  try { await loadOffDays(); } catch(e){ console.error(e); }
 
   renderBarbersSection();
   renderServices();
@@ -114,6 +122,7 @@ function renderBarbersSection(){
 
 window.chooseBarber = id => {
   state.barber = id;
+  if (state.date && isDayOff(id, iso(state.date))) { state.date = null; state.slot = null; } // اليوم المختار عطلتو
   update();
   document.getElementById("book").scrollIntoView({behavior:"smooth"});
 };
@@ -189,10 +198,13 @@ function renderCalendar(){
     const el = document.createElement('div');
     el.className = 'cal-day';
     el.textContent = arNum(d);
-    if(date < today) el.classList.add('off');
+    // أيام عطلة الحلاق المختار (الأسبوعية أو اللي حطتها السكرتيرة) مقفولة بالرزنامة
+    const dayOff = !!state.barber && date >= today && isDayOff(state.barber, iso(date));
+    if(date < today || dayOff) el.classList.add('off');
+    if(dayOff) el.title = 'عطلة';
     if(sameDay(date, today)) el.classList.add('today');
-    if(sameDay(date, state.date)) el.classList.add('on');
-    if(date >= today) el.onclick = () => { state.date = date; state.slot = null; update(); };
+    if(sameDay(date, state.date) && !dayOff) el.classList.add('on');
+    if(date >= today && !dayOff) el.onclick = () => { state.date = date; state.slot = null; update(); };
     grid.appendChild(el);
   }
 }
@@ -207,8 +219,10 @@ function slotGrid(){
 
 function isDayOff(barberId, dateStr){
   const b = BARBERS.find(x => x.id === barberId);
-  if (!b || b.day_off === null || b.day_off === undefined) return false;
-  return new Date(dateStr + "T12:00:00").getDay() === +b.day_off;
+  if (!b) return false;
+  if (OFF_DAYS.has(barberId + "|" + dateStr)) return true;            // عطلة يوم محدد من الاستقبال
+  if (b.day_off === null || b.day_off === undefined) return false;
+  return new Date(dateStr + "T12:00:00").getDay() === +b.day_off;      // العطلة الأسبوعية الثابتة
 }
 async function getTaken(barberId, dateStr){
   const key = barberId + "|" + dateStr;
@@ -268,8 +282,8 @@ async function renderSlots(){
 
   // يوم عطلة الحلاق الأسبوعي — محجوب بالكامل
   const pickedBarber = BARBERS.find(x => x.id === state.barber);
-  if (pickedBarber && pickedBarber.day_off !== null && pickedBarber.day_off !== undefined && state.date.getDay() === pickedBarber.day_off){
-    box.innerHTML = `<span class="slots-empty">🌴 هاد يوم عطلة ${pickedBarber.name} الأسبوعية — اختار يوم تاني أو حلاق تاني</span>`;
+  if (pickedBarber && isDayOff(pickedBarber.id, iso(state.date))){
+    box.innerHTML = `<span class="slots-empty">${pickedBarber.name} بعطلة هاليوم — اختار يوم تاني أو حلاق تاني</span>`;
     hint.textContent = '';
     return;
   }
@@ -351,7 +365,17 @@ function syncTicket(){
 
 function update(){
   document.querySelectorAll('.svc').forEach(el => el.classList.toggle('on', state.services.has(Number(el.dataset.id))));
-  document.querySelectorAll('.bpick').forEach(el => el.classList.toggle('on', state.barber === Number(el.dataset.id)));
+  // الحلاق اللي بعطلة باليوم المختار: كرتو مقفول ومكتوب عليه «عطلة هاليوم»
+  if (state.barber && state.date && isDayOff(state.barber, iso(state.date))) { state.date = null; state.slot = null; }
+  document.querySelectorAll('.bpick').forEach(el => {
+    const id = Number(el.dataset.id);
+    const off = !!state.date && isDayOff(id, iso(state.date));
+    el.classList.toggle('on', state.barber === id);
+    el.style.opacity = off ? '.35' : '';
+    el.style.pointerEvents = off ? 'none' : '';
+    const p = el.querySelector('p');
+    if (p){ if (p.dataset.t === undefined) p.dataset.t = p.textContent; p.textContent = off ? 'عطلة هاليوم' : p.dataset.t; }
+  });
   renderCalendar();
   renderSlots();
   syncTicket();
