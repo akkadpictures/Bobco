@@ -72,7 +72,8 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grip::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:30px;height:3px;border-radius:3px;background:rgba(255,255,255,.6)}
 .appt.dragging{opacity:.88;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:4}
 .time-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.nowline{position:absolute;inset-inline:0;height:2px;background:var(--neg);z-index:3;pointer-events:none}
+/* خط «هلق»: خيط نحاسي رفيع بدل الأحمر */
+.nowline{position:absolute;inset-inline:0;height:0;border-top:2px solid #B08D57;z-index:3;pointer-events:none}
 /* ===== modal ===== */
 .overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .overlay.on{display:flex}
