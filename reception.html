@@ -63,8 +63,18 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .blk{position:absolute;top:0;inset-inline:3px;border-radius:9px;z-index:1;pointer-events:none;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
-.appt.tiny{padding:1px 8px;line-height:1.25}
-.appt.tiny b{font-size:.72rem;white-space:nowrap}
+.appt .meta{display:block}
+/* الكلام بيتعبّى حسب حجم المستطيل: كبير = 3 سطور · وسط = سطرين · صغير = سطر واحد */
+.appt.mid{padding:3px 8px;line-height:1.3}
+.appt.mid b,.appt.mid .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appt.mid .meta{font-size:.72rem}
+.appt.mid .src,.appt.tiny .src{display:inline;font-size:inherit}
+.appt.mid .src:not(:first-child)::before,.appt.tiny .src:not(:first-child)::before{content:" · "}
+.appt.tiny{padding:1px 8px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis;font-size:.7rem}
+.appt.tiny b{display:inline;font-size:.72rem}
+.appt.tiny .meta{display:inline}
+.appt.tiny .meta::before{content:" · "}
+.appt.tiny .grip::after{display:none} /* المسكة شغالة بس خطها مخفي لحتى ما يغطي الكتابة */
 /* البريك: نفس المبدأ بس بالباترن البيج ليتميّز عن المسكّر */
 .appt.brk{background:#EFE3CA var(--pat-beige) 0 0/200% auto repeat-y;color:var(--olive);box-shadow:0 1px 4px rgba(0,0,0,.14),inset 0 0 0 1px rgba(52,57,37,.14)}
 .appt.brk .grip::after{background:rgba(52,57,37,.4)}
@@ -72,8 +82,6 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grip::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:30px;height:3px;border-radius:3px;background:rgba(255,255,255,.6)}
 .appt.dragging{opacity:.88;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:4}
 .time-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-/* خط «هلق»: خيط نحاسي رفيع بدل الأحمر */
-.nowline{position:absolute;inset-inline:0;height:0;border-top:2px solid #B08D57;z-index:3;pointer-events:none}
 /* ===== modal ===== */
 .overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .overlay.on{display:flex}
@@ -378,16 +386,16 @@ async function drawCal(){
         const h = Math.max(18, (mins / step) * 46 - 5);
         const tm = `<span class="tm" style="font-weight:400;font-size:.72rem">${appt.booking_time}–${toLabel(st + mins)}</span>`;
         const grip = BARBER_VIEW ? "" : `<i class="grip" data-id="${appt.id}" onclick="event.stopPropagation()"></i>`;
-        const tiny = h < 30 ? " tiny" : "";
+        const tiny = h < 30 ? " tiny" : (h < 62 ? " mid" : "");
         if (appt.source === "بريك"){
           html += `<div class="appt brk${tiny}" data-id="${appt.id}" style="top:${top}px;height:${h}px" onclick="event.stopPropagation();openAppt('${appt.id}')">
-            <b>بريك ${tm}</b>${appt.note ? appt.note : ""}${grip}</div>`;
+            <b>بريك ${tm}</b>${appt.note ? `<span class="meta">${appt.note}</span>` : ""}${grip}</div>`;
           continue;
         }
         const hue = [...appt.id].reduce((a,c) => a + c.charCodeAt(0), 0) % 360;
         html += `<div class="appt${tiny}" data-id="${appt.id}" style="top:${top}px;background:hsl(${hue},30%,36%);border-inline-start:6px solid ${stColor(appt.status)};height:${h}px" onclick="event.stopPropagation();openAppt('${appt.id}')">
           <b>${appt.customer_name||"—"} ${tm}</b>
-          ${svcNames(appt)||""}<span class="src">${appt.status}${appt.source ? " · " + appt.source : ""}</span>${grip}</div>`;
+          <span class="meta">${svcNames(appt) ? `<span>${svcNames(appt)}</span>` : ""}<span class="src">${appt.status}${appt.source ? " · " + appt.source : ""}</span></span>${grip}</div>`;
       }
       html += `</td>`;
     }
@@ -396,16 +404,6 @@ async function drawCal(){
   html += `</table>`;
   const wrap = document.getElementById("gridWrap");
   wrap.innerHTML = html;
-  // now line
-  const now = new Date();
-  if (iso(now) === iso(curDate)){
-    const mins = now.getHours()*60 + now.getMinutes();
-    if (mins >= open && mins <= close){
-      const headH = (wrap.querySelector("tr") || {}).offsetHeight || 44; // ارتفاع الترويسة الفعلي (صار فيها سطر الدوام)
-      const px = headH + ((mins - open) / step) * 46;
-      wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${px}px"></div>`);
-    }
-  }
   // day stats
   const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك" && b.source !== OFF_SRC);
   const done = act.filter(b => b.status === "خلص"), no = act.filter(b => b.status === "ما إجا");
