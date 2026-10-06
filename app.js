@@ -233,7 +233,8 @@ async function getTaken(barberId, dateStr){
       mins = ids.reduce((s,id) => { const sv = SERVICES.find(x => x.id === id); return s + (sv ? (+sv.duration_min || step) : step); }, 0) || step;
     }
     const start = toM(r.booking_time);
-    for(let t = start; t < start + mins; t += step) taken.add(toL(t));
+    const { open: gridOpen } = slotGrid();
+    for(let t = gridOpen + Math.floor((start - gridOpen) / step) * step; t < start + mins; t += step) taken.add(toL(t));
   });
   takenCache[key] = taken;
   return taken;
