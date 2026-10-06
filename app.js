@@ -236,6 +236,13 @@ async function getTaken(barberId, dateStr){
     const { open: gridOpen } = slotGrid();
     for(let t = gridOpen + Math.floor((start - gridOpen) / step) * step; t < start + mins; t += step) taken.add(toL(t));
   });
+  // دوام الحلاق: أي فترة قبل بداية دوامو أو بعد نهايتو مقفولة أونلاين
+  const bb = BARBERS.find(x => x.id === barberId);
+  if (bb && (bb.work_start || bb.work_end)){
+    const { open, close } = slotGrid();
+    const ws = bb.work_start ? toM(bb.work_start) : open, we = bb.work_end ? toM(bb.work_end) : close;
+    for(let t = open; t < close; t += step) if (t < ws || t >= we) taken.add(toL(t));
+  }
   takenCache[key] = taken;
   return taken;
 }

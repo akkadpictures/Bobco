@@ -55,6 +55,9 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .appt{position:absolute;inset-inline:3px;top:2px;border-radius:9px;padding:5px 8px;color:#fff;font-size:.76rem;line-height:1.35;overflow:hidden;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .appt b{display:block;font-size:.82rem}
 .appt .src{opacity:.8;font-size:.68rem}
+.grid td.cell.off{background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(52,57,37,.09) 8px,rgba(52,57,37,.09) 16px);cursor:default}
+.grid td.cell.out{background:rgba(52,57,37,.085)}
+.grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt.tiny{padding:1px 8px;line-height:1.25}
 .appt.tiny b{font-size:.72rem;white-space:nowrap}
 .appt.brk{background:repeating-linear-gradient(45deg,#6b6b60,#6b6b60 10px,#5d5d53 10px,#5d5d53 20px)}
@@ -140,6 +143,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="nav" id="nextDay">›</button>
       <button class="nav" id="todayBtn">اليوم</button>
       <button class="nav" id="breakBtn">بريك</button>
+      <button class="nav" id="offBtn">عطلة</button>
       <div class="day-stats" id="dayStats"></div>
     </div>
     <div class="grid-wrap" id="gridWrap"></div>
@@ -252,6 +256,7 @@ async function openApp(){
     document.querySelector("header .logo").innerHTML = `<img src="logo-en.svg" alt="" style="width:86px;filter:brightness(.25)"> جدول المواعيد`;
     document.body.classList.add("barber-mode");
     document.getElementById("breakBtn").style.display = "none"; // البريك بتحطو السكرتيرة فقط
+    document.getElementById("offBtn").style.display = "none";   // والعطلة كمان
   }
   initCal();
   if (!BARBER_VIEW){ renderCustomers(); renderInquiries(); }
@@ -309,6 +314,11 @@ document.addEventListener("visibilitychange", () => {
 const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
 const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
 const isLive = x => x.status !== "ملغي" && x.status !== "ملغى";
+const OFF_SRC = "عطلة"; // عطلة يوم محدد = سطر بالحجوزات بيغطي اليوم كلو، فبيسكّر الحجز أونلاين كمان
+const weeklyOff = b => b.day_off !== null && b.day_off !== undefined && +b.day_off === curDate.getDay();
+const offRow = b => BOOKINGS.find(x => x.barber_id === b.id && isLive(x) && x.source === OFF_SRC);
+const isOffToday = b => weeklyOff(b) || !!offRow(b);
+const inShift = (b, t) => (!b.work_start || t >= toMin(b.work_start)) && (!b.work_end || t < toMin(b.work_end));
 function bookingMins(b){
   if (b.duration_min) return +b.duration_min;
   const ids = (b.service_ids && b.service_ids.length) ? b.service_ids : (b.service_id ? [b.service_id] : []);
@@ -333,21 +343,22 @@ async function drawCal(){
   await loadDay();
   const { open, close, step } = slotGrid();
   const cols = BARBER_VIEW ? BARBERS.filter(b => String(b.id) === String(BARBER_VIEW)) : BARBERS;
-  const isOff = b => b.day_off !== null && b.day_off !== undefined && +b.day_off === curDate.getDay();
+  const isOff = isOffToday;
   let html = `<table class="grid"><tr><th class="time">⏰</th>${cols.map(b =>
-    `<th>${b.name}${isOff(b) ? ' <span style="font-weight:400;font-size:.72rem;opacity:.8">· عطلة 🏖</span>' : ''}</th>`).join("")}</tr>`;
+    `<th>${b.name}${isOff(b) ? ' <span style="font-weight:400;font-size:.72rem;opacity:.8">· عطلة 🏖</span>' : ''}${(b.work_start || b.work_end) ? `<span class="hrs">${b.work_start ? "من " + b.work_start : ""}${b.work_end ? " لـ " + b.work_end : ""}</span>` : ''}</th>`).join("")}</tr>`;
   for (let t = open; t < close; t += step){
     html += `<tr><td class="time">${toLabel(t)}</td>`;
     for (const b of cols){
-      if (isOff(b)){ html += `<td class="cell" style="background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(52,57,37,.07) 8px,rgba(52,57,37,.07) 16px);cursor:default"></td>`; continue; }
+      const off = isOff(b);
       // كل المواعيد والبريكات اللي بتبلش ضمن هالمربع — حتى لو مو عراس الفترة (مثلاً 13:15)
-      const mine = BOOKINGS.filter(x => x.barber_id === b.id && isLive(x));
+      const mine = BOOKINGS.filter(x => x.barber_id === b.id && isLive(x) && x.source !== OFF_SRC);
       const starts = mine.filter(x => { const st = toMin(x.booking_time); return st >= t && st < t + step; });
       // أول دقيقة فاضية بالمربع — إذا الموعد اللي قبل تقصّر، الحجز الجديد بيبلش من عند ما خلص
       let free = t;
       mine.forEach(x => { const st = toMin(x.booking_time), en = st + bookingMins(x); if (st <= free && en > free) free = en; });
-      const canBook = !BARBER_VIEW && free < t + step;
-      html += `<td class="cell"${canBook ? ` onclick="openBook(${b.id},'${toLabel(free)}')"` : ""}>`;
+      const canBook = !BARBER_VIEW && !off && free < t + step;
+      // عطلة = مسكّر كلو (المواعيد القديمة بتضل ظاهرة لتنتقل) · خارج الدوام = مظلل بس بينحجز استثنائياً
+      html += `<td class="cell${off ? " off" : (inShift(b, t) ? "" : " out")}"${canBook ? ` onclick="openBook(${b.id},'${toLabel(free)}')"` : ""}>`;
       for (const appt of starts){
         const st = toMin(appt.booking_time), mins = bookingMins(appt);
         const top = 2 + ((st - t) / step) * 46;
@@ -377,12 +388,13 @@ async function drawCal(){
   if (iso(now) === iso(curDate)){
     const mins = now.getHours()*60 + now.getMinutes();
     if (mins >= open && mins <= close){
-      const px = 44 + ((mins - open) / step) * 46;
+      const headH = (wrap.querySelector("tr") || {}).offsetHeight || 44; // ارتفاع الترويسة الفعلي (صار فيها سطر الدوام)
+      const px = headH + ((mins - open) / step) * 46;
       wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${px}px"></div>`);
     }
   }
   // day stats
-  const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك");
+  const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك" && b.source !== OFF_SRC);
   const done = act.filter(b => b.status === "خلص"), no = act.filter(b => b.status === "ما إجا");
   const paid = act.reduce((s,b) => s + (+b.amount||0), 0);
   document.getElementById("dayStats").innerHTML =
@@ -469,7 +481,7 @@ const BREAK_MINS = [15,30,45,60,90,120];
 function openBreak(barberId, start, existing){
   if (BARBER_VIEW) return; // الحلاقين عرض فقط
   const { open, close } = slotGrid();
-  if (!barberId) barberId = (BARBERS.find(b => !(b.day_off != null && +b.day_off === curDate.getDay())) || BARBERS[0] || {}).id;
+  if (!barberId) barberId = (BARBERS.find(b => !isOffToday(b)) || BARBERS[0] || {}).id;
   if (!start){
     const now = new Date();
     const m = iso(now) === iso(curDate) ? Math.ceil((now.getHours()*60 + now.getMinutes()) / 15) * 15 : open;
@@ -528,6 +540,78 @@ async function saveBreak(){
 }
 document.getElementById("breakBtn").onclick = () => openBreak();
 
+/* ---------- العطلة والدوام: يدوي من عند السكرتيرة ---------- */
+let offBarber = null;
+function openOff(barberId){
+  if (BARBER_VIEW) return;
+  offBarber = barberId || (BARBERS[0] || {}).id;
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>العطلة والدوام</h3>
+    <div class="frow"><label>الحلاق</label><div class="chips">${BARBERS.map(b =>
+      `<button class="chip" data-b="${b.id}" onclick="offBarber=${b.id};drawOff()">${b.name}</button>`).join("")}</div></div>
+    <div id="offBody"></div>
+    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+  document.getElementById("bookOv").classList.add("on");
+  drawOff();
+}
+function drawOff(){
+  const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
+  document.querySelectorAll("#bookSheet [data-b]").forEach(c => c.classList.toggle("on", +c.dataset.b === b.id));
+  const row = offRow(b), wk = weeklyOff(b);
+  const dayTxt = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
+  const n = BOOKINGS.filter(x => x.barber_id === b.id && isLive(x) && x.source !== OFF_SRC && x.source !== "بريك").length;
+  document.getElementById("offBody").innerHTML = `
+    <div class="frow"><label>عطلة يوم ${dayTxt}</label>
+      ${wk ? `<p class="muted">هاد يوم عطلتو الأسبوعية — إذا تغيّرت، بدّليها من تحت</p>`
+        : row ? `<button class="btn danger" style="margin-top:0" onclick="setDayOff(false)">شيل العطلة — ${b.name} مداوم ${dayTxt}</button>`
+        : `<button class="btn" style="margin-top:0" onclick="setDayOff(true)">سكّر ${dayTxt} عطلة لـ ${b.name}</button>`}
+      ${n && !wk ? `<p class="muted" style="margin-top:6px">عندو ${n} موعد بهاليوم — بيضلو ظاهرين بالجدول لتنقليهم أو تلغيهم</p>` : ""}
+    </div>
+    <div class="frow"><label>العطلة الأسبوعية الثابتة</label><div class="chips">
+      ${AR_DAYS.map((d,i) => `<button class="chip ${b.day_off !== null && b.day_off !== undefined && +b.day_off === i ? "on" : ""}" onclick="setWeekly(${i})">${d}</button>`).join("")}
+      <button class="chip ${b.day_off === null || b.day_off === undefined ? "on" : ""}" onclick="setWeekly(null)">بلا</button>
+    </div></div>
+    <div class="frow"><label>الدوام — فاضي يعني مفتوح</label>
+      <div class="time-pair">
+        <input type="time" id="wsFrom" step="900" value="${b.work_start || ""}">
+        <input type="time" id="wsTo" step="900" value="${b.work_end || ""}">
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="saveShift(false)">احفظ الدوام</button>
+        <button class="btn ghost" onclick="saveShift(true)">دوام مفتوح</button>
+      </div></div>`;
+}
+async function setDayOff(on){
+  const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
+  const row = offRow(b);
+  const { error } = on
+    ? await db.from("bookings").insert({ customer_name: "عطلة", barber_id: b.id, booking_date: iso(curDate), booking_time: "00:00",
+        duration_min: 1440, status: "مؤكد", source: OFF_SRC, created_by: "reception" })
+    : (row ? await db.from("bookings").update({ status: "ملغي" }).eq("id", row.id) : {});
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  toast(on ? "✓ " + b.name + " عطلة" : "✓ انشالت العطلة");
+  await drawCal(); drawOff();
+}
+async function setWeekly(d){
+  const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
+  const { error } = await db.from("barbers").update({ day_off: d }).eq("id", b.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  b.day_off = d;
+  toast(d === null ? "✓ بلا عطلة ثابتة" : "✓ عطلتو الثابتة: " + AR_DAYS[d]);
+  await drawCal(); drawOff();
+}
+async function saveShift(clear){
+  const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
+  const f = clear ? null : ((document.getElementById("wsFrom").value || "").slice(0,5) || null);
+  const t = clear ? null : ((document.getElementById("wsTo").value || "").slice(0,5) || null);
+  if (f && t && toMin(t) <= toMin(f)) return toast("نهاية الدوام لازم تكون بعد البداية");
+  const { error } = await db.from("barbers").update({ work_start: f, work_end: t }).eq("id", b.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  b.work_start = f; b.work_end = t;
+  toast("✓ انحفظ الدوام"); await drawCal(); drawOff();
+}
+document.getElementById("offBtn").onclick = () => openOff();
+
 /* ---------- سحب الطرف التحتاني: تقصير/تطويل الموعد أو البريك باليد (كل 15 دقيقة) ---------- */
 let drag = null;
 (function(){
@@ -539,7 +623,7 @@ let drag = null;
     const { step } = slotGrid();
     const start = toMin(a.booking_time);
     // ما بيتمدد فوق الموعد اللي بعدو
-    const next = BOOKINGS.filter(x => x.barber_id === a.barber_id && isLive(x) && x.id !== a.id && toMin(x.booking_time) >= start + 15)
+    const next = BOOKINGS.filter(x => x.barber_id === a.barber_id && isLive(x) && x.id !== a.id && x.source !== OFF_SRC && toMin(x.booking_time) >= start + 15)
       .map(x => toMin(x.booking_time)).sort((p,q) => p - q)[0];
     drag = { a, el: g.parentElement, y: e.clientY, h: g.parentElement.offsetHeight, step, start, max: next ? next - start : 600, mins: bookingMins(a), moved: false };
     try { g.setPointerCapture(e.pointerId); } catch(_){}
@@ -648,7 +732,42 @@ async function renderCustomers(q){
   }
   document.getElementById("custList").innerHTML = CUSTOMERS.map(c =>
     `<div class="cust-row"><div><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
-     <span class="pill">${counts[c.phone]||0} زيارة</span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
+     <span style="display:flex;gap:6px;align-items:center"><span class="pill">${counts[c.phone]||0} زيارة</span>
+     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editCust('${c.id}')">تعديل</button></span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
+}
+function editCust(id){
+  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  const esc = v => String(v || "").replace(/"/g, "&quot;");
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>تعديل زبون</h3>
+    <div class="frow"><label>الاسم</label><input id="ecName" value="${esc(c.name)}"></div>
+    <div class="frow"><label>الموبايل</label><input id="ecPhone" inputmode="tel" value="${esc(c.phone)}"></div>
+    <button class="btn" onclick="saveCust('${c.id}')">احفظ</button>
+    <button class="btn danger" onclick="delCust('${c.id}')">احذف الزبون</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
+async function saveCust(id){
+  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  const name = document.getElementById("ecName").value.trim(), phone = document.getElementById("ecPhone").value.trim();
+  if (!name) return toast("اكتب الاسم");
+  const { error } = await db.from("customers").update({ name, phone }).eq("id", c.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  // إذا تغيّر الرقم وما في زبون تاني عنفس الرقم القديم، منقل زياراتو عالرقم الجديد ليضل العدّ صح
+  if (c.phone && phone && phone !== c.phone){
+    const { data: same } = await db.from("customers").select("id").eq("phone", c.phone);
+    if (!(same || []).length) await db.from("bookings").update({ phone }).eq("phone", c.phone);
+  }
+  closeOv("bookOv"); toast("✓ تعدّل");
+  renderCustomers(document.getElementById("custSearch").value.trim());
+}
+async function delCust(id){
+  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  if (!confirm(`حذف ${c.name} من قائمة الزباين؟`)) return;
+  const { error } = await db.from("customers").delete().eq("id", c.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ انحذف");
+  renderCustomers(document.getElementById("custSearch").value.trim());
 }
 let custTmr;
 document.getElementById("custSearch").oninput = e => { clearTimeout(custTmr); custTmr = setTimeout(() => renderCustomers(e.target.value.trim()), 350); };
@@ -671,8 +790,30 @@ async function renderInquiries(){
     `<p class="muted" style="margin-bottom:8px">قنوات الشهر: ${top}</p>` +
     INQUIRIES.slice(0,25).map(i =>
       `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${new Date(i.at).toLocaleString("ar-SY",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>
-       <button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
-         onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ صار حجز" : "صار حجز؟"}</button></div>`).join("");
+       <span style="display:flex;gap:6px;align-items:center"><button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
+         onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ صار حجز" : "صار حجز؟"}</button>
+       <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editInq('${i.id}')">تعديل</button></span></div>`).join("");
+}
+function editInq(id){
+  const i = INQUIRIES.find(x => String(x.id) === String(id)); if (!i) return;
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>تعديل استفسار</h3>
+    <div class="frow"><label>القناة — اكبسي الصح إذا انسجل غلط</label><div class="chips">${INQ_CHANNELS.map(ch =>
+      `<button class="chip ${i.channel === ch ? "on" : ""}" onclick="setInqCh('${i.id}','${ch}')">${ch}</button>`).join("")}</div></div>
+    <button class="btn danger" onclick="delInq('${i.id}')">احذف الاستفسار</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
+async function setInqCh(id, ch){
+  const { error } = await db.from("inquiries").update({ channel: ch }).eq("id", id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ صار " + ch); renderInquiries();
+}
+async function delInq(id){
+  if (!confirm("حذف هالاستفسار؟")) return;
+  const { error } = await db.from("inquiries").delete().eq("id", id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ انحذف"); renderInquiries();
 }
 async function logInq(ch){
   await db.from("inquiries").insert({ channel: ch });
