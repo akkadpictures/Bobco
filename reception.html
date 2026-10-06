@@ -33,6 +33,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 header .logo{font-weight:400;color:var(--olive);font-size:1.05rem;letter-spacing:.02em}
 .tabs{display:flex;gap:6px;margin-inline-start:auto}
+.barber-mode #logoutBtn{margin-inline-start:auto}
 .tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:.9rem;background:#fff;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .view{display:none}.view.on{display:block}
@@ -127,6 +128,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="tab" data-v="inq">📊 الاستفسارات</button>
       <button class="tab" data-v="tasks">✅ المهام</button>
     </nav>
+    <button class="tab" id="logoutBtn" onclick="logout()">خروج</button>
   </header>
 
   <!-- ===== Calendar ===== -->
@@ -231,9 +233,15 @@ document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "
 if (BARBER_VIEW || CREW_MODE) document.getElementById("gateTitle").textContent = "جدول الحلاقين";
 const _sess = sessionStorage.getItem("bobco_rec");
 if (_sess){
-  if (_sess.startsWith("barber:")) BARBER_VIEW = _sess.split(":")[1];
-  if (_sess === "reception" || _sess.startsWith("barber:")) openApp();
+  if (BARBER_VIEW || CREW_MODE){
+    // رابط الحلاقين: بس جلسة حلاق بتفتح
+    if (_sess.startsWith("barber:")){ BARBER_VIEW = _sess.split(":")[1]; openApp(); }
+  } else if (_sess === "reception"){
+    // رابط الاستقبال: لوحة مستقلة — جلسة حلاق قديمة ما بتفوّت عليها
+    openApp();
+  }
 }
+function logout(){ sessionStorage.removeItem("bobco_rec"); location.reload(); }
 
 async function openApp(){
   document.getElementById("gate").style.display = "none";
@@ -243,6 +251,7 @@ async function openApp(){
     document.getElementById("mainTabs").style.display = "none";
     document.querySelector("header .logo").innerHTML = `<img src="logo-en.svg" alt="" style="width:86px;filter:brightness(.25)"> جدول المواعيد`;
     document.body.classList.add("barber-mode");
+    document.getElementById("breakBtn").style.display = "none"; // البريك بتحطو السكرتيرة فقط
   }
   initCal();
   if (!BARBER_VIEW){ renderCustomers(); renderInquiries(); }
@@ -458,6 +467,7 @@ async function saveBook(){
 let brk = {};
 const BREAK_MINS = [15,30,45,60,90,120];
 function openBreak(barberId, start, existing){
+  if (BARBER_VIEW) return; // الحلاقين عرض فقط
   const { open, close } = slotGrid();
   if (!barberId) barberId = (BARBERS.find(b => !(b.day_off != null && +b.day_off === curDate.getDay())) || BARBERS[0] || {}).id;
   if (!start){
