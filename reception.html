@@ -56,7 +56,8 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .appt b{display:block;font-size:.82rem}
 .appt .src{opacity:.8;font-size:.68rem}
 /* خارج الدوام والعطلة = بلوك بنفس تخطيط البريك وبنفس لونو تماماً */
-.grid td.cell.off,.grid td.cell.out{background:repeating-linear-gradient(45deg,#6b6b60,#6b6b60 10px,#5d5d53 10px,#5d5d53 20px);border-color:transparent}
+/* بينرسم كقطعة وحدة فوق كل المربعات المسكّرة (مو خلفية لكل مربع) — فالتخطيط بيضل متصل متل كرت البريك */
+.blk{position:absolute;top:0;inset-inline:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(45deg,#6b6b60,#6b6b60 10px,#5d5d53 10px,#5d5d53 20px)}
 .grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt.tiny{padding:1px 8px;line-height:1.25}
@@ -360,6 +361,11 @@ async function drawCal(){
       const canBook = !BARBER_VIEW && !off && free < t + step;
       // عطلة = مسكّر كلو (المواعيد القديمة بتضل ظاهرة لتنتقل) · خارج الدوام = مظلل بس بينحجز استثنائياً
       html += `<td class="cell${off ? " off" : (inShift(b, t) ? "" : " out")}"${canBook ? ` onclick="openBook(${b.id},'${toLabel(free)}')"` : ""}>`;
+      const shut = x => off || !inShift(b, x);
+      if (shut(t) && (t === open || !shut(t - step))){
+        let n = 0; for (let x = t; x < close && shut(x); x += step) n++;
+        html += `<div class="blk" style="height:${n * 46}px"></div>`;
+      }
       for (const appt of starts){
         const st = toMin(appt.booking_time), mins = bookingMins(appt);
         const top = 2 + ((st - t) / step) * 46;
