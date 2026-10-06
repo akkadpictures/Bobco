@@ -378,7 +378,8 @@ async function drawCal(){
       const shut = x => off || !inShift(b, x);
       if (shut(t) && (t === open || !shut(t - step))){
         let n = 0; for (let x = t; x < close && shut(x); x += step) n++;
-        html += `<div class="blk" style="height:${n * 46 - 1}px"></div>`; // الحافة عخط الساعة بالظبط
+        const gap = t === open ? 5 : 0; // أول الجدول: مسافة صغيرة عن الترويسة لحتى ما يلزق فيها
+        html += `<div class="blk" style="top:${gap}px;height:${n * 46 - 1 - gap}px"></div>`; // الحافة التحتانية عخط الساعة بالظبط
       }
       for (const appt of starts){
         const st = toMin(appt.booking_time), mins = bookingMins(appt);
