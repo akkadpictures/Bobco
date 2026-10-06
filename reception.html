@@ -60,7 +60,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .appt .src{display:block;opacity:.8;font-size:.68rem}
 /* خارج الدوام والعطلة = بلوك بنفس تخطيط البريك وبنفس لونو تماماً */
 /* المسكّر (خارج الدوام / عطلة): كرت واحد بحواف دائرية وباترن الهوية الأخضر */
-.blk{position:absolute;top:2px;inset-inline:3px;border-radius:9px;z-index:1;pointer-events:none;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.blk{position:absolute;top:0;inset-inline:3px;border-radius:9px;z-index:1;pointer-events:none;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt.tiny{padding:1px 8px;line-height:1.25}
@@ -369,7 +369,7 @@ async function drawCal(){
       const shut = x => off || !inShift(b, x);
       if (shut(t) && (t === open || !shut(t - step))){
         let n = 0; for (let x = t; x < close && shut(x); x += step) n++;
-        html += `<div class="blk" style="height:${n * 46 - 5}px"></div>`;
+        html += `<div class="blk" style="height:${n * 46 - 1}px"></div>`; // الحافة عخط الساعة بالظبط
       }
       for (const appt of starts){
         const st = toMin(appt.booking_time), mins = bookingMins(appt);
