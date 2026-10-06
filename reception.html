@@ -55,8 +55,9 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .appt{position:absolute;inset-inline:3px;top:2px;border-radius:9px;padding:5px 8px;color:#fff;font-size:.76rem;line-height:1.35;overflow:hidden;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .appt b{display:block;font-size:.82rem}
 .appt .src{opacity:.8;font-size:.68rem}
-.grid td.cell.off{background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(52,57,37,.09) 8px,rgba(52,57,37,.09) 16px);cursor:default}
-.grid td.cell.out{background:rgba(52,57,37,.085)}
+/* خارج الدوام والعطلة = بلوك بنفس تخطيط البريك (أفتح شوي ليبين الفرق عن بريك محطوط باليد) */
+.grid td.cell.off,.grid td.cell.out{background:repeating-linear-gradient(45deg,rgba(107,107,96,.5),rgba(107,107,96,.5) 10px,rgba(93,93,83,.62) 10px,rgba(93,93,83,.62) 20px);background-attachment:local;border-color:transparent}
+.grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt.tiny{padding:1px 8px;line-height:1.25}
 .appt.tiny b{font-size:.72rem;white-space:nowrap}
