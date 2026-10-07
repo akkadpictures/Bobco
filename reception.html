@@ -1048,11 +1048,14 @@ function openAppt(id){
   const sheet = document.getElementById("apptSheet");
   sheet.innerHTML = `
     <h3>${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
-    <p class="muted">${svcNames(a)||"بدون خدمات محددة"}${(a.phone && !BARBER_VIEW) ? " · 📞 " + a.phone : ""}${a.source ? " · " + a.source : ""}</p>
+    <p class="muted"><span id="apSvcTxt">${svcNames(a)||"بدون خدمات محددة"}</span>${(a.phone && !BARBER_VIEW) ? " · 📞 " + a.phone : ""}${a.source ? " · " + a.source : ""}</p>
     ${a.note ? `<p class="muted">📝 ${a.note}</p>` : ""}
     ${BARBER_VIEW ? "" : `
     <div class="status-row">${STATUSES.map(s =>
       `<button class="status-btn ${a.status===s.k?"on":""}" style="background:${s.c}" onclick="setStatus('${a.id}','${s.k}')">${s.k}</button>`).join("")}</div>
+    <div class="frow"><label>✂️ الخدمات — اكبسي لتضيفي خدمة تانية أو تشيلي وحدة</label>
+      <div class="chips" id="apSvcs">${SERVICES.map(x =>
+        `<button class="chip ${svcIds(a).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="apTogSvc('${a.id}',this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}</div></div>
     <div class="frow"><label>⏱ مدة الموعد — صغّرها ليفتح المجال لموعد تاني</label>
       <div class="chips" style="margin-bottom:8px">${[15,30,45,60,90].map(m =>
         `<button class="chip ${bookingMins(a)===m?"on":""}" onclick="setDur('${a.id}',${m})">${m} د</button>`).join("")}</div>
@@ -1062,7 +1065,7 @@ function openAppt(id){
         <button class="chip" onclick="chgDur('${a.id}',15)">+ 15د</button>
         <button class="chip" onclick="endNow('${a.id}')">✂️ خلص هلق</button>
       </div></div>
-    <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيطلع ببطاقة الحسابات</label>
+    <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيتجمّع من الخدمات، وعدّليه إذا في إضافة برا القائمة</label>
       <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000"></div>
     ${a.phone ? `<button class="chip" style="margin-bottom:4px" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
     <div class="btn-row">
@@ -1076,6 +1079,20 @@ async function setStatus(id, st){
   await db.from("bookings").update({ status: st }).eq("id", id);
   closeOv("apptOv"); toast("✓ " + st); drawCal();
 }
+// إضافة/شيل خدمة من الموعد: بتنحفظ فوراً، والمبلغ بيتجمّع من جديد (ما بيتسجّل إلا بكبسة «حاسب»)
+async function apTogSvc(id, el){
+  const a = BOOKINGS.find(x => x.id === id); if (!a) return;
+  el.classList.toggle("on");
+  const ids = [...document.querySelectorAll("#apSvcs .chip.on")].map(c => +c.dataset.s);
+  const { error } = await db.from("bookings").update({ service_ids: ids, service_id: ids[0] || null }).eq("id", id);
+  if (error) { console.error(error); el.classList.toggle("on"); return toast("ما انحفظت — جرب كمان مرة"); }
+  a.service_ids = ids; a.service_id = ids[0] || null;
+  document.getElementById("apSvcTxt").textContent = svcNames(a) || "بدون خدمات محددة";
+  document.getElementById("apAmount").value = svcTotal(a) || "";
+  toast(el.classList.contains("on") ? "✓ انضافت" : "✓ انشالت");
+  apDirty = true;
+}
+let apDirty = false;
 async function saveAmount(id){
   const a = BOOKINGS.find(x => x.id === id);
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
@@ -1106,7 +1123,10 @@ async function endNow(id){
   await db.from("bookings").update({ duration_min: Math.min(v, bookingMins(a)), status: "خلص" }).eq("id", id);
   closeOv("apptOv"); toast("✂️ خلص والمجال فتح"); drawCal();
 }
-function closeOv(id){ document.getElementById(id).classList.remove("on"); }
+function closeOv(id){
+  document.getElementById(id).classList.remove("on");
+  if (id === "apptOv" && apDirty) { apDirty = false; drawCal(); } // تغيّرت الخدمات: حدّث الجدول
+}
 
 /* ---------- customers ---------- */
 async function renderCustomers(q){
