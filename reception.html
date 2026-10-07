@@ -229,6 +229,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
         <button class="nav" style="background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay(null,'service')">+ دفعة بلا موعد</button>
         <button class="nav" onclick="openPay(null,'product')">+ منتج</button>
         <button class="nav" onclick="openPay(null,'expense')">+ مصروف</button>
+        <button class="nav" style="background:var(--cream);border-color:var(--cream)" onclick="openReport()">📄 تقرير اليوم</button>
       </span>
     </div>
     <div class="kgrid" id="accStats"></div>
@@ -943,6 +944,8 @@ async function renderAcc(){
       <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
     (otherSum ? `<div class="acc-row"><b>بلا حلاق</b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
+  ACC = { rows, per, other, otherSum, prods, exps, total, toBarbers, prodSum, prodCost, expSum, net, unpaid: unpaid.length,
+          count: PAYMENTS.find(p => kindOf(p) === "count") || null };
   const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
   document.getElementById("accList").innerHTML =
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
@@ -958,6 +961,128 @@ async function renderAcc(){
     (exps.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
       <div><b>${p.what || "مصروف"}</b><span class="muted">${tm(p)}${p.note ? " · " + p.note : ""}</span></div>
       <b style="direction:ltr;color:var(--neg)">−${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما في مصاريف</p>`);
+}
+
+
+/* ---------- تقرير آخر النهار: نص للواتس + صورة بتنزل — بيطلع من دفتر الاستقبال بس، وما بيكتب شي بمحاسبة الإدارة ---------- */
+let ACC = null, REPORT = null;
+function buildReport(prev){
+  const A = ACC, d = curDate;
+  const title = `${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  const L = []; // {k: h|row|sum|big|gap|note, r: نص يمين, l: رقم يسار, neg}
+  A.per.filter(x => x.n).forEach(x => {
+    L.push({ k: "h", r: x.b.name });
+    A.rows.filter(r => r.barber_id === x.b.id).forEach(r => L.push({ k: "row", r: (r.what || "—") + (r.rate !== null ? ` · نسبة ${Math.round(r.rate * 100)}%` : ""), l: fmt(r.amount) }));
+    L.push({ k: "sum", r: `المجموع (${x.n})`, l: fmt(x.sum) });
+    if (x.rate > 0 || x.share) L.push({ k: "sum", r: `حساب ${x.b.name}`, l: fmt(x.share) });
+    L.push({ k: "sum", r: "للصالون", l: fmt(x.sum - x.share) });
+    L.push({ k: "gap" });
+  });
+  if (A.other.length){
+    L.push({ k: "h", r: "بلا حلاق" });
+    A.other.forEach(r => L.push({ k: "row", r: r.what || r.name || "—", l: fmt(r.amount) }));
+    L.push({ k: "gap" });
+  }
+  if (A.prods.length){
+    L.push({ k: "h", r: "منتجات" });
+    A.prods.forEach(p => L.push({ k: "row", r: `${p.what || "منتج"}${+p.qty > 1 ? " ×" + p.qty : ""} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}`, l: fmt(+p.amount) }));
+    L.push({ k: "gap" });
+  }
+  if (A.exps.length){
+    L.push({ k: "h", r: "مصاريف" });
+    A.exps.forEach(p => L.push({ k: "row", r: `${p.what || "مصروف"}${p.note ? " — " + p.note : ""}`, l: "−" + fmt(+p.amount), neg: true }));
+    L.push({ k: "gap" });
+  }
+  L.push({ k: "h", r: "الخلاصة" });
+  L.push({ k: "sum", r: "حلاقة وخدمات", l: fmt(A.total) });
+  L.push({ k: "sum", r: "للحلاقين", l: "−" + fmt(A.toBarbers) });
+  if (A.prodSum) L.push({ k: "sum", r: "منتجات", l: fmt(A.prodSum) });
+  if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + fmt(A.expSum) });
+  L.push({ k: "big", r: "صافي اليوم (المتبقي)", l: fmt(A.net) });
+  const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
+  if (pv !== null) L.push({ k: "sum", r: `صندوق ${prev.pay_date.slice(8)}/${prev.pay_date.slice(5, 7)} + صافي اليوم`, l: fmt(pv + A.net) });
+  if (cnt !== null) L.push({ k: "big", r: "صندوق الحلاقة (عدّ الدرج)", l: fmt(cnt) });
+  if (cnt !== null && pv !== null && cnt !== pv + A.net) L.push({ k: "sum", r: "فرق العدّ عن المتوقع", l: (cnt - pv - A.net > 0 ? "+" : "−") + fmt(Math.abs(cnt - pv - A.net)), neg: true });
+  if (A.unpaid) L.push({ k: "note", r: `تنبيه: ${A.unpaid} موعد خلص وما تسجّل حسابو` });
+  const text = `Bob & Co — تقرير الحلاقة\n${title}\n\n` + L.map(x =>
+    x.k === "gap" ? "" : x.k === "h" ? `*${x.r}*` : x.k === "note" ? `⚠️ ${x.r}` : x.k === "big" ? `*${x.r}: ${x.l}*` : `${x.r}: ${x.l}`).join("\n").replace(/\n{3,}/g, "\n\n");
+  return { title, L, text };
+}
+async function openReport(){
+  if (!ACC) return toast("افتحي بطاقة الحسابات أول");
+  const { data } = await db.from("reception_payments").select("*").eq("kind", "count").lt("pay_date", iso(curDate)).order("pay_date", { ascending: false }).limit(1);
+  REPORT = buildReport((data || [])[0] || null);
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>تقرير اليوم — ${REPORT.title}</h3>
+    <div class="frow"><label>عدّ الدرج آخر النهار (ل.س) — الرقم اللي بيطلع لما ينعدّ الصندوق</label>
+      <div style="display:flex;gap:8px"><input id="cntAmount" inputmode="numeric" value="${ACC.count ? +ACC.count.amount : ""}" placeholder="مثلاً 7956000">
+      <button class="btn" style="width:auto;margin:0;padding:11px 20px" onclick="saveCount()">احفظ</button></div></div>
+    <pre id="repText" style="white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;font-family:inherit;font-size:.9rem;line-height:1.7;max-height:42vh;overflow:auto;margin:0">${REPORT.text.replace(/</g, "&lt;")}</pre>
+    <button class="btn" onclick="reportImage()">📷 نزّل التقرير صورة</button>
+    <div class="btn-row">
+      <button class="btn ghost" onclick="reportCopy()">انسخ النص للواتس</button>
+      <button class="btn ghost" onclick="reportImage(true)">شارك الصورة</button>
+    </div>
+    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
+async function saveCount(){
+  const v = numVal("cntAmount");
+  const cur = ACC && ACC.count;
+  const { error } = !v ? (cur ? await db.from("reception_payments").delete().eq("id", cur.id) : {})
+    : cur ? await db.from("reception_payments").update({ amount: v }).eq("id", cur.id)
+    : await db.from("reception_payments").insert({ kind: "count", pay_date: iso(curDate), amount: v, what: "عدّ الدرج" });
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  toast(v ? "✓ انحفظ العدّ " + fmt(v) : "✓ انشال العدّ");
+  await renderAcc(); openReport();
+}
+async function reportCopy(){
+  try { await navigator.clipboard.writeText(REPORT.text); toast("✓ انتسخ — الصقو بالواتس"); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents(document.getElementById("repText")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("حدّدتلك النص — انسخيه"); }
+}
+function reportCanvas(){
+  const W = 1080, P = 64, H_ = { h: 76, row: 50, sum: 54, big: 84, gap: 22, note: 60 };
+  const L = REPORT.L, bodyH = L.reduce((s, x) => s + H_[x.k], 0);
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = 250 + bodyH + 90;
+  const c = cv.getContext("2d"), fam = getComputedStyle(document.body).fontFamily || "sans-serif";
+  const OL = "#343925", CR = "#EFE3CA", BG = "#F6EFDF", NEG = "#9c3b2e";
+  c.fillStyle = BG; c.fillRect(0, 0, W, cv.height);
+  c.fillStyle = OL; c.fillRect(0, 0, W, 200);
+  c.fillStyle = CR; c.textBaseline = "middle";
+  c.direction = "ltr"; c.textAlign = "left"; c.font = `400 54px Georgia, "Times New Roman", serif`; c.fillText("BOB & CO", P, 84);
+  c.direction = "rtl"; c.textAlign = "right"; c.font = `800 40px ${fam}`; c.fillText("تقرير الحلاقة", W - P, 76);
+  c.font = `400 30px ${fam}`; c.globalAlpha = .85; c.fillText(REPORT.title, W - P, 134); c.globalAlpha = 1;
+  let y = 236;
+  const two = (x, size, weight, color) => {
+    c.fillStyle = color; c.font = `${weight} ${size}px ${fam}`;
+    c.direction = "rtl"; c.textAlign = "right"; c.fillText(x.r, W - P, y + H_[x.k] / 2, W - 2 * P - 260);
+    if (x.l !== undefined){ c.direction = "ltr"; c.textAlign = "left"; c.fillText(x.l, P, y + H_[x.k] / 2); }
+  };
+  for (const x of L){
+    if (x.k === "h"){ c.fillStyle = "rgba(52,57,37,.14)"; c.fillRect(P, y + H_.h - 12, W - 2 * P, 2); two(x, 38, 800, OL); }
+    else if (x.k === "row") two(x, 30, 400, x.neg ? NEG : "#4a4f3c");
+    else if (x.k === "sum") two(x, 31, 700, x.neg ? NEG : OL);
+    else if (x.k === "big"){ c.fillStyle = OL; c.beginPath(); c.roundRect ? c.roundRect(P - 20, y + 8, W - 2 * P + 40, H_.big - 16, 18) : c.rect(P - 20, y + 8, W - 2 * P + 40, H_.big - 16); c.fill(); two(x, 36, 800, CR); }
+    else if (x.k === "note") two(x, 28, 700, NEG);
+    y += H_[x.k];
+  }
+  c.fillStyle = "rgba(52,57,37,.5)"; c.direction = "rtl"; c.textAlign = "right"; c.font = `400 24px ${fam}`;
+  c.fillText("من دفتر الاستقبال · " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), W - P, y + 46);
+  return cv;
+}
+function reportImage(share){
+  if (!REPORT) return;
+  const name = `bobco-report-${iso(curDate)}.png`;
+  reportCanvas().toBlob(async blob => {
+    if (!blob) return toast("ما قدرت أطلّع الصورة");
+    const file = new File([blob], name, { type: "image/png" });
+    if (share && navigator.canShare && navigator.canShare({ files: [file] })){
+      try { await navigator.share({ files: [file], title: "تقرير " + REPORT.title }); return; } catch(e){ if (e && e.name === "AbortError") return; }
+    }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast("✓ نزلت الصورة");
+  }, "image/png");
 }
 
 /* ---- نسبة الحلاق لهالدفعة: الأساس «تلقائي»، وبتتغير يدوي إذا لزم ---- */
