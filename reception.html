@@ -64,6 +64,9 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt .meta{display:block}
+/* خط «هلق»: شريط بيج بحافة خفيفة ليبين عالأبيض وعالأخضر — بيتحرك مع الوقت */
+.nowline{position:absolute;inset-inline:0;height:3px;background:#E6D6B4;box-shadow:0 0 0 1px rgba(52,57,37,.22);z-index:4;pointer-events:none}
+.nowline span{position:absolute;inset-inline-start:4px;top:-9px;background:#EADDBF;color:var(--olive);font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;box-shadow:0 0 0 1px rgba(52,57,37,.22);direction:ltr}
 .appt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 /* نقل الموعد بكبسة طويلة */
 .appt.moving{z-index:8;opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.38);outline:2px solid #fff;cursor:grabbing;transition:none}
@@ -177,10 +180,11 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="nav" id="todayBtn">اليوم</button>
       <button class="nav" id="breakBtn">بريك</button>
       <button class="nav" id="offBtn">عطلة</button>
+      <button class="nav" id="undoBtn" style="display:none" onclick="undoLast()">↩ تراجع</button>
       <div class="day-stats" id="dayStats"></div>
     </div>
     <div class="grid-wrap" id="gridWrap"></div>
-    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
+    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني (غلطت؟ زر «تراجع» أو Ctrl+Z) · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
   </section>
 
   <!-- ===== Customers ===== -->
@@ -444,6 +448,7 @@ async function drawCal(){
   html += `</table>`;
   const wrap = document.getElementById("gridWrap");
   wrap.innerHTML = html;
+  placeNow();
   // day stats
   const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك" && b.source !== OFF_SRC);
   const done = act.filter(b => b.status === "خلص"), no = act.filter(b => b.status === "ما إجا");
@@ -452,6 +457,45 @@ async function drawCal(){
     `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span><span>💰 قيد: ${fmt(paid)} ل.س</span>`;
   if (!BARBER_VIEW && document.getElementById("v-acc").classList.contains("on")) renderAcc();
 }
+
+/* ---------- خط الساعة الحالية ---------- */
+function placeNow(){
+  const wrap = document.getElementById("gridWrap");
+  const old = wrap.querySelector(".nowline"); if (old) old.remove();
+  if (iso(curDate) !== iso(new Date())) return;               // بس بجدول اليوم
+  const { open, close, step } = slotGrid();
+  const n = new Date(), mins = n.getHours() * 60 + n.getMinutes();
+  if (mins < open || mins > close) return;
+  const headH = (wrap.querySelector("tr") || {}).offsetHeight || 44;
+  wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${headH + ((mins - open) / step) * 46}px"><span>${toLabel(mins)}</span></div>`);
+}
+setInterval(placeNow, 30000); // بيتحرك لحالو كل نص دقيقة بلا ما ينعاد رسم الجدول
+
+/* ---------- تراجع (Ctrl+Z أو زر «تراجع»): بيرجّع آخر نقل أو تغيير مدة ---------- */
+let UNDO = [];
+function pushUndo(a, label){
+  UNDO.push({ id: a.id, label, prev: { barber_id: a.barber_id, booking_time: a.booking_time, duration_min: bookingMins(a) } });
+  if (UNDO.length > 15) UNDO.shift();
+  syncUndo();
+}
+function syncUndo(){
+  const b = document.getElementById("undoBtn"); if (!b) return;
+  b.style.display = (UNDO.length && !BARBER_VIEW) ? "" : "none";
+  if (UNDO.length) b.title = "تراجع عن: " + UNDO[UNDO.length - 1].label;
+}
+async function undoLast(){
+  const u = UNDO.pop(); syncUndo();
+  if (!u) return toast("ما في شي تتراجع عنو");
+  const { error } = await db.from("bookings").update(u.prev).eq("id", u.id);
+  if (error) { console.error(error); toast("ما قدرت أرجّعو — محلو القديم انحجز"); return drawCal(); }
+  toast("↩ رجع: " + u.label); drawCal();
+}
+document.addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.code !== "KeyZ") return;
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;   // جوّا خانة كتابة: تراجع الكتابة العادي
+  if (BARBER_VIEW || !UNDO.length) return;
+  e.preventDefault(); undoLast();
+});
 
 /* ---------- booking sheet ---------- */
 let bookState = {};
@@ -698,8 +742,9 @@ let drag = null;
     d.el.classList.remove("dragging");
     if (!d.moved) return openAppt(d.a.id);             // كبسة عادية عالطرف = فتح الموعد
     if (d.mins === bookingMins(d.a)) return drawCal();
+    const before = { ...d.a, duration_min: bookingMins(d.a) };
     const { error } = await db.from("bookings").update({ duration_min: d.mins }).eq("id", d.a.id);
-    if (error) { console.error(error); toast("صار خطأ"); } else toast("⏱ صارت " + d.mins + " دقيقة");
+    if (error) { console.error(error); toast("صار خطأ"); } else { pushUndo(before, `مدة ${before.customer_name || "الموعد"} (كانت ${before.duration_min} د)`); toast("⏱ صارت " + d.mins + " دقيقة"); }
     drawCal();
   };
   wrap.addEventListener("pointerup", end);
@@ -774,8 +819,10 @@ let mv = null, mvTimer = null, mvStart = null, mvSuppress = false;
     const clash = BOOKINGS.find(x => x.id !== m.a.id && x.barber_id === t.barber.id && isLive(x) && x.source !== OFF_SRC &&
       t.st < toMin(x.booking_time) + bookingMins(x) && t.st + t.mins > toMin(x.booking_time));
     if (clash) return back(`في ${clash.source === "بريك" ? "بريك" : "موعد"} بهالوقت عند ${t.barber.name} (${clash.booking_time})`);
+    const before = { ...m.a };
     const { error } = await db.from("bookings").update({ barber_id: t.barber.id, booking_time: newTime }).eq("id", m.a.id);
     if (error) { console.error(error); return back("ما انتقل — جرب كمان مرة"); }
+    pushUndo(before, `نقل ${before.customer_name || "الموعد"} (كان ${before.booking_time})`);
     toast(`✓ انتقل لـ ${newTime}${t.barber.id !== m.a.barber_id ? " عند " + t.barber.name : ""}`);
     drawCal();
   };
@@ -1025,6 +1072,8 @@ async function chgDur(id, delta){
   return setDur(id, Math.max(15, bookingMins(a) + delta));
 }
 async function setDur(id, v){
+  const cur = BOOKINGS.find(x => x.id === id);
+  if (cur && bookingMins(cur) !== v) pushUndo({ ...cur }, `مدة ${cur.customer_name || "الموعد"} (كانت ${bookingMins(cur)} د)`);
   await db.from("bookings").update({ duration_min: v }).eq("id", id);
   closeOv("apptOv"); toast("⏱ صارت " + v + " دقيقة"); drawCal();
 }
