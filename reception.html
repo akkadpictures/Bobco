@@ -64,6 +64,22 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grid td.cell.off{cursor:default}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt .meta{display:block}
+.appt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* نقل الموعد بكبسة طويلة */
+.appt.moving{z-index:8;opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.38);outline:2px solid #fff;cursor:grabbing;transition:none}
+.grid th.drop{background:#4c5335}
+/* الحسابات + بروفايل الزبون */
+.acc-row{display:grid;grid-template-columns:1.2fr .6fr 1fr 1fr 1fr;gap:6px;padding:10px 4px;border-bottom:1px solid rgba(52,57,37,.08);font-size:.9rem;align-items:center}
+.acc-row.head{font-size:.72rem;font-weight:800;opacity:.6;padding-bottom:6px}
+.acc-row b{font-weight:800}
+.acc-row .num{text-align:left;direction:ltr;font-variant-numeric:tabular-nums}
+.pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.pstats div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
+.pstats b{display:block;font-size:1.15rem;color:var(--olive)}
+.pstats span{font-size:.68rem;opacity:.65;font-weight:700}
+.bar{height:8px;border-radius:8px;background:rgba(52,57,37,.1);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--olive);border-radius:8px}
+.cust-row .cname{cursor:pointer}
 /* الكلام بيتعبّى حسب حجم المستطيل: كبير = 3 سطور · وسط = سطرين · صغير = سطر واحد */
 .appt.mid{padding:3px 8px;line-height:1.3}
 .appt.mid b,.appt.mid .meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -146,6 +162,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="tab" data-v="cust">👥 الزباين</button>
       <button class="tab" data-v="inq">📊 الاستفسارات</button>
       <button class="tab" data-v="tasks">✅ المهام</button>
+      <button class="tab" data-v="acc">💰 الحسابات</button>
     </nav>
     <button class="tab" id="logoutBtn" onclick="logout()">خروج</button>
   </header>
@@ -163,7 +180,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <div class="day-stats" id="dayStats"></div>
     </div>
     <div class="grid-wrap" id="gridWrap"></div>
-    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · اسحب الطرف التحتاني للموعد لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
+    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
   </section>
 
   <!-- ===== Customers ===== -->
@@ -183,7 +200,6 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <div id="inqList"></div>
     </div>
   </section>
-</div>
 
   <!-- ===== Tasks ===== -->
   <section class="view" id="v-tasks">
@@ -195,6 +211,27 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <div id="taskList"></div>
     </div>
   </section>
+
+  <!-- ===== الحسابات (للسكرتيرة — منفصلة عن لوحة المحاسبة) ===== -->
+  <section class="view" id="v-acc">
+    <div class="cal-head" style="margin-bottom:12px">
+      <button class="nav" onclick="accDay(-1)">‹</button>
+      <b id="accDate" style="font-size:1.05rem;color:var(--olive);min-width:120px;text-align:center"></b>
+      <button class="nav" onclick="accDay(1)">›</button>
+      <button class="nav" onclick="accDay(0)">اليوم</button>
+      <button class="nav" style="margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay()">+ دفعة بلا موعد</button>
+    </div>
+    <div class="kgrid" id="accStats"></div>
+    <div class="panelbox" style="margin-bottom:14px">
+      <p style="font-weight:800;margin-bottom:6px">حساب الحلاقين — آخر النهار</p>
+      <div id="accBarbers"></div>
+    </div>
+    <div class="panelbox">
+      <p style="font-weight:800;margin-bottom:6px">دفعات اليوم</p>
+      <div id="accList"></div>
+    </div>
+  </section>
+</div><!-- /#app — المهام والحسابات صارو جوّا الحاوية ليأخدو نفس الهوامش -->
 
 <!-- booking sheet -->
 <div class="overlay" id="bookOv"><div class="sheet" id="bookSheet"></div></div>
@@ -322,7 +359,7 @@ setInterval(() => { if(document.getElementById("dayLabel")) updDayLabel(); }, 30
 setInterval(() => {
   const calOn = document.getElementById("v-cal").classList.contains("on");
   const sheetOpen = document.querySelector(".overlay.on");
-  if (document.visibilityState === "visible" && calOn && !sheetOpen && !drag && document.getElementById("app").style.display !== "none") drawCal();
+  if (document.visibilityState === "visible" && calOn && !sheetOpen && !drag && !mv && document.getElementById("app").style.display !== "none") drawCal();
 }, 60000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && document.getElementById("app").style.display !== "none") drawCal();
@@ -341,6 +378,8 @@ function bookingMins(b){
   const sum = ids.reduce((s,id) => { const sv = SERVICES.find(x => x.id === id); return s + (sv ? (+sv.duration_min || 30) : 30); }, 0);
   return sum || Number(SETTINGS.slot_minutes || 30);
 }
+const svcIds = b => (b.service_ids && b.service_ids.length) ? b.service_ids : (b.service_id ? [b.service_id] : []);
+const svcTotal = b => svcIds(b).reduce((s, id) => s + (+((SERVICES.find(x => x.id === id) || {}).price) || 0), 0);
 const svcNames = b => ((b.service_ids && b.service_ids.length) ? b.service_ids : (b.service_id ? [b.service_id] : []))
   .map(id => (SERVICES.find(x => x.id === id) || {}).name).filter(Boolean).join(" + ");
 
@@ -411,6 +450,7 @@ async function drawCal(){
   const paid = act.reduce((s,b) => s + (+b.amount||0), 0);
   document.getElementById("dayStats").innerHTML =
     `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span><span>💰 قيد: ${fmt(paid)} ل.س</span>`;
+  if (!BARBER_VIEW && document.getElementById("v-acc").classList.contains("on")) renderAcc();
 }
 
 /* ---------- booking sheet ---------- */
@@ -666,6 +706,267 @@ let drag = null;
   wrap.addEventListener("pointercancel", end);
 })();
 
+
+/* ---------- نقل الموعد: كبسة طويلة عالمستطيل، ثم سحب لوقت تاني أو لحلاق تاني ---------- */
+let mv = null, mvTimer = null, mvStart = null, mvSuppress = false;
+(function(){
+  const wrap = document.getElementById("gridWrap");
+  const cancelTimer = () => { clearTimeout(mvTimer); mvTimer = null; };
+  const colAt = x => {
+    const ths = [...wrap.querySelectorAll("table.grid tr:first-child th")].slice(1);
+    const i = ths.findIndex(th => { const r = th.getBoundingClientRect(); return x >= r.left && x <= r.right; });
+    return { ths, i, barber: i >= 0 ? BARBERS[i] : null };
+  };
+  const target = () => {
+    const { open, close, step } = slotGrid();
+    const row = wrap.querySelector("table.grid tr:nth-child(2)"); if (!row) return null;
+    const top = mv.rect.top + mv.dy - 2 - row.getBoundingClientRect().top;
+    const mins = bookingMins(mv.a);
+    let st = open + Math.round(((top / 46) * step) / 15) * 15;
+    st = Math.max(open, Math.min(st, Math.max(open, close - 15)));
+    const c = colAt(mv.rect.left + mv.rect.width / 2 + mv.dx);
+    return { st, mins, ...c };
+  };
+  wrap.addEventListener("pointerdown", e => {
+    if (BARBER_VIEW || drag || mv || e.target.closest(".grip")) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const el = e.target.closest(".appt"); if (!el) return;
+    const a = BOOKINGS.find(x => x.id === el.dataset.id); if (!a) return;
+    const pid = e.pointerId;
+    mvStart = { x: e.clientX, y: e.clientY };
+    cancelTimer();
+    mvTimer = setTimeout(() => {
+      mvTimer = null;
+      mv = { a, el, sx: mvStart.x, sy: mvStart.y, dx: 0, dy: 0, rect: el.getBoundingClientRect(), moved: false };
+      el.classList.add("moving");
+      if (navigator.vibrate) navigator.vibrate(12);
+      try { el.setPointerCapture(pid); } catch(_){}
+    }, 380);
+  });
+  wrap.addEventListener("pointermove", e => {
+    if (mvTimer && mvStart && (Math.abs(e.clientX - mvStart.x) > 8 || Math.abs(e.clientY - mvStart.y) > 8)) cancelTimer(); // سكرول عادي مو نقل
+    if (!mv) return;
+    mv.dx = e.clientX - mv.sx; mv.dy = e.clientY - mv.sy;
+    if (Math.abs(mv.dx) > 4 || Math.abs(mv.dy) > 4) mv.moved = true;
+    mv.el.style.transform = `translate(${mv.dx}px,${mv.dy}px)`;
+    const t = target(); if (!t) return;
+    t.ths.forEach((th, i) => th.classList.toggle("drop", i === t.i));
+    const tm = mv.el.querySelector(".tm");
+    if (tm) tm.textContent = `${toLabel(t.st)}–${toLabel(t.st + t.mins)}`;
+  });
+  // عاللمس: منوقف سكرول الصفحة طول ما الموعد ممسوك
+  wrap.addEventListener("touchmove", e => { if (mv) e.preventDefault(); }, { passive: false });
+  wrap.addEventListener("contextmenu", e => { if (e.target.closest(".appt")) e.preventDefault(); });
+  // الكبسة اللي بتجي بعد الإفلات ما بتفتح شاشة الموعد
+  wrap.addEventListener("click", e => { if (mvSuppress) { e.stopPropagation(); e.preventDefault(); } }, true);
+  const finish = async (e, cancelled) => {
+    cancelTimer();
+    if (!mv) return;
+    const m = mv, t = cancelled ? null : target();
+    mv = null; mvSuppress = true; setTimeout(() => mvSuppress = false, 400);
+    wrap.querySelectorAll("th.drop").forEach(th => th.classList.remove("drop"));
+    const back = msg => { if (msg) toast(msg); drawCal(); };
+    if (!t || !m.moved) return back(m.moved ? "" : "اسحب الموعد لتنقلو");
+    if (!t.barber) return back("فلّتو فوق عمود حلاق");
+    const newTime = toLabel(t.st);
+    if (t.barber.id === m.a.barber_id && newTime === m.a.booking_time) return back();
+    if (isOffToday(t.barber)) return back(t.barber.name + " بعطلة هاليوم");
+    const clash = BOOKINGS.find(x => x.id !== m.a.id && x.barber_id === t.barber.id && isLive(x) && x.source !== OFF_SRC &&
+      t.st < toMin(x.booking_time) + bookingMins(x) && t.st + t.mins > toMin(x.booking_time));
+    if (clash) return back(`في ${clash.source === "بريك" ? "بريك" : "موعد"} بهالوقت عند ${t.barber.name} (${clash.booking_time})`);
+    const { error } = await db.from("bookings").update({ barber_id: t.barber.id, booking_time: newTime }).eq("id", m.a.id);
+    if (error) { console.error(error); return back("ما انتقل — جرب كمان مرة"); }
+    toast(`✓ انتقل لـ ${newTime}${t.barber.id !== m.a.barber_id ? " عند " + t.barber.name : ""}`);
+    drawCal();
+  };
+  wrap.addEventListener("pointerup", e => finish(e, false));
+  wrap.addEventListener("pointercancel", e => finish(e, true));
+})();
+
+/* ---------- الحسابات: بطاقة السكرتيرة (منفصلة عن لوحة المحاسبة) ---------- */
+let PAYMENTS = [];
+// نسبة الحلاق من شغلو — نفس قاعدة لوحة المحاسبة (علاء 50%)
+const commRate = b => !b ? 0 : (b.name === "علاء" ? 0.5 : (+b.commission || 0));
+function accDay(d){ document.getElementById(d < 0 ? "prevDay" : d > 0 ? "nextDay" : "todayBtn").click(); }
+async function renderAcc(){
+  document.getElementById("accDate").textContent = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
+  const { data, error } = await db.from("reception_payments").select("*").eq("pay_date", iso(curDate)).order("created_at");
+  if (error) console.error(error);
+  PAYMENTS = data || [];
+  const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
+  const rows = [
+    ...real.filter(b => +b.amount > 0).map(b => ({ kind: "b", id: b.id, t: b.booking_time, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount })),
+    ...PAYMENTS.map(p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount }))
+  ].sort((x, y) => x.t.localeCompare(y.t));
+  const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
+  let total = 0, toBarbers = 0;
+  const per = BARBERS.map(b => {
+    const mine = rows.filter(r => r.barber_id === b.id), sum = mine.reduce((s, r) => s + r.amount, 0), rate = commRate(b), share = Math.round(sum * rate);
+    total += sum; toBarbers += share;
+    return { b, n: mine.length, sum, rate, share };
+  });
+  const other = rows.filter(r => !BARBERS.some(b => b.id === r.barber_id)), otherSum = other.reduce((s, r) => s + r.amount, 0);
+  total += otherSum;
+  document.getElementById("accStats").innerHTML = `
+    <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">مجموع اليوم</div></div>
+    <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
+    <div class="kcard"><div class="v">${fmt(total - toBarbers)}</div><div class="l">للصالون</div></div>
+    <div class="kcard"><div class="v">${rows.length}</div><div class="l">دفعة</div></div>`;
+  document.getElementById("accBarbers").innerHTML =
+    `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
+    per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%</span></b><span>${x.n}</span>
+      <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
+    (otherSum ? `<div class="acc-row"><b>بلا حلاق <span class="muted">منتجات وغيرو</span></b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
+  const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
+  document.getElementById("accList").innerHTML =
+    (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
+      unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
+    (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
+      <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}</span></div>
+      <b style="direction:ltr">${fmt(r.amount)}</b></div>`).join("") || `<p class="muted">ما في دفعات مسجّلة لهاليوم بعد</p>`);
+}
+let payState = {};
+function openPay(id){
+  const p = id ? PAYMENTS.find(x => String(x.id) === String(id)) : null;
+  payState = { id: p ? p.id : null, barber_id: p ? p.barber_id : null, svc: [] };
+  const esc = v => String(v == null ? "" : v).replace(/"/g, "&quot;");
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>${p ? "تعديل دفعة" : "دفعة بلا موعد"} — ${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}</h3>
+    <div class="frow"><label>الحلاق</label><div class="chips" id="payBarbers">${BARBERS.map(b =>
+      `<button class="chip ${payState.barber_id === b.id ? "on" : ""}" data-b="${b.id}" onclick="payBarber(this)">${b.name}</button>`).join("")}
+      <button class="chip ${p && !p.barber_id ? "on" : ""}" data-b="" onclick="payBarber(this)">بلا حلاق (منتج)</button></div></div>
+    <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${SERVICES.filter(x => +x.price > 0).map(x =>
+      `<button class="chip" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}</div></div>
+    <div class="frow"><label>شو الدفعة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · كريم كيرلي..."></div>
+    <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000"></div>
+    <div class="frow time-pair">
+      <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
+      <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
+    </div>
+    <button class="btn" onclick="savePay()">${p ? "احفظ" : "سجّل الدفعة"}</button>
+    ${p ? `<button class="btn danger" onclick="delPay()">احذف الدفعة</button>` : ""}
+    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
+function payBarber(el){
+  payState.barber_id = el.dataset.b ? +el.dataset.b : null; payState.barberSet = true;
+  document.querySelectorAll("#payBarbers .chip").forEach(c => c.classList.toggle("on", c === el));
+}
+function paySvc(el){
+  el.classList.toggle("on");
+  const ids = [...document.querySelectorAll("#bookSheet [data-s].on")].map(c => +c.dataset.s);
+  const list = ids.map(i => SERVICES.find(x => x.id === i)).filter(Boolean);
+  document.getElementById("payWhat").value = list.map(x => x.name).join(" + ");
+  document.getElementById("payAmount").value = list.reduce((s, x) => s + (+x.price || 0), 0) || "";
+}
+async function savePay(){
+  const amount = +String(document.getElementById("payAmount").value).replace(/[^\d.]/g, "");
+  if (!amount) return toast("اكتبي المبلغ");
+  if (!payState.id && !payState.barberSet) return toast("اختاري الحلاق (أو بلا حلاق)");
+  const row = { barber_id: payState.barber_id, what: document.getElementById("payWhat").value.trim() || null, amount,
+    customer_name: document.getElementById("payName").value.trim() || null, phone: document.getElementById("payPhone").value.trim() || null };
+  const { error } = payState.id
+    ? await db.from("reception_payments").update(row).eq("id", payState.id)
+    : await db.from("reception_payments").insert({ ...row, pay_date: iso(curDate) });
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ تسجّلت " + fmt(amount)); renderAcc();
+}
+async function delPay(){
+  if (!payState.id || !confirm("حذف هالدفعة؟")) return;
+  const { error } = await db.from("reception_payments").delete().eq("id", payState.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ انحذفت"); renderAcc();
+}
+
+/* ---------- بروفايل الزبون ---------- */
+// عيد الميلاد خلال 7 أيام؟ بيرجّع نص صغير للعرض أو ""
+function bdaySoon(bd){
+  if (!bd) return "";
+  const now = new Date(); now.setHours(0,0,0,0);
+  const [, m, d] = String(bd).slice(0,10).split("-").map(Number);
+  let next = new Date(now.getFullYear(), m - 1, d);
+  if (next < now) next = new Date(now.getFullYear() + 1, m - 1, d);
+  const diff = Math.round((next - now) / 864e5);
+  return diff === 0 ? "عيد ميلادو اليوم" : diff <= 7 ? `عيد ميلادو بعد ${diff} يوم` : "";
+}
+let PROFILE = null;
+async function openProfile(custId, phone){
+  let c = custId ? CUSTOMERS.find(x => String(x.id) === String(custId)) : null;
+  if (!c && phone){
+    const { data } = await db.from("customers").select("*").eq("phone", phone).limit(1);
+    c = (data || [])[0] || { name: "", phone };
+  }
+  if (!c) return;
+  PROFILE = c;
+  const sheet = document.getElementById("bookSheet");
+  sheet.innerHTML = `<h3>${c.name || "زبون"}</h3><p class="muted">عم يتحمّل...</p>`;
+  document.getElementById("bookOv").classList.add("on");
+  let bk = [], py = [];
+  if (c.phone){
+    const [a, b] = await Promise.all([
+      db.from("bookings").select("*").eq("phone", c.phone).order("booking_date", { ascending: false }).order("booking_time", { ascending: false }),
+      db.from("reception_payments").select("*").eq("phone", c.phone).order("pay_date", { ascending: false })
+    ]);
+    bk = (a.data || []).filter(x => x.source !== "بريك" && x.source !== OFF_SRC); py = b.data || [];
+    if (!c.name && bk[0]) c.name = bk[0].customer_name || "";
+  }
+  const today = iso(new Date());
+  const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "—";
+  const live = bk.filter(isLive);
+  const noShow = live.filter(x => x.status === "ما إجا").length, cancelled = bk.length - live.length;
+  const upcoming = live.filter(x => x.booking_date > today && x.status !== "ما إجا").reverse();
+  const visits = [
+    ...live.filter(x => x.booking_date <= today && x.status !== "ما إجا").map(x => ({ d: x.booking_date, t: x.booking_time, barber_id: x.barber_id, what: svcNames(x), amount: +x.amount || 0 })),
+    ...py.map(x => ({ d: x.pay_date, t: "", barber_id: x.barber_id, what: x.what || "", amount: +x.amount || 0 }))
+  ].sort((x, y) => (y.d + y.t).localeCompare(x.d + x.t));
+  const by = {}; visits.forEach(v => { if (v.barber_id) by[v.barber_id] = (by[v.barber_id] || 0) + 1; });
+  const dist = Object.entries(by).map(([id, n]) => ({ name: bName(+id), n })).sort((a, b) => b.n - a.n);
+  const withBarber = dist.reduce((s, x) => s + x.n, 0);
+  const verdict = !visits.length ? "لسا ما زارنا"
+    : visits.length < 3 ? "زبون جديد — لسا ما بيّن عند مين بيثبت"
+    : dist.length === 1 ? `دايماً عند ${dist[0].name}`
+    : dist[0].n / withBarber >= 0.7 ? `زبون ${dist[0].name} بالأساس — وأحياناً عند غيرو`
+    : "بيحلق عند أكتر من حلاق";
+  const dAr = d => { const [y, m, dd] = d.split("-"); return `${+dd}/${+m}/${y}`; };
+  const paid = visits.reduce((s, v) => s + v.amount, 0);
+  const esc = v => String(v == null ? "" : v).replace(/"/g, "&quot;");
+  sheet.innerHTML = `
+    <h3 style="margin-bottom:2px">${c.name || "زبون"} ${bdaySoon(c.birthday) ? `<span class="pill" style="background:var(--olive);color:var(--cream)">🎂 ${bdaySoon(c.birthday)}</span>` : ""}</h3>
+    <p class="muted">${c.phone ? "📞 " + c.phone : "بلا رقم — الزيارات بتنحسب عالرقم"} · ${verdict}</p>
+    <div class="pstats">
+      <div><b>${visits.length}</b><span>زيارة</span></div>
+      <div><b>${visits.length ? dAr(visits[0].d).replace(/\/\d{4}$/, "") : "—"}</b><span>آخر زيارة</span></div>
+      <div><b>${visits.length ? dAr(visits[visits.length - 1].d).replace(/\/\d{4}$/, "") : "—"}</b><span>أول زيارة</span></div>
+      <div><b>${paid ? fmt(paid) : "—"}</b><span>مدفوع مسجّل</span></div>
+    </div>
+    ${dist.length ? `<div class="frow"><label>عند مين بيحلق</label>${dist.map(x =>
+      `<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:.88rem"><b>${x.name}</b><span>${x.n} ${x.n > 10 ? "زيارة" : "مرة"}</span></div><div class="bar"><i style="width:${Math.round(x.n / withBarber * 100)}%"></i></div></div>`).join("")}</div>` : ""}
+    ${upcoming.length ? `<div class="frow"><label>مواعيد جاية</label>${upcoming.map(x => `<p style="font-size:.9rem">${dAr(x.booking_date)} · ${x.booking_time} · ${bName(x.barber_id)}${svcNames(x) ? " · " + svcNames(x) : ""}</p>`).join("")}</div>` : ""}
+    ${(noShow || cancelled) ? `<p class="muted" style="margin-bottom:10px">ما إجا: ${noShow} · لغى: ${cancelled}</p>` : ""}
+    <div class="frow time-pair">
+      <div><label>🎂 عيد ميلادو</label><input type="date" id="pfBday" value="${esc(c.birthday ? String(c.birthday).slice(0,10) : "")}"></div>
+      <div><label>ملاحظة عن الزبون</label><input id="pfNote" value="${esc(c.note)}" placeholder="بيحب القصة قصيرة..."></div>
+    </div>
+    <button class="btn" onclick="saveProfile()">احفظ</button>
+    <div class="frow" style="margin-top:16px"><label>سجل الزيارات</label>
+      ${visits.slice(0, 20).map(v => `<div class="cust-row" style="padding:9px 2px"><div><b style="font-weight:700">${dAr(v.d)}${v.t ? " · " + v.t : ""}</b><span class="muted">${bName(v.barber_id)}${v.what ? " · " + v.what : ""}</span></div><span style="direction:ltr;font-weight:700">${v.amount ? fmt(v.amount) : ""}</span></div>`).join("") || `<p class="muted">ما في زيارات مسجّلة</p>`}
+      ${visits.length > 20 ? `<p class="muted" style="margin-top:6px">+ ${visits.length - 20} زيارة أقدم</p>` : ""}
+    </div>
+    ${c.id ? `<button class="btn ghost" onclick="editCust('${c.id}')">تعديل الاسم والرقم</button>` : ""}
+    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+}
+async function saveProfile(){
+  const c = PROFILE; if (!c) return;
+  const row = { birthday: document.getElementById("pfBday").value || null, note: document.getElementById("pfNote").value.trim() || null };
+  const { error } = c.id
+    ? await db.from("customers").update(row).eq("id", c.id)
+    : await db.from("customers").insert({ ...row, name: c.name || "زبون", phone: c.phone });
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  Object.assign(c, row);
+  closeOv("bookOv"); toast("✓ انحفظ");
+  if (document.getElementById("v-cust").classList.contains("on")) renderCustomers(document.getElementById("custSearch").value.trim());
+}
+
 /* ---------- appointment sheet ---------- */
 function openAppt(id){
   const a = BOOKINGS.find(x => x.id === id); if (!a) return;
@@ -695,10 +996,11 @@ function openAppt(id){
         <button class="chip" onclick="chgDur('${a.id}',15)">+ 15د</button>
         <button class="chip" onclick="endNow('${a.id}')">✂️ خلص هلق</button>
       </div></div>
-    <div class="frow"><label>💰 قيد الحساب (ل.س) — تسجيل غير رسمي للضبط</label>
-      <input id="apAmount" inputmode="numeric" value="${a.amount||""}" placeholder="مثلاً 90000"></div>
+    <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيطلع ببطاقة الحسابات</label>
+      <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000"></div>
+    ${a.phone ? `<button class="chip" style="margin-bottom:4px" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
     <div class="btn-row">
-      <button class="btn" onclick="saveAmount('${a.id}')">احفظ القيد</button>
+      <button class="btn" onclick="saveAmount('${a.id}')">${+a.amount > 0 ? "عدّل الحساب" : "✓ حاسب"}</button>
       <button class="btn danger" onclick="setStatus('${a.id}','ملغي')">إلغاء الموعد</button>
     </div>`}
     <button class="btn ghost" onclick="closeOv('apptOv')">سكّر</button>`;
@@ -709,9 +1011,14 @@ async function setStatus(id, st){
   closeOv("apptOv"); toast("✓ " + st); drawCal();
 }
 async function saveAmount(id){
-  const v = +document.getElementById("apAmount").value || null;
-  await db.from("bookings").update({ amount: v }).eq("id", id);
-  closeOv("apptOv"); toast("✓ انقيد"); drawCal();
+  const a = BOOKINGS.find(x => x.id === id);
+  const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
+  const upd = { amount: v };
+  // حاسب = خلص: إذا الموعد لسا مؤكد/وصل منقلبو «خلص» مع تسجيل الحساب
+  if (v && a && ["بانتظار التأكيد", "مؤكد", "وصل"].includes(a.status)) upd.status = "خلص";
+  const { error } = await db.from("bookings").update(upd).eq("id", id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("apptOv"); toast(v ? "✓ حاسب " + fmt(v) : "✓ انشال الحساب"); drawCal();
 }
 async function chgDur(id, delta){
   const a = BOOKINGS.find(x => x.id === id); if (!a) return;
@@ -743,8 +1050,9 @@ async function renderCustomers(q){
     (data||[]).forEach(b => counts[b.phone] = (counts[b.phone]||0) + 1);
   }
   document.getElementById("custList").innerHTML = CUSTOMERS.map(c =>
-    `<div class="cust-row"><div><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
-     <span style="display:flex;gap:6px;align-items:center"><span class="pill">${counts[c.phone]||0} زيارة</span>
+    `<div class="cust-row"><div class="cname" onclick="openProfile('${c.id}')"><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
+     <span style="display:flex;gap:6px;align-items:center">${bdaySoon(c.birthday) ? `<span class="pill" style="background:var(--olive);color:var(--cream)">🎂 ${bdaySoon(c.birthday)}</span>` : ""}<span class="pill">${counts[c.phone]||0} زيارة</span>
+     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="openProfile('${c.id}')">بروفايل</button>
      <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editCust('${c.id}')">تعديل</button></span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
 }
 function editCust(id){
@@ -875,6 +1183,7 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   if (t.dataset.v === "cust") renderCustomers();
   if (t.dataset.v === "inq") renderInquiries();
   if (t.dataset.v === "tasks") renderTasks();
+  if (t.dataset.v === "acc") drawCal(); // بيحمّل اليوم وبعدها بيرسم بطاقة الحسابات
 });
 </script>
 </body>
