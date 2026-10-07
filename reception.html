@@ -65,8 +65,8 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grid th .hrs{display:block;font-weight:400;font-size:.7rem;opacity:.7;letter-spacing:.04em;margin-top:2px}
 .appt .meta{display:block}
 /* خط «هلق»: شريط بيج بحافة خفيفة ليبين عالأبيض وعالأخضر — بيتحرك مع الوقت */
-.nowline{position:absolute;inset-inline:0;height:3px;background:#E6D6B4;box-shadow:0 0 0 1px rgba(52,57,37,.22);z-index:4;pointer-events:none}
-.nowline span{position:absolute;inset-inline-start:4px;top:-9px;background:#EADDBF;color:var(--olive);font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;box-shadow:0 0 0 1px rgba(52,57,37,.22);direction:ltr}
+.nowline{position:absolute;inset-inline:0;height:4px;background:#E3D2A8;box-shadow:0 0 0 1px rgba(52,57,37,.55),0 2px 6px rgba(0,0,0,.18);z-index:4;pointer-events:none}
+.nowline span{position:absolute;inset-inline-start:6px;top:-11px;background:var(--olive);color:#EFE3CA;font-size:.74rem;font-weight:800;padding:3px 10px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,.25);direction:ltr}
 .appt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 /* نقل الموعد بكبسة طويلة */
 .appt.moving{z-index:8;opacity:.92;box-shadow:0 14px 34px rgba(0,0,0,.38);outline:2px solid #fff;cursor:grabbing;transition:none}
@@ -490,12 +490,18 @@ async function undoLast(){
   if (error) { console.error(error); toast("ما قدرت أرجّعو — محلو القديم انحجز"); return drawCal(); }
   toast("↩ رجع: " + u.label); drawCal();
 }
-document.addEventListener("keydown", e => {
-  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.code !== "KeyZ") return;
-  if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;   // جوّا خانة كتابة: تراجع الكتابة العادي
-  if (BARBER_VIEW || !UNDO.length) return;
-  e.preventDefault(); undoLast();
-});
+// Ctrl+Z / Cmd+Z — عالنافذة كلها وبمرحلة الالتقاط، لحتى ما يوقفها أي عنصر تاني
+window.addEventListener("keydown", e => {
+  const isZ = e.code === "KeyZ" || e.key === "z" || e.key === "Z" || e.key === "ئ";
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || !isZ) return;
+  if (BARBER_VIEW) return;
+  // بس إذا عم يكتب فعلاً بخانة نص منترك تراجع الكتابة العادي — خانة التاريخ ما بتوقف التراجع
+  const t = e.target, tag = (t && t.tagName) || "";
+  const typing = tag === "TEXTAREA" || (tag === "INPUT" && !/^(date|time|checkbox|radio|button)$/i.test(t.type || "text"));
+  if (typing && t.value) return;
+  e.preventDefault();
+  undoLast(); // إذا ما في شي، بيطلع تنبيه «ما في شي تتراجع عنو» بدل ما يسكت
+}, true);
 
 /* ---------- booking sheet ---------- */
 let bookState = {};
