@@ -37,6 +37,7 @@ header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12p
 header .logo{font-weight:400;color:var(--olive);font-size:1.05rem;letter-spacing:.02em}
 .tabs{display:flex;gap:6px;margin-inline-start:auto}
 .barber-mode #logoutBtn{margin-inline-start:auto}
+.barber-mode #calHint{display:none}
 .tab{padding:9px 16px;border-radius:999px;border:1px solid var(--line);font-weight:800;font-size:.9rem;background:#fff;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .view{display:none}.view.on{display:block}
@@ -184,7 +185,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <div class="day-stats" id="dayStats"></div>
     </div>
     <div class="grid-wrap" id="gridWrap"></div>
-    <p class="muted" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني (غلطت؟ زر «تراجع» أو Ctrl+Z) · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
+    <p class="muted" id="calHint" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني (غلطت؟ زر «تراجع» أو Ctrl+Z) · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
   </section>
 
   <!-- ===== Customers ===== -->
@@ -450,11 +451,12 @@ async function drawCal(){
   wrap.innerHTML = html;
   placeNow();
   // day stats
-  const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك" && b.source !== OFF_SRC);
+  // عند الحلاق: الأرقام لمواعيدو هو بس، وبلا مبالغ
+  const act = BOOKINGS.filter(b => b.status !== "ملغي" && b.status !== "ملغى" && b.source !== "بريك" && b.source !== OFF_SRC && (!BARBER_VIEW || String(b.barber_id) === String(BARBER_VIEW)));
   const done = act.filter(b => b.status === "خلص"), no = act.filter(b => b.status === "ما إجا");
   const paid = act.reduce((s,b) => s + (+b.amount||0), 0);
   document.getElementById("dayStats").innerHTML =
-    `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span><span>💰 قيد: ${fmt(paid)} ل.س</span>`;
+    `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span>${BARBER_VIEW ? "" : `<span>💰 قيد: ${fmt(paid)} ل.س</span>`}`;
   if (!BARBER_VIEW && document.getElementById("v-acc").classList.contains("on")) renderAcc();
 }
 
@@ -462,14 +464,25 @@ async function drawCal(){
 function placeNow(){
   const wrap = document.getElementById("gridWrap");
   const old = wrap.querySelector(".nowline"); if (old) old.remove();
-  if (iso(curDate) !== iso(new Date())) return;               // بس بجدول اليوم
+  if (curDate.toDateString() !== new Date().toDateString()) return;   // بس بجدول اليوم (عند الاستقبال وعند الحلاقين)
   const { open, close, step } = slotGrid();
   const n = new Date(), mins = n.getHours() * 60 + n.getMinutes();
   if (mins < open || mins > close) return;
   const headH = (wrap.querySelector("tr") || {}).offsetHeight || 44;
   wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${headH + ((mins - open) / step) * 46}px"><span>${toLabel(mins)}</span></div>`);
 }
-setInterval(placeNow, 30000); // بيتحرك لحالو كل نص دقيقة بلا ما ينعاد رسم الجدول
+// إذا الشاشة ضلت مفتوحة لتاني يوم (تابلت الحلاقين مثلاً) بتنقلب لحالها عاليوم الجديد
+let lastToday = new Date().toDateString();
+setInterval(() => {
+  const t = new Date().toDateString();
+  if (t !== lastToday){
+    const wasToday = curDate.toDateString() === lastToday;
+    lastToday = t;
+    if (wasToday && !document.querySelector(".overlay.on")) { document.getElementById("todayBtn").click(); return; }
+  }
+  if (!drag && !mv) placeNow();
+}, 30000);
+// الخط بيتحرك لحالو كل نص دقيقة بلا ما ينعاد رسم الجدول
 
 /* ---------- تراجع (Ctrl+Z أو زر «تراجع»): بيرجّع آخر نقل أو تغيير مدة ---------- */
 let UNDO = [];
