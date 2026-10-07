@@ -228,6 +228,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <span style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
         <button class="nav" style="background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay(null,'service')">+ دفعة بلا موعد</button>
         <button class="nav" onclick="openPay(null,'product')">+ منتج</button>
+        <button class="nav" onclick="openPay(null,'perfume')">+ عطر</button>
         <button class="nav" onclick="openPay(null,'expense')">+ مصروف</button>
         <button class="nav" style="background:var(--cream);border-color:var(--cream)" onclick="openReport()">📄 تقرير اليوم</button>
       </span>
@@ -915,7 +916,8 @@ async function renderAcc(){
   if (error) console.error(error);
   PAYMENTS = data || [];
   const kindOf = p => p.kind || "service";
-  const prods = PAYMENTS.filter(p => kindOf(p) === "product"), exps = PAYMENTS.filter(p => kindOf(p) === "expense");
+  const prods = PAYMENTS.filter(p => kindOf(p) === "product"), perfs = PAYMENTS.filter(p => kindOf(p) === "perfume"), exps = PAYMENTS.filter(p => kindOf(p) === "expense");
+  const sales = [...prods, ...perfs];
   const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
   const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.filter(p => kindOf(p) === "service").map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
@@ -929,13 +931,13 @@ async function renderAcc(){
   });
   const other = rows.filter(r => !BARBERS.some(b => b.id === r.barber_id)), otherSum = other.reduce((s, r) => s + r.amount, 0);
   total += otherSum;
-  const prodSum = prods.reduce((s, p) => s + (+p.amount || 0), 0), prodCost = prods.reduce((s, p) => s + (+p.cost || 0), 0);
+  const prodSum = sales.reduce((s, p) => s + (+p.amount || 0), 0), prodCost = sales.reduce((s, p) => s + (+p.cost || 0), 0);
   const expSum = exps.reduce((s, p) => s + (+p.amount || 0), 0);
   const net = total - toBarbers + prodSum - expSum;
   document.getElementById("accStats").innerHTML = `
     <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">حلاقة وخدمات (${rows.length})</div></div>
     <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
-    <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
+    <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات وعطور${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
     <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
     <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج</div></div>`;
   document.getElementById("accBarbers").innerHTML =
@@ -944,7 +946,7 @@ async function renderAcc(){
       <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
     (otherSum ? `<div class="acc-row"><b>بلا حلاق</b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
-  ACC = { rows, per, other, otherSum, prods, exps, total, toBarbers, prodSum, prodCost, expSum, net, unpaid: unpaid.length,
+  ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, expSum, net, unpaid: unpaid.length,
           count: PAYMENTS.find(p => kindOf(p) === "count") || null };
   const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
   document.getElementById("accList").innerHTML =
@@ -953,10 +955,10 @@ async function renderAcc(){
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
       <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}${r.rate !== null ? ` · نسبة خاصة ${Math.round(r.rate * 100)}%` : ""}</span></div>
       <b style="direction:ltr">${fmt(r.amount)}</b></div>`).join("") || `<p class="muted">ما في دفعات مسجّلة لهاليوم بعد</p>`) +
-    head(`منتجات انباعت (${prods.length})`) +
-    (prods.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
-      <div><b>${p.what || "منتج"}${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · شراء ${fmt(+p.cost || 0)} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
-      <b style="direction:ltr">${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما انباع شي</p>`) +
+    [["منتجات انباعت", prods, "ما انباع شي"], ["عطور انباعت", perfs, "ما انباع عطر"]].map(([t, l, empty]) => head(`${t} (${l.length})`) +
+      (l.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
+        <div><b>${p.what || "—"}${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · شراء ${fmt(+p.cost || 0)} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
+        <b style="direction:ltr">${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">${empty}</p>`)).join("") +
     head(`مصاريف (${exps.length})`) +
     (exps.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
       <div><b>${p.what || "مصروف"}</b><span class="muted">${tm(p)}${p.note ? " · " + p.note : ""}</span></div>
@@ -988,6 +990,11 @@ function buildReport(prev){
     A.prods.forEach(p => L.push({ k: "row", r: `${p.what || "منتج"}${+p.qty > 1 ? " ×" + p.qty : ""} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}`, l: fmt(+p.amount) }));
     L.push({ k: "gap" });
   }
+  if (A.perfs && A.perfs.length){
+    L.push({ k: "h", r: "عطور" });
+    A.perfs.forEach(p => L.push({ k: "row", r: `${p.what || "عطر"}${+p.qty > 1 ? " ×" + p.qty : ""} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}`, l: fmt(+p.amount) }));
+    L.push({ k: "gap" });
+  }
   if (A.exps.length){
     L.push({ k: "h", r: "مصاريف" });
     A.exps.forEach(p => L.push({ k: "row", r: `${p.what || "مصروف"}${p.note ? " — " + p.note : ""}`, l: "−" + fmt(+p.amount), neg: true }));
@@ -996,7 +1003,7 @@ function buildReport(prev){
   L.push({ k: "h", r: "الخلاصة" });
   L.push({ k: "sum", r: "حلاقة وخدمات", l: fmt(A.total) });
   L.push({ k: "sum", r: "للحلاقين", l: "−" + fmt(A.toBarbers) });
-  if (A.prodSum) L.push({ k: "sum", r: "منتجات", l: fmt(A.prodSum) });
+  if (A.prodSum) L.push({ k: "sum", r: "منتجات وعطور", l: fmt(A.prodSum) });
   if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + fmt(A.expSum) });
   L.push({ k: "big", r: "صافي اليوم (المتبقي)", l: fmt(A.net) });
   const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
@@ -1113,7 +1120,10 @@ function commLive(){
 }
 const numVal = id => +String((document.getElementById(id) || {}).value || "").replace(/[^\d.]/g, "") || 0;
 
-/* ---- دفعة بلا موعد / بيع منتج / مصروف ---- */
+/* ---- دفعة بلا موعد / بيع منتج / بيع عطر / مصروف ---- */
+// العطور: مبدئياً عطر بوب (25$ بيع · 10.5$ تكلفة الحبة من دفعة #1) — السعر بيتعدّل بكل بيعة
+const PERFUMES = [{ id: "bob", name: "عطر بوب", price: 345000, cost: 145000 }];
+const isSale = k => k === "product" || k === "perfume";
 let payState = {};
 function openPay(id, kind){
   const p = id ? PAYMENTS.find(x => String(x.id) === String(id)) : null;
@@ -1126,13 +1136,17 @@ function openPay(id, kind){
     ${p ? `<button class="btn danger" onclick="delPay()">احذف</button>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
   let html;
-  if (kind === "product"){
+  if (isSale(kind)){
+    const perf = kind === "perfume", list = perf ? PERFUMES : PRODUCTS, word = perf ? "عطر" : "منتج";
+    payState.list = list;
     const q = p ? (+p.qty || 1) : 1;
     payState.unit = p ? (+p.amount || 0) / q : 0; payState.unitCost = p ? (+p.cost || 0) / q : 0;
-    html = `<h3>${p ? "تعديل بيع منتج" : "بيع منتج"} — ${dayTxt}</h3>
-      <div class="frow"><label>المنتج — بيعبّي سعر البيع وسعر الشراء لحالو</label><div class="chips">${PRODUCTS.map(x =>
-        `<button class="chip ${p && p.what === x.name ? "on" : ""}" data-p="${x.id}" onclick="payProd(this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}</div></div>
-      <div class="frow"><label>اسم المنتج</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="واكس · بودرة..."></div>
+    const known = p && list.some(x => x.name === p.what);
+    html = `<h3>${p ? "تعديل بيع " + word : "بيع " + word} — ${dayTxt}</h3>
+      <div class="frow"><label>${perf ? "العطر" : "المنتج"} — بيعبّي سعر البيع وسعر الشراء لحالو · «أخرى» لأي شي مو بالقائمة</label><div class="chips">${list.map(x =>
+        `<button class="chip ${p && p.what === x.name ? "on" : ""}" data-p="${x.id}" onclick="payProd(this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}
+        <button class="chip ${p && !known ? "on" : ""}" data-p="" onclick="payOther(this)">أخرى</button></div></div>
+      <div class="frow"><label>${perf ? "اسم العطر" : "اسم المنتج"}</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="${perf ? "عطر بوب..." : "واكس · بودرة..."}"></div>
       <div class="frow"><label>العدد</label><div style="display:flex;gap:8px;align-items:center">
         <button class="chip" onclick="payQty(-1)">−</button><b id="payQty" style="min-width:34px;text-align:center;font-size:1.1rem">${q}</b><button class="chip" onclick="payQty(1)">+</button></div></div>
       <div class="frow time-pair">
@@ -1156,8 +1170,9 @@ function openPay(id, kind){
         `<button class="chip ${payState.barber_id === b.id ? "on" : ""}" data-b="${b.id}" onclick="payBarber(this)">${b.name}</button>`).join("")}
         <button class="chip ${p && !p.barber_id ? "on" : ""}" data-b="" onclick="payBarber(this)">بلا حلاق</button></div></div>
       <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${SERVICES.filter(x => +x.price > 0).map(x =>
-        `<button class="chip ${p && idsFromWhat(p.what).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}</div></div>
-      <div class="frow"><label>شو الدفعة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · دقن..." oninput="commLive()"></div>
+        `<button class="chip ${p && idsFromWhat(p.what).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}
+        <button class="chip" onclick="document.getElementById('payWhat').focus()">أخرى</button></div></div>
+      <div class="frow"><label>شو الدفعة — اكتبيها باليد إذا مو بالقائمة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · دقن..." oninput="commLive()"></div>
       <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
       ${commBlock(p ? rateOf(p) : null)}
       <div class="frow time-pair">
@@ -1168,7 +1183,7 @@ function openPay(id, kind){
   }
   document.getElementById("bookSheet").innerHTML = html;
   document.getElementById("bookOv").classList.add("on");
-  if (kind === "product") prodLive(); else if (kind === "service") commLive();
+  if (isSale(kind)) prodLive(); else if (kind === "service") commLive();
 }
 function payBarber(el){
   payState.barber_id = el.dataset.b ? +el.dataset.b : null; payState.barberSet = true;
@@ -1184,7 +1199,7 @@ function paySvc(el){
   commLive();
 }
 function payProd(el){
-  const x = PRODUCTS.find(q => q.id === +el.dataset.p); if (!x) return;
+  const x = (payState.list || PRODUCTS).find(q => String(q.id) === el.dataset.p); if (!x) return;
   document.querySelectorAll("#bookSheet [data-p]").forEach(c => c.classList.toggle("on", c === el));
   payState.unit = +x.price || 0; payState.unitCost = +x.cost || 0;
   const q = +document.getElementById("payQty").textContent || 1;
@@ -1192,6 +1207,12 @@ function payProd(el){
   document.getElementById("payAmount").value = payState.unit * q || "";
   document.getElementById("payCost").value = payState.unitCost * q || "";
   prodLive();
+}
+// «أخرى»: إدخال يدوي كامل — الاسم والسعر بينكتبو باليد
+function payOther(el){
+  el.parentElement.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c === el));
+  const w = document.getElementById("payWhat");
+  if (w) { if (payState.kind !== "service") { w.value = ""; ["payAmount", "payCost"].forEach(i => { const f = document.getElementById(i); if (f) f.value = ""; }); prodLive(); } w.focus(); }
 }
 function payQty(d){
   const el = document.getElementById("payQty"), old = +el.textContent || 1, q = Math.max(1, old + d);
@@ -1216,9 +1237,9 @@ async function savePay(){
   if (!amount) return toast("اكتبي المبلغ");
   const val = id => ((document.getElementById(id) || {}).value || "").trim() || null;
   let row;
-  if (payState.kind === "product"){
-    if (!val("payWhat")) return toast("اختاري المنتج أو اكتبي اسمو");
-    row = { kind: "product", barber_id: null, what: val("payWhat"), amount, cost: numVal("payCost"), qty: +document.getElementById("payQty").textContent || 1, customer_name: val("payName"), phone: val("payPhone") };
+  if (isSale(payState.kind)){
+    if (!val("payWhat")) return toast("اختاري من القائمة أو اكتبي الاسم");
+    row = { kind: payState.kind, barber_id: null, what: val("payWhat"), amount, cost: numVal("payCost"), qty: +document.getElementById("payQty").textContent || 1, customer_name: val("payName"), phone: val("payPhone") };
   } else if (payState.kind === "expense"){
     if (!payState.cat) return toast("اختاري نوع المصروف");
     row = { kind: "expense", barber_id: null, what: payState.cat, amount, note: val("payNote") };
