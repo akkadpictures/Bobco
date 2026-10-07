@@ -1409,7 +1409,7 @@ function openAppt(id){
   }
   const sheet = document.getElementById("apptSheet");
   sheet.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <h3 style="margin:0">${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
       ${(a.phone && !BARBER_VIEW) ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
     </div>
