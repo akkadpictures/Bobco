@@ -515,7 +515,7 @@ setInterval(() => {
 /* ---------- تراجع (Ctrl+Z أو زر «تراجع»): بيرجّع آخر نقل أو تغيير مدة ---------- */
 let UNDO = [];
 function pushUndo(a, label){
-  UNDO.push({ id: a.id, label, prev: { barber_id: a.barber_id, booking_time: a.booking_time, duration_min: bookingMins(a) } });
+  UNDO.push({ id: a.id, label, prev: { barber_id: a.barber_id, booking_time: a.booking_time, duration_min: bookingMins(a), ...(a.booking_date ? { booking_date: a.booking_date } : {}) } });
   if (UNDO.length > 15) UNDO.shift();
   syncUndo();
 }
@@ -1109,7 +1109,19 @@ function openAppt(id){
       </div></div>
     <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيتجمّع من الخدمات، وعدّليه إذا في إضافة برا القائمة</label>
       <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000"></div>
-    ${a.phone ? `<button class="chip" style="margin-bottom:4px" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
+    <div class="chips" style="margin-bottom:4px">
+      <button class="chip" onclick="apMoveToggle()">📅 انقل الموعد ليوم أو وقت تاني</button>
+      ${a.phone ? `<button class="chip" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
+    </div>
+    <div id="apMoveBox" style="display:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0 4px">
+      <div class="frow time-pair">
+        <div><label>اليوم الجديد</label><input type="date" id="mvDate" min="${iso(new Date())}" value="${a.booking_date || iso(curDate)}"></div>
+        <div><label>الساعة</label><input type="time" id="mvTime" step="900" value="${a.booking_time}"></div>
+      </div>
+      <div class="frow" style="margin-bottom:0"><label>الحلاق</label><div class="chips" id="mvBarbers">${BARBERS.map(b =>
+        `<button class="chip ${b.id === a.barber_id ? "on" : ""}" data-b="${b.id}" onclick="document.querySelectorAll('#mvBarbers .chip').forEach(c=>c.classList.toggle('on',c===this))">${b.name}</button>`).join("")}</div></div>
+      <button class="btn" style="margin-top:12px" onclick="apMove('${a.id}')">انقل الموعد</button>
+    </div>
     <div class="btn-row">
       <button class="btn" onclick="saveAmount('${a.id}')">${+a.amount > 0 ? "عدّل الحساب" : "✓ حاسب"}</button>
       <button class="btn danger" onclick="setStatus('${a.id}','ملغي')">إلغاء الموعد</button>
@@ -1135,6 +1147,32 @@ async function apTogSvc(id, el){
   apDirty = true;
 }
 let apDirty = false;
+function apMoveToggle(){ const b = document.getElementById("apMoveBox"); b.style.display = b.style.display === "none" ? "block" : "none"; }
+// نقل الموعد ليوم/وقت/حلاق تاني من شاشة الموعد — بيفحص العطلة والتعارض باليوم الجديد قبل ما ينقل
+async function apMove(id){
+  const a = BOOKINGS.find(x => x.id === id); if (!a) return;
+  const date = document.getElementById("mvDate").value, time = (document.getElementById("mvTime").value || "").slice(0, 5);
+  const chip = document.querySelector("#mvBarbers .chip.on"), b = chip && BARBERS.find(x => x.id === +chip.dataset.b);
+  if (!date || !time || !b) return toast("اختاري اليوم والساعة والحلاق");
+  if (date === a.booking_date && time === a.booking_time && b.id === a.barber_id) return toast("نفس الموعد — ما تغيّر شي");
+  const { open, close } = slotGrid(), st = toMin(time), mins = bookingMins(a);
+  if (st < open || st >= close) return toast(`الوقت برا ساعات الجدول (${toLabel(open)}–${toLabel(close)})`);
+  const d = new Date(date + "T12:00:00");
+  if (b.day_off !== null && b.day_off !== undefined && +b.day_off === d.getDay()) return toast(`${b.name} بعطلتو الأسبوعية يوم ${AR_DAYS[d.getDay()]}`);
+  const { data, error: e1 } = await db.from("bookings").select("*").eq("booking_date", date).eq("barber_id", b.id);
+  if (e1) { console.error(e1); return toast("صار خطأ — جرب كمان مرة"); }
+  const others = (data || []).filter(x => x.id !== a.id && isLive(x));
+  if (others.some(x => x.source === OFF_SRC)) return toast(`${b.name} بعطلة يوم ${d.getDate()}/${d.getMonth() + 1}`);
+  const clash = others.find(x => st < toMin(x.booking_time) + bookingMins(x) && st + mins > toMin(x.booking_time));
+  if (clash) return toast(`في ${clash.source === "بريك" ? "بريك" : "موعد"} بهالوقت عند ${b.name} (${clash.booking_time})`);
+  const before = { ...a };
+  const { error } = await db.from("bookings").update({ booking_date: date, booking_time: time, barber_id: b.id }).eq("id", id);
+  if (error) { console.error(error); return toast("ما انتقل — جرب كمان مرة"); }
+  pushUndo(before, `نقل ${before.customer_name || "الموعد"} (كان ${before.booking_date === date ? "" : before.booking_date.slice(8) + "/" + before.booking_date.slice(5, 7) + " · "}${before.booking_time})`);
+  apDirty = false; document.getElementById("apptOv").classList.remove("on");
+  toast(`✓ انتقل لـ ${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} · ${time} عند ${b.name}`);
+  drawCal();
+}
 async function saveAmount(id){
   const a = BOOKINGS.find(x => x.id === id);
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
