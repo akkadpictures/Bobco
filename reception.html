@@ -221,10 +221,11 @@ html,body{max-width:100%;overflow-x:hidden}
   <!-- ===== Tasks ===== -->
   <section class="view" id="v-tasks">
     <div class="panelbox">
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input class="search" id="taskTitle" placeholder="مهمة جديدة... (مثلاً: اتصال تأكيد مواعيد بكرا)" style="margin:0">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="search" id="taskTitle" placeholder="مهمة جديدة... (مثلاً: اتصال تأكيد مواعيد بكرا)" style="margin:0" onkeydown="if(event.key==='Enter')addTask()">
         <button class="btn" style="width:auto;margin:0;padding:12px 22px" onclick="addTask()">أضف</button>
       </div>
+      <div id="taskForm" style="display:flex;gap:14px 22px;flex-wrap:wrap;align-items:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(52,57,37,.1)"></div>
       <div id="taskList"></div>
     </div>
   </section>
@@ -1408,7 +1409,10 @@ function openAppt(id){
   }
   const sheet = document.getElementById("apptSheet");
   sheet.innerHTML = `
-    <h3>${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+      <h3 style="margin:0">${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
+      ${(a.phone && !BARBER_VIEW) ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
+    </div>
     <p class="muted"><span id="apSvcTxt">${svcNames(a)||"بدون خدمات محددة"}</span>${(a.phone && !BARBER_VIEW) ? " · 📞 " + a.phone : ""}${a.source ? " · " + a.source : ""}</p>
     ${a.note ? `<p class="muted">📝 ${a.note}</p>` : ""}
     ${BARBER_VIEW ? "" : `
@@ -1431,7 +1435,6 @@ function openAppt(id){
     ${commBlock(rateOf(a))}
     <div class="chips" style="margin-bottom:4px">
       <button class="chip" onclick="apMoveToggle()">📅 انقل الموعد ليوم أو وقت تاني</button>
-      ${a.phone ? `<button class="chip" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
     </div>
     <div id="apMoveBox" style="display:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0 4px">
       <div class="frow time-pair">
@@ -1648,37 +1651,101 @@ async function togConv(id, v){
   renderInquiries();
 }
 
-/* ---------- tasks ---------- */
+/* ---------- tasks: من طرف مين + الأولوية (عاجل / إله مدة / لبعدين) ---------- */
 let TASKS = [];
+const TASK_FROM = ["رشا", "بلال", "زيد"];
+const TASK_PRI = [
+  { k: "عاجل",    t: "عاجل",     c: "#9c3b2e" },
+  { k: "مدة",     t: "إله مدة",  c: "#b98524" },
+  { k: "لبعدين",  t: "لبعدين",   c: "#6b6b60" }
+];
+let taskNew = { from: "رشا", pri: "مدة", due: "" };
+const priOf = t => TASK_PRI.some(p => p.k === t.priority) ? t.priority : "مدة";
+// نص الموعد النهائي: متأخرة / اليوم / بكرا / باقي كذا يوم
+function dueText(d){
+  if (!d) return { txt: "بلا تاريخ", late: false };
+  const now = new Date(); now.setHours(0,0,0,0);
+  const [y, m, dd] = String(d).slice(0,10).split("-").map(Number), due = new Date(y, m - 1, dd);
+  const diff = Math.round((due - now) / 864e5), label = `${dd}/${m}`;
+  return diff < 0 ? { txt: `متأخرة ${-diff} يوم · ${label}`, late: true }
+    : diff === 0 ? { txt: `اليوم · ${label}`, late: true }
+    : diff === 1 ? { txt: `بكرا · ${label}`, late: false }
+    : { txt: `باقي ${diff} يوم · ${label}`, late: false };
+}
+function taskChips(state, fnName){
+  return `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="muted" style="font-weight:800;opacity:.75">من طرف</span>
+      ${TASK_FROM.map(n => `<button class="chip ${state.from === n ? "on" : ""}" onclick="${fnName}('from','${n}')">${n}</button>`).join("")}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="muted" style="font-weight:800;opacity:.75">الأولوية</span>
+      ${TASK_PRI.map(p => `<button class="chip ${state.pri === p.k ? "on" : ""}" onclick="${fnName}('pri','${p.k}')" style="${state.pri === p.k ? `background:${p.c};border-color:${p.c};color:#fff` : `border-color:${p.c};color:${p.c}`}">${p.t}</button>`).join("")}
+      ${state.pri === "مدة" ? `<input type="date" value="${state.due || ""}" min="${iso(new Date())}" onchange="${fnName}('due',this.value)" style="padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:#fff;font:inherit">` : ""}</div>`;
+}
+function drawTaskForm(){ document.getElementById("taskForm").innerHTML = taskChips(taskNew, "setTaskNew"); }
+function setTaskNew(k, v){ taskNew[k] = v; drawTaskForm(); }
 async function renderTasks(){
-  const { data } = await db.from("tasks").select("*").order("done").order("created_at", { ascending:false }).limit(80);
+  drawTaskForm();
+  const { data } = await db.from("tasks").select("*").order("done").order("created_at", { ascending:false }).limit(120);
   TASKS = data||[];
-  const row = t => `
-    <div class="cust-row" style="${t.done ? "opacity:.45" : ""}">
-      <div style="display:flex;align-items:center;gap:12px">
-        <button onclick="togTask('${t.id}',${!t.done})" style="width:26px;height:26px;border-radius:8px;border:2px solid var(--olive);background:${t.done ? "var(--olive)" : "#fff"};color:var(--cream);font-weight:800">${t.done ? "✓" : ""}</button>
-        <div><b style="${t.done ? "text-decoration:line-through" : ""}">${t.title}</b>
-        <span class="muted">${new Date(t.created_at).toLocaleDateString("ar-SY",{day:"numeric",month:"numeric"})}${t.assigned_by ? " · من " + t.assigned_by : ""}</span></div>
+  const row = t => {
+    const pr = TASK_PRI.find(p => p.k === priOf(t)), du = priOf(t) === "مدة" ? dueText(t.due_date) : null;
+    return `
+    <div class="cust-row" style="${t.done ? "opacity:.45" : ""};border-inline-start:4px solid ${t.done ? "transparent" : pr.c};padding-inline-start:10px">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <button onclick="togTask('${t.id}',${!t.done})" style="flex:0 0 26px;width:26px;height:26px;border-radius:8px;border:2px solid var(--olive);background:${t.done ? "var(--olive)" : "#fff"};color:var(--cream);font-weight:800">${t.done ? "✓" : ""}</button>
+        <div style="cursor:pointer;min-width:0" onclick="editTask('${t.id}')"><b style="${t.done ? "text-decoration:line-through" : ""}">${t.title}</b>
+        <span class="muted">${t.assigned_by ? "من طرف " + t.assigned_by + " · " : ""}انضافت ${new Date(t.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"numeric"})}</span></div>
       </div>
-      <button class="pill" style="border:none;cursor:pointer" onclick="delTask('${t.id}')">🗑</button>
-    </div>`;
+      <span style="display:flex;gap:6px;align-items:center;flex:0 0 auto">
+        ${du && !t.done ? `<span class="pill" style="${du.late ? "background:#9c3b2e;color:#fff" : ""}">${du.txt}</span>` : ""}
+        <button class="pill" style="border:none;cursor:pointer" onclick="delTask('${t.id}')">🗑</button>
+      </span>
+    </div>`; };
   const open = TASKS.filter(t => !t.done), done = TASKS.filter(t => t.done);
+  const sec = p => {
+    let l = open.filter(t => priOf(t) === p.k);
+    if (p.k === "مدة") l = l.sort((x, y) => (x.due_date || "9999").localeCompare(y.due_date || "9999")); // الأقرب أول
+    return `<p style="margin:16px 0 4px;font-weight:800;color:${p.c}">${p.t} (${l.length})</p>` + (l.map(row).join("") || `<p class="muted">ما في</p>`);
+  };
   document.getElementById("taskList").innerHTML =
-    (open.map(row).join("") || `<p class="muted">ما في مهام مفتوحة — برافو 👏</p>`) +
-    (done.length ? `<p class="muted" style="margin:14px 0 4px;font-weight:800">خلصانة (${done.length})</p>` + done.slice(0,15).map(row).join("") : "");
+    (open.length ? TASK_PRI.map(sec).join("") : `<p class="muted">ما في مهام مفتوحة — برافو 👏</p>`) +
+    (done.length ? `<p class="muted" style="margin:18px 0 4px;font-weight:800">خلصانة (${done.length})</p>` + done.slice(0,15).map(row).join("") : "");
 }
 async function addTask(){
   const v = document.getElementById("taskTitle").value.trim();
-  if (!v) return;
-  await db.from("tasks").insert({ title: v, assigned_by: "رشا" });
-  document.getElementById("taskTitle").value = "";
+  if (!v) return toast("اكتبي المهمة");
+  const { error } = await db.from("tasks").insert({ title: v, assigned_by: taskNew.from, priority: taskNew.pri, due_date: taskNew.pri === "مدة" ? (taskNew.due || null) : null });
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  document.getElementById("taskTitle").value = ""; taskNew.due = "";
   toast("✓ انضافت"); renderTasks();
+}
+let taskEdit = null;
+function editTask(id){
+  const t = TASKS.find(x => String(x.id) === String(id)); if (!t) return;
+  taskEdit = { id: t.id, from: t.assigned_by || "رشا", pri: priOf(t), due: t.due_date ? String(t.due_date).slice(0,10) : "", title: t.title };
+  drawTaskEdit();
+  document.getElementById("bookOv").classList.add("on");
+}
+function drawTaskEdit(){
+  const esc = v => String(v == null ? "" : v).replace(/"/g, "&quot;");
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>تعديل مهمة</h3>
+    <div class="frow"><label>المهمة</label><input id="teTitle" value="${esc(taskEdit.title)}" oninput="taskEdit.title=this.value"></div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:6px">${taskChips(taskEdit, "setTaskEdit")}</div>
+    <button class="btn" onclick="saveTask()">احفظ</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+}
+function setTaskEdit(k, v){ taskEdit[k] = v; drawTaskEdit(); }
+async function saveTask(){
+  const title = (taskEdit.title || "").trim(); if (!title) return toast("اكتبي المهمة");
+  const { error } = await db.from("tasks").update({ title, assigned_by: taskEdit.from, priority: taskEdit.pri, due_date: taskEdit.pri === "مدة" ? (taskEdit.due || null) : null }).eq("id", taskEdit.id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  closeOv("bookOv"); toast("✓ تعدّلت"); renderTasks();
 }
 async function togTask(id, v){
   await db.from("tasks").update({ done: v, done_at: v ? new Date().toISOString() : null }).eq("id", id);
   renderTasks();
 }
-async function delTask(id){ await db.from("tasks").delete().eq("id", id); renderTasks(); }
+async function delTask(id){ if (!confirm("حذف هالمهمة؟")) return; await db.from("tasks").delete().eq("id", id); renderTasks(); }
 
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
