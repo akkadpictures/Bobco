@@ -320,6 +320,7 @@ function renderCash(){
       else if (e.detail === "صندوق الكوفي") cofToUsd += a;
       else toUsd += a;
     }
+    if (e.type === "نقل" && e.sub === "عطور") return; // صندوق العطور لحالو — ما بيمس صندوق الحلاقة ولا الكوفي
     if (e.type === "نقل") {
       const a = +e.amount || 0;
       if (e.sub === "كوفي") { cofOut += a; if (e.detail === "صندوق زيد") zCof += a; }
@@ -368,6 +369,37 @@ function renderCash(){
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
     ${coffeeSplitRows()}
+  </table>`;
+  renderPerfumeBox(cofBox);
+}
+
+// 🧴 صندوق العطور — مفصول تماماً: مبيعات نوعها «عطر» ما بتفوت بصندوق الحلاقة ولا بالأرباح اليومية.
+// الدفعة #1: 96 قنينة بتكلفة 1,008$ (مسجّلة سابقاً كمصروف ممول). المبيعات القديمة (قبل الفصل) كانت «منتج» ودخلت صندوق الحلاقة.
+const PERFUME_BATCH = { bottles: 96, costUsd: 1008 };
+function renderPerfumeBox(anchor){
+  let box = document.getElementById("perfumeBox");
+  if (!box){
+    const host = anchor && anchor.closest(".card"); if (!host) return;
+    const card = document.createElement("div"); card.className = "card";
+    card.innerHTML = `<h2>🧴 صندوق العطور</h2><div class="table-scroll" id="perfumeBox"></div>`;
+    host.after(card); box = card.querySelector("#perfumeBox");
+  }
+  const isPerf = e => e.type === "عطر";
+  const isOld  = e => e.type === "منتج" && /عطر/.test(e.sub || "") && e.entry_date >= "2026-09-01"; // من تاريخ الدفعة #1 بس
+  const sum = (l, f) => l.reduce((s, e) => s + f(e), 0);
+  const nw = ENTRIES.filter(isPerf), old = ENTRIES.filter(isOld);
+  const out = ENTRIES.filter(e => e.type === "نقل" && e.sub === "عطور");
+  const amt = e => +e.amount || 0, cnt = e => +e.count || 1, usd = e => amt(e) / (+e.rate || 13800);
+  const sold = sum(nw, cnt) + sum(old, cnt), revUsd = sum(nw, usd) + sum(old, usd);
+  box.innerHTML = `<table>
+    <tr><td><strong>بالصندوق (ليرة)</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(sum(nw, amt) - sum(out, amt))}</strong></td></tr>
+    <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;مبيعات العطور (${sum(nw, cnt)} قنينة)</td><td class="pos">${fmtSYP(sum(nw, amt))}</td></tr>
+    <tr><td>&nbsp;&nbsp;− انسحب/تحوّل من الصندوق</td><td class="neg">${fmtSYP(sum(out, amt))}</td></tr>
+    <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">الدفعة #1 ↓</td></tr>
+    <tr><td>&nbsp;&nbsp;انباع / الباقي</td><td>${sold} / ${PERFUME_BATCH.bottles - sold} قنينة</td></tr>
+    ${old.length ? `<tr><td>&nbsp;&nbsp;مبيعات قبل الفصل (دخلت صندوق الحلاقة)</td><td>${fmtSYP(sum(old, amt))} <span style="opacity:.6">(${sum(old, cnt)} قنينة)</span></td></tr>` : ""}
+    <tr><td>&nbsp;&nbsp;<strong>استرداد التكلفة</strong></td><td><strong>≈ ${Math.round(revUsd)}$ من ${PERFUME_BATCH.costUsd}$</strong> <span style="opacity:.6">(${Math.round(revUsd / PERFUME_BATCH.costUsd * 100)}%)</span></td></tr>
   </table>`;
 }
 
@@ -659,7 +691,7 @@ function renderLog(){
     const netTxt = isB ? fmt(c.net) : (e.type === "كوفي" ? fmt(c.net) : "—");
     return `<tr>
       <td>${e.entry_date}</td>
-      <td><span class="tag t-${(e.type === "مصروف شهري" || e.type === "مصروف ممول") ? "مصروف" : (e.type === "نقل" || e.type === "تسوية") ? "دولار" : e.type}">${e.type}</span></td>
+      <td><span class="tag t-${(e.type === "مصروف شهري" || e.type === "مصروف ممول") ? "مصروف" : (e.type === "نقل" || e.type === "تسوية") ? "دولار" : e.type === "عطر" ? "منتج" : e.type}">${e.type}</span></td>
       <td>${bayan}</td>
       <td>${e.count ?? "—"}</td>
       <td class="${isExp ? "neg" : ""}">${isExp ? "−" : ""}${val}</td>
