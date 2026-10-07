@@ -142,6 +142,17 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:.3s}
 .toast.show{opacity:1}
 @media(max-width:700px){ .grid th{min-width:128px} .grid td.cell{min-width:128px} .svc-list{grid-template-columns:1fr} }
+/* موبايل: التابات كانت أعرض من الشاشة فالصفحة كلها تنزاح والشاشات المنبثقة (متل التقرير) تطلع برا الشاشة */
+html,body{max-width:100%;overflow-x:hidden}
+@media(max-width:700px){
+  header .tabs{order:3;width:100%;margin:0;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
+  header .tabs::-webkit-scrollbar{display:none}
+  header .tab{flex:0 0 auto;padding:8px 13px;font-size:.84rem}
+  #logoutBtn{margin-inline-start:auto}
+  .acc-row{font-size:.8rem;gap:4px}
+  .pstats{grid-template-columns:repeat(2,1fr)}
+  .sheet{width:100vw}
+}
 </style>
 </head>
 <body>
@@ -917,7 +928,8 @@ async function renderAcc(){
   PAYMENTS = data || [];
   const kindOf = p => p.kind || "service";
   const prods = PAYMENTS.filter(p => kindOf(p) === "product"), perfs = PAYMENTS.filter(p => kindOf(p) === "perfume"), exps = PAYMENTS.filter(p => kindOf(p) === "expense");
-  const sales = [...prods, ...perfs];
+  const sales = prods; // العطور لحالها: ما بتفوت بالمنتجات ولا بصافي الدرج
+  const perfSum = perfs.reduce((s, p) => s + (+p.amount || 0), 0), perfCost = perfs.reduce((s, p) => s + (+p.cost || 0), 0);
   const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
   const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.filter(p => kindOf(p) === "service").map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
@@ -937,19 +949,28 @@ async function renderAcc(){
   document.getElementById("accStats").innerHTML = `
     <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">حلاقة وخدمات (${rows.length})</div></div>
     <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
-    <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات وعطور${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
+    <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
     <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
-    <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج</div></div>`;
+    <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج (بلا عطور)</div></div>
+    <div class="kcard" style="background:var(--cream)"><div class="v">${fmt(perfSum)}</div><div class="l">عطور — لحالها${perfSum ? " · ربح " + fmt(perfSum - perfCost) : ""}</div></div>`;
   document.getElementById("accBarbers").innerHTML =
     `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
     per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}${x.custom ? ` · ${x.custom} بنسبة خاصة` : ""}</span></b><span>${x.n}</span>
       <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
     (otherSum ? `<div class="acc-row"><b>بلا حلاق</b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
-  ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, expSum, net, unpaid: unpaid.length,
+  // مواعيد لسا مفتوحة (لا خلص ولا ملغي ولا ما إجا) وما عليها حساب — غالباً زبون إجا وما انكبسلو «حاسب»
+  const open_ = real.filter(b => ["بانتظار التأكيد", "مؤكد", "وصل"].includes(b.status) && !(+b.amount > 0));
+  // ملغي/ما إجا وعليه مبلغ مسجّل — مو محسوب، بس لازم ينشاف
+  const ghost = BOOKINGS.filter(b => b.source !== "بريك" && b.source !== OFF_SRC && (!isLive(b) || b.status === "ما إجا") && +b.amount > 0);
+  ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, perfSum, perfCost, expSum, net, unpaid: unpaid.length, open_, ghost,
           count: PAYMENTS.find(p => kindOf(p) === "count") || null };
   const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
+  const warnRow = (b, pill) => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}${+b.amount > 0 ? " · " + fmt(+b.amount) : ""}</span></div><span class="pill">${pill}</span></div>`;
+  const warn = (t, l, pill) => l.length ? `<p class="muted" style="margin:10px 0 6px;font-weight:800;opacity:1;color:var(--neg)">${t} (${l.length}):</p>` + l.map(b => warnRow(b, pill)).join("") : "";
   document.getElementById("accList").innerHTML =
+    warn("مواعيد لسا مفتوحة وما عليها حساب — إذا الزبون إجا اكبسي «حاسب»، وإذا ما إجا علّميه", open_, "سكّري الموعد") +
+    warn("ملغيين وعليهم مبلغ مسجّل — مو محسوبين. إذا الزبون دفع فعلاً رجّعي الموعد «خلص»", ghost, "راجعيه") +
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
       unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
@@ -1003,35 +1024,64 @@ function buildReport(prev){
   L.push({ k: "h", r: "الخلاصة" });
   L.push({ k: "sum", r: "حلاقة وخدمات", l: fmt(A.total) });
   L.push({ k: "sum", r: "للحلاقين", l: "−" + fmt(A.toBarbers) });
-  if (A.prodSum) L.push({ k: "sum", r: "منتجات وعطور", l: fmt(A.prodSum) });
+  if (A.prodSum) L.push({ k: "sum", r: "منتجات", l: fmt(A.prodSum) });
   if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + fmt(A.expSum) });
-  L.push({ k: "big", r: "صافي اليوم (المتبقي)", l: fmt(A.net) });
+  L.push({ k: "big", r: "صافي اليوم (المتبقي) — بلا عطور", l: fmt(A.net) });
+  if (A.perfSum) L.push({ k: "big", r: "عطور — لحالها، مو ضمن الصافي", l: fmt(A.perfSum) });
   const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
   if (pv !== null) L.push({ k: "sum", r: `صندوق ${prev.pay_date.slice(8)}/${prev.pay_date.slice(5, 7)} + صافي اليوم`, l: fmt(pv + A.net) });
   if (cnt !== null) L.push({ k: "big", r: "صندوق الحلاقة (عدّ الدرج)", l: fmt(cnt) });
   if (cnt !== null && pv !== null && cnt !== pv + A.net) L.push({ k: "sum", r: "فرق العدّ عن المتوقع", l: (cnt - pv - A.net > 0 ? "+" : "−") + fmt(Math.abs(cnt - pv - A.net)), neg: true });
   if (A.unpaid) L.push({ k: "note", r: `تنبيه: ${A.unpaid} موعد خلص وما تسجّل حسابو` });
+  (A.open_ || []).forEach(b => L.push({ k: "note", r: `مفتوح بلا حساب: ${b.customer_name || "—"} · ${b.booking_time} · ${(BARBERS.find(x => x.id === b.barber_id) || {}).name || ""}` }));
+  (A.ghost || []).forEach(b => L.push({ k: "note", r: `ملغي وعليه ${fmt(+b.amount)}: ${b.customer_name || "—"} · ${b.booking_time} · ${(BARBERS.find(x => x.id === b.barber_id) || {}).name || ""}` }));
   const text = `Bob & Co — تقرير الحلاقة\n${title}\n\n` + L.map(x =>
     x.k === "gap" ? "" : x.k === "h" ? `*${x.r}*` : x.k === "note" ? `⚠️ ${x.r}` : x.k === "big" ? `*${x.r}: ${x.l}*` : `${x.r}: ${x.l}`).join("\n").replace(/\n{3,}/g, "\n\n");
   return { title, L, text };
 }
 async function openReport(){
   if (!ACC) return toast("افتحي بطاقة الحسابات أول");
-  const { data } = await db.from("reception_payments").select("*").eq("kind", "count").lt("pay_date", iso(curDate)).order("pay_date", { ascending: false }).limit(1);
-  REPORT = buildReport((data || [])[0] || null);
-  document.getElementById("bookSheet").innerHTML = `
-    <h3>تقرير اليوم — ${REPORT.title}</h3>
-    <div class="frow"><label>عدّ الدرج آخر النهار (ل.س) — الرقم اللي بيطلع لما ينعدّ الصندوق</label>
-      <div style="display:flex;gap:8px"><input id="cntAmount" inputmode="numeric" value="${ACC.count ? +ACC.count.amount : ""}" placeholder="مثلاً 7956000">
-      <button class="btn" style="width:auto;margin:0;padding:11px 20px" onclick="saveCount()">احفظ</button></div></div>
-    <pre id="repText" style="white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;font-family:inherit;font-size:.9rem;line-height:1.7;max-height:42vh;overflow:auto;margin:0">${REPORT.text.replace(/</g, "&lt;")}</pre>
-    <button class="btn" onclick="reportImage()">📷 نزّل التقرير صورة</button>
-    <div class="btn-row">
-      <button class="btn ghost" onclick="reportCopy()">انسخ النص للواتس</button>
-      <button class="btn ghost" onclick="reportImage(true)">شارك الصورة</button>
-    </div>
-    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
-  document.getElementById("bookOv").classList.add("on");
+  try {
+    const { data } = await db.from("reception_payments").select("*").eq("kind", "count").lt("pay_date", iso(curDate)).order("pay_date", { ascending: false }).limit(1);
+    REPORT = buildReport((data || [])[0] || null);
+    // الصورة بتتجهّز هون مرة وحدة: عالموبايل، التنزيل والمشاركة لازم يصيرو بنفس الكبسة بلا انتظار
+    const name = `bobco-report-${iso(curDate)}.png`;
+    let img = "";
+    try {
+      const dataUrl = reportCanvas().toDataURL("image/png"), bin = atob(dataUrl.split(",")[1]), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      const blob = new Blob([u8], { type: "image/png" });
+      if (REPORT.url) URL.revokeObjectURL(REPORT.url);
+      REPORT.url = URL.createObjectURL(blob); REPORT.dataUrl = dataUrl; REPORT.name = name;
+      try { REPORT.file = new File([blob], name, { type: "image/png" }); } catch(_){ REPORT.file = null; }
+      img = `<div class="frow"><label>صورة التقرير — عالموبايل: كبسة طويلة عالصورة ← «حفظ» أو «مشاركة»</label>
+        <img src="${dataUrl}" alt="تقرير اليوم" style="width:100%;border-radius:14px;border:1px solid var(--line);display:block"></div>
+        <a class="btn" href="${REPORT.url}" download="${name}" style="display:block;text-align:center;text-decoration:none">📷 نزّل التقرير صورة</a>`;
+    } catch(e){ console.error(e); img = `<p class="muted" style="color:var(--neg);opacity:1">ما طلعت الصورة عهالجهاز (${String(e && e.message || e).slice(0, 80)}) — استعملي «انسخ النص»</p>`; }
+    document.getElementById("bookSheet").innerHTML = `
+      <h3>تقرير اليوم — ${REPORT.title}</h3>
+      <div class="frow"><label>عدّ الدرج آخر النهار (ل.س) — الرقم اللي بيطلع لما ينعدّ الصندوق</label>
+        <div style="display:flex;gap:8px"><input id="cntAmount" inputmode="numeric" value="${ACC.count ? +ACC.count.amount : ""}" placeholder="مثلاً 7956000">
+        <button class="btn" style="width:auto;margin:0;padding:11px 20px" onclick="saveCount()">احفظ</button></div></div>
+      ${img}
+      <div class="btn-row">
+        <button class="btn ghost" onclick="reportCopy()">انسخ النص للواتس</button>
+        <button class="btn ghost" onclick="reportShare()">شارك الصورة</button>
+      </div>
+      <div class="frow" style="margin-top:14px"><label>النص</label>
+      <pre id="repText" style="white-space:pre-wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;font-family:inherit;font-size:.9rem;line-height:1.7;max-height:38vh;overflow:auto;margin:0">${REPORT.text.replace(/</g, "&lt;")}</pre></div>
+      <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+    document.getElementById("bookOv").classList.add("on");
+  } catch(e){ console.error(e); toast("التقرير ما فتح: " + String(e && e.message || e).slice(0, 90)); }
+}
+function reportShare(){
+  if (!REPORT) return;
+  const f = REPORT.file;
+  if (f && navigator.canShare && navigator.canShare({ files: [f] })){
+    navigator.share({ files: [f], title: "تقرير " + REPORT.title }).catch(e => { if (!e || e.name !== "AbortError") toast("المشاركة ما اشتغلت — كبسة طويلة عالصورة"); });
+  } else if (navigator.share){
+    navigator.share({ title: "تقرير " + REPORT.title, text: REPORT.text }).catch(() => {});
+  } else toast("هالجهاز ما بيدعم المشاركة — نزّلي الصورة أو انسخي النص");
 }
 async function saveCount(){
   const v = numVal("cntAmount");
@@ -1077,21 +1127,6 @@ function reportCanvas(){
   c.fillText("من دفتر الاستقبال · " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), W - P, y + 46);
   return cv;
 }
-function reportImage(share){
-  if (!REPORT) return;
-  const name = `bobco-report-${iso(curDate)}.png`;
-  reportCanvas().toBlob(async blob => {
-    if (!blob) return toast("ما قدرت أطلّع الصورة");
-    const file = new File([blob], name, { type: "image/png" });
-    if (share && navigator.canShare && navigator.canShare({ files: [file] })){
-      try { await navigator.share({ files: [file], title: "تقرير " + REPORT.title }); return; } catch(e){ if (e && e.name === "AbortError") return; }
-    }
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    toast("✓ نزلت الصورة");
-  }, "image/png");
-}
-
 /* ---- نسبة الحلاق لهالدفعة: الأساس «تلقائي»، وبتتغير يدوي إذا لزم ---- */
 let commPick = null, commCtx = null; // commPick: null = تلقائي، رقم = نسبة خاصة (0.4 = 40%)
 function commBlock(cur){
@@ -1410,7 +1445,12 @@ function openAppt(id){
   }
 }
 async function setStatus(id, st){
-  await db.from("bookings").update({ status: st }).eq("id", id);
+  const cur = BOOKINGS.find(x => x.id === id), upd = { status: st };
+  if (cur && +cur.amount > 0 && (st === "ملغي" || st === "ملغى" || st === "ما إجا")){
+    if (!confirm(`هالموعد مسجّل عليه حساب ${fmt(+cur.amount)}.\n«${st}» بيشيل الحساب من اليوم. متأكدة؟`)) return;
+    upd.amount = null; upd.comm_rate = null;
+  }
+  await db.from("bookings").update(upd).eq("id", id);
   closeOv("apptOv"); toast("✓ " + st); drawCal();
 }
 // إضافة/شيل خدمة من الموعد: بتنحفظ فوراً، والمبلغ بيتجمّع من جديد (ما بيتسجّل إلا بكبسة «حاسب»)
