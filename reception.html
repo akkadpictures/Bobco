@@ -184,6 +184,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <button class="nav" id="undoBtn" style="display:none" onclick="undoLast()">↩ تراجع</button>
       <div class="day-stats" id="dayStats"></div>
     </div>
+    <div id="myBox" style="display:none;margin-bottom:12px"></div>
     <div class="grid-wrap" id="gridWrap"></div>
     <p class="muted" id="calHint" style="margin-top:8px">اضغط عمربع فاضي لتحجز أو تحط بريك · كبسة طويلة عالموعد واسحبو لتنقلو لوقت تاني أو حلاق تاني (غلطت؟ زر «تراجع» أو Ctrl+Z) · اسحب الطرف التحتاني لتقصّرو أو تطوّلو · اضغط عموعد لتعدّل حالتو أو تسجل حسابو</p>
   </section>
@@ -458,6 +459,33 @@ async function drawCal(){
   document.getElementById("dayStats").innerHTML =
     `<span>📋 ${act.length} موعد</span><span>✅ ${done.length} خلصو</span><span>🚫 ${no.length} ما إجو</span>${BARBER_VIEW ? "" : `<span>💰 قيد: ${fmt(paid)} ل.س</span>`}`;
   if (!BARBER_VIEW && document.getElementById("v-acc").classList.contains("on")) renderAcc();
+  if (BARBER_VIEW) renderMine();
+}
+
+/* ---------- عند الحلاق: شغلو وحسابو هو بس (اليوم + الشهر) — ما بيشوف غيرو ---------- */
+async function renderMine(){
+  const me = BARBERS.find(b => String(b.id) === String(BARBER_VIEW)); if (!me) return;
+  const box = document.getElementById("myBox");
+  const day = iso(curDate), first = day.slice(0, 8) + "01";
+  const last = iso(new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0, 12));
+  const [bk, py] = await Promise.all([
+    db.from("bookings").select("*").eq("barber_id", me.id).gte("booking_date", first).lte("booking_date", last),
+    db.from("reception_payments").select("*").eq("barber_id", me.id).gte("pay_date", first).lte("pay_date", last)
+  ]);
+  const rows = [...(bk.data || []).filter(paidBooking).map(rowFromBooking), ...(py.data || []).map(rowFromPay)];
+  const sum = l => ({ n: l.length, total: l.reduce((s, r) => s + r.amount, 0), share: l.reduce((s, r) => s + shareOf(me, r), 0) });
+  const d = sum(rows.filter(r => r.d === day)), m = sum(rows);
+  const card = (v, l) => `<div class="kcard"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const dayTxt = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth() + 1}`;
+  box.style.display = "block";
+  box.innerHTML = `
+    <div class="kgrid" style="margin-bottom:8px">
+      ${card(d.n, "زباينك — " + dayTxt)}${card(fmt(d.total), "شغلك — " + dayTxt)}${commRate(me) > 0 ? card(fmt(d.share), "حسابك — " + dayTxt) : ""}
+    </div>
+    <div class="kgrid" style="margin-bottom:0">
+      ${card(m.n, "زباينك هالشهر")}${card(fmt(m.total), "شغلك هالشهر")}${commRate(me) > 0 ? card(fmt(m.share), "حسابك هالشهر") : ""}
+    </div>
+    <p class="muted" style="margin-top:6px">الأرقام من اللي تسجّل عند الاستقبال — إذا ناقص زبون، خبّر الاستقبال تسجّل حسابو</p>`;
 }
 
 /* ---------- خط الساعة الحالية ---------- */
@@ -853,6 +881,22 @@ let mv = null, mvTimer = null, mvStart = null, mvSuppress = false;
 let PAYMENTS = [];
 // نسبة الحلاق من شغلو — نفس قاعدة لوحة المحاسبة (علاء 50%)
 const commRate = b => !b ? 0 : (b.name === "علاء" ? 0.5 : (+b.commission || 0));
+// خدمات العناية (قسم «عناية») إلها نسبة لحالها — 50% — لأي حلاق عندو نسبة
+const careRate = () => +SETTINGS.services_commission || 0.5;
+const isCareSvc = x => !!x && x.section === "عناية";
+// بيقسم المبلغ المدفوع بين حلاقة وعناية حسب أسعار الخدمات اللي بالموعد
+function splitAmt(ids, amount){
+  const list = (ids || []).map(i => SERVICES.find(x => x.id === i)).filter(Boolean);
+  const tot = list.reduce((s, x) => s + (+x.price || 0), 0), carePrice = list.filter(isCareSvc).reduce((s, x) => s + (+x.price || 0), 0);
+  const care = !list.length ? 0 : list.every(isCareSvc) ? amount : tot > 0 ? Math.round(amount * carePrice / tot) : 0;
+  return { cut: amount - care, care };
+}
+const idsFromWhat = w => String(w || "").split("+").map(n => (SERVICES.find(x => x.name === n.trim()) || {}).id).filter(Boolean);
+const shareOf = (b, r) => commRate(b) > 0 ? Math.round(r.cut * commRate(b)) + Math.round(r.care * careRate()) : 0;
+// سطر حساب موحّد من موعد أو من دفعة بلا موعد
+const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.booking_date, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount, ...splitAmt(svcIds(b), +b.amount) });
+const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, ...splitAmt(idsFromWhat(p.what), +p.amount) });
+const paidBooking = b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC && +b.amount > 0;
 function accDay(d){ document.getElementById(d < 0 ? "prevDay" : d > 0 ? "nextDay" : "todayBtn").click(); }
 async function renderAcc(){
   document.getElementById("accDate").textContent = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
@@ -860,16 +904,14 @@ async function renderAcc(){
   if (error) console.error(error);
   PAYMENTS = data || [];
   const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
-  const rows = [
-    ...real.filter(b => +b.amount > 0).map(b => ({ kind: "b", id: b.id, t: b.booking_time, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount })),
-    ...PAYMENTS.map(p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount }))
-  ].sort((x, y) => x.t.localeCompare(y.t));
+  const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
   let total = 0, toBarbers = 0;
   const per = BARBERS.map(b => {
-    const mine = rows.filter(r => r.barber_id === b.id), sum = mine.reduce((s, r) => s + r.amount, 0), rate = commRate(b), share = Math.round(sum * rate);
+    const mine = rows.filter(r => r.barber_id === b.id), sum = mine.reduce((s, r) => s + r.amount, 0), rate = commRate(b);
+    const care = mine.reduce((s, r) => s + r.care, 0), share = mine.reduce((s, r) => s + shareOf(b, r), 0);
     total += sum; toBarbers += share;
-    return { b, n: mine.length, sum, rate, share };
+    return { b, n: mine.length, sum, rate, share, care };
   });
   const other = rows.filter(r => !BARBERS.some(b => b.id === r.barber_id)), otherSum = other.reduce((s, r) => s + r.amount, 0);
   total += otherSum;
@@ -880,7 +922,7 @@ async function renderAcc(){
     <div class="kcard"><div class="v">${rows.length}</div><div class="l">دفعة</div></div>`;
   document.getElementById("accBarbers").innerHTML =
     `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
-    per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%</span></b><span>${x.n}</span>
+    per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}</span></b><span>${x.n}</span>
       <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
     (otherSum ? `<div class="acc-row"><b>بلا حلاق <span class="muted">منتجات وغيرو</span></b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
