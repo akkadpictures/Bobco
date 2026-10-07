@@ -225,7 +225,11 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <b id="accDate" style="font-size:1.05rem;color:var(--olive);min-width:120px;text-align:center"></b>
       <button class="nav" onclick="accDay(1)">›</button>
       <button class="nav" onclick="accDay(0)">اليوم</button>
-      <button class="nav" style="margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay()">+ دفعة بلا موعد</button>
+      <span style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="nav" style="background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay(null,'service')">+ دفعة بلا موعد</button>
+        <button class="nav" onclick="openPay(null,'product')">+ منتج</button>
+        <button class="nav" onclick="openPay(null,'expense')">+ مصروف</button>
+      </span>
     </div>
     <div class="kgrid" id="accStats"></div>
     <div class="panelbox" style="margin-bottom:14px">
@@ -233,7 +237,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
       <div id="accBarbers"></div>
     </div>
     <div class="panelbox">
-      <p style="font-weight:800;margin-bottom:6px">دفعات اليوم</p>
+      <p style="font-weight:800;margin-bottom:6px">حلاقة وخدمات</p>
       <div id="accList"></div>
     </div>
   </section>
@@ -248,7 +252,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 <script src="config.js"></script>
 <script>
 /* ============ Bob & Co — Reception ============ */
-let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [];
+let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [], PRODUCTS = [], EXP_CATS = [];
 let curDate = new Date();
 const params = new URLSearchParams(location.search);
 let BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
@@ -323,13 +327,16 @@ async function openApp(){
 
 /* ---------- data ---------- */
 async function loadBase(){
-  const [st, br, sv] = await Promise.all([
+  const [st, br, sv, pr, ec] = await Promise.all([
     db.from("settings").select("*"),
     db.from("barbers").select("*").eq("active", true).order("sort"),
     db.from("services").select("*").eq("active", true).order("sort"),
+    db.from("products").select("*").eq("active", true).order("sort"),
+    db.from("expense_categories").select("*").order("sort"),
   ]);
   (st.data||[]).forEach(r => SETTINGS[r.key] = r.value);
   BARBERS = br.data||[]; SERVICES = sv.data||[];
+  PRODUCTS = pr.data||[]; EXP_CATS = (ec.data||[]).filter(c => c.name !== "مصاريف كوفي");
 }
 async function loadDay(){
   const { data } = await db.from("bookings").select("*").eq("booking_date", iso(curDate)).order("booking_time");
@@ -472,7 +479,7 @@ async function renderMine(){
     db.from("bookings").select("*").eq("barber_id", me.id).gte("booking_date", first).lte("booking_date", last),
     db.from("reception_payments").select("*").eq("barber_id", me.id).gte("pay_date", first).lte("pay_date", last)
   ]);
-  const rows = [...(bk.data || []).filter(paidBooking).map(rowFromBooking), ...(py.data || []).map(rowFromPay)];
+  const rows = [...(bk.data || []).filter(paidBooking).map(rowFromBooking), ...(py.data || []).filter(p => (p.kind || "service") === "service").map(rowFromPay)];
   const sum = l => ({ n: l.length, total: l.reduce((s, r) => s + r.amount, 0), share: l.reduce((s, r) => s + shareOf(me, r), 0) });
   const d = sum(rows.filter(r => r.d === day)), m = sum(rows);
   const card = (v, l) => `<div class="kcard"><div class="v">${v}</div><div class="l">${l}</div></div>`;
@@ -892,10 +899,13 @@ function splitAmt(ids, amount){
   return { cut: amount - care, care };
 }
 const idsFromWhat = w => String(w || "").split("+").map(n => (SERVICES.find(x => x.name === n.trim()) || {}).id).filter(Boolean);
-const shareOf = (b, r) => commRate(b) > 0 ? Math.round(r.cut * commRate(b)) + Math.round(r.care * careRate()) : 0;
+// الأساس تلقائي (نسبة الحلاق + العناية 50%) — وإذا الدفعة إلها نسبة خاصة (rate) بتمشي عليها
+const shareOf = (b, r) => (r.rate !== null && r.rate !== undefined) ? Math.round(r.amount * r.rate)
+  : commRate(b) > 0 ? Math.round(r.cut * commRate(b)) + Math.round(r.care * careRate()) : 0;
+const rateOf = x => (x.comm_rate === null || x.comm_rate === undefined || x.comm_rate === "") ? null : +x.comm_rate;
 // سطر حساب موحّد من موعد أو من دفعة بلا موعد
-const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.booking_date, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount, ...splitAmt(svcIds(b), +b.amount) });
-const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, ...splitAmt(idsFromWhat(p.what), +p.amount) });
+const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.booking_date, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount, rate: rateOf(b), ...splitAmt(svcIds(b), +b.amount) });
+const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, rate: rateOf(p), ...splitAmt(idsFromWhat(p.what), +p.amount) });
 const paidBooking = b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC && +b.amount > 0;
 function accDay(d){ document.getElementById(d < 0 ? "prevDay" : d > 0 ? "nextDay" : "todayBtn").click(); }
 async function renderAcc(){
@@ -903,62 +913,142 @@ async function renderAcc(){
   const { data, error } = await db.from("reception_payments").select("*").eq("pay_date", iso(curDate)).order("created_at");
   if (error) console.error(error);
   PAYMENTS = data || [];
+  const kindOf = p => p.kind || "service";
+  const prods = PAYMENTS.filter(p => kindOf(p) === "product"), exps = PAYMENTS.filter(p => kindOf(p) === "expense");
   const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
-  const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
+  const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.filter(p => kindOf(p) === "service").map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
+  const tm = p => new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   let total = 0, toBarbers = 0;
   const per = BARBERS.map(b => {
     const mine = rows.filter(r => r.barber_id === b.id), sum = mine.reduce((s, r) => s + r.amount, 0), rate = commRate(b);
-    const care = mine.reduce((s, r) => s + r.care, 0), share = mine.reduce((s, r) => s + shareOf(b, r), 0);
+    const care = mine.reduce((s, r) => s + (r.rate === null ? r.care : 0), 0), share = mine.reduce((s, r) => s + shareOf(b, r), 0);
     total += sum; toBarbers += share;
-    return { b, n: mine.length, sum, rate, share, care };
+    return { b, n: mine.length, sum, rate, share, care, custom: mine.filter(r => r.rate !== null).length };
   });
   const other = rows.filter(r => !BARBERS.some(b => b.id === r.barber_id)), otherSum = other.reduce((s, r) => s + r.amount, 0);
   total += otherSum;
+  const prodSum = prods.reduce((s, p) => s + (+p.amount || 0), 0), prodCost = prods.reduce((s, p) => s + (+p.cost || 0), 0);
+  const expSum = exps.reduce((s, p) => s + (+p.amount || 0), 0);
+  const net = total - toBarbers + prodSum - expSum;
   document.getElementById("accStats").innerHTML = `
-    <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">مجموع اليوم</div></div>
+    <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">حلاقة وخدمات (${rows.length})</div></div>
     <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
-    <div class="kcard"><div class="v">${fmt(total - toBarbers)}</div><div class="l">للصالون</div></div>
-    <div class="kcard"><div class="v">${rows.length}</div><div class="l">دفعة</div></div>`;
+    <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
+    <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
+    <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج</div></div>`;
   document.getElementById("accBarbers").innerHTML =
     `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
-    per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}</span></b><span>${x.n}</span>
+    per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}${x.custom ? ` · ${x.custom} بنسبة خاصة` : ""}</span></b><span>${x.n}</span>
       <span class="num">${fmt(x.sum)}</span><b class="num">${fmt(x.share)}</b><span class="num">${fmt(x.sum - x.share)}</span></div>`).join("") +
-    (otherSum ? `<div class="acc-row"><b>بلا حلاق <span class="muted">منتجات وغيرو</span></b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
+    (otherSum ? `<div class="acc-row"><b>بلا حلاق</b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
+  const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
   document.getElementById("accList").innerHTML =
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
       unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
-      <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}</span></div>
-      <b style="direction:ltr">${fmt(r.amount)}</b></div>`).join("") || `<p class="muted">ما في دفعات مسجّلة لهاليوم بعد</p>`);
+      <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}${r.rate !== null ? ` · نسبة خاصة ${Math.round(r.rate * 100)}%` : ""}</span></div>
+      <b style="direction:ltr">${fmt(r.amount)}</b></div>`).join("") || `<p class="muted">ما في دفعات مسجّلة لهاليوم بعد</p>`) +
+    head(`منتجات انباعت (${prods.length})`) +
+    (prods.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
+      <div><b>${p.what || "منتج"}${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · شراء ${fmt(+p.cost || 0)} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
+      <b style="direction:ltr">${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما انباع شي</p>`) +
+    head(`مصاريف (${exps.length})`) +
+    (exps.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
+      <div><b>${p.what || "مصروف"}</b><span class="muted">${tm(p)}${p.note ? " · " + p.note : ""}</span></div>
+      <b style="direction:ltr;color:var(--neg)">−${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما في مصاريف</p>`);
 }
+
+/* ---- نسبة الحلاق لهالدفعة: الأساس «تلقائي»، وبتتغير يدوي إذا لزم ---- */
+let commPick = null, commCtx = null; // commPick: null = تلقائي، رقم = نسبة خاصة (0.4 = 40%)
+function commBlock(cur){
+  commPick = (cur === null || cur === undefined) ? null : +cur;
+  const opt = (v, t) => `<button class="chip ${commPick === v ? "on" : ""}" data-r="${v === null ? "" : v}" onclick="pickComm(${v === null ? "null" : v})">${t}</button>`;
+  const known = [null, 0.4, 0.5, 0];
+  return `<div class="frow"><label>نسبة الحلاق من هالدفعة — الأساس تلقائي، غيّريها بس إذا في اتفاق خاص</label>
+    <div class="chips" id="commChips">${opt(null, "تلقائي")}${opt(0.4, "40%")}${opt(0.5, "50%")}${opt(0, "0%")}
+      <input id="commCustom" inputmode="numeric" placeholder="غير %" value="${commPick !== null && !known.includes(commPick) ? Math.round(commPick * 100) : ""}" oninput="pickComm(this.value === '' ? null : Math.min(100, Math.max(0, +this.value || 0)) / 100, true)" style="width:84px;padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;text-align:center"></div>
+    <p class="muted" id="commLive" style="margin-top:6px;opacity:.85"></p></div>`;
+}
+function pickComm(v, fromInput){
+  commPick = v;
+  document.querySelectorAll("#commChips .chip").forEach(c => c.classList.toggle("on", !fromInput && (c.dataset.r === "" ? v === null : +c.dataset.r === v)));
+  if (!fromInput) { const i = document.getElementById("commCustom"); if (i) i.value = ""; }
+  commLive();
+}
+function commLive(){
+  const el = document.getElementById("commLive"); if (!el || !commCtx) return;
+  const b = commCtx.barber(), amount = commCtx.amount();
+  if (!b) { el.textContent = "بلا حلاق — كلو للصالون"; return; }
+  if (!amount) { el.textContent = ""; return; }
+  const r = { amount, rate: commPick, ...splitAmt(commCtx.ids(), amount) }, share = shareOf(b, r);
+  el.textContent = `حساب ${b.name}: ${fmt(share)} · للصالون: ${fmt(amount - share)}` +
+    (commPick === null ? ` (تلقائي: ${Math.round(commRate(b) * 100)}%${r.care && commRate(b) > 0 ? ` + عناية ${Math.round(careRate() * 100)}%` : ""})` : ` (نسبة خاصة ${Math.round(commPick * 100)}%)`);
+}
+const numVal = id => +String((document.getElementById(id) || {}).value || "").replace(/[^\d.]/g, "") || 0;
+
+/* ---- دفعة بلا موعد / بيع منتج / مصروف ---- */
 let payState = {};
-function openPay(id){
+function openPay(id, kind){
   const p = id ? PAYMENTS.find(x => String(x.id) === String(id)) : null;
-  payState = { id: p ? p.id : null, barber_id: p ? p.barber_id : null, svc: [] };
+  kind = p ? (p.kind || "service") : (kind || "service");
+  payState = { id: p ? p.id : null, kind, barber_id: p ? p.barber_id : null, barberSet: !!p, unit: 0, unitCost: 0, cat: p ? p.what : null };
   const esc = v => String(v == null ? "" : v).replace(/"/g, "&quot;");
-  document.getElementById("bookSheet").innerHTML = `
-    <h3>${p ? "تعديل دفعة" : "دفعة بلا موعد"} — ${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}</h3>
-    <div class="frow"><label>الحلاق</label><div class="chips" id="payBarbers">${BARBERS.map(b =>
-      `<button class="chip ${payState.barber_id === b.id ? "on" : ""}" data-b="${b.id}" onclick="payBarber(this)">${b.name}</button>`).join("")}
-      <button class="chip ${p && !p.barber_id ? "on" : ""}" data-b="" onclick="payBarber(this)">بلا حلاق (منتج)</button></div></div>
-    <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${SERVICES.filter(x => +x.price > 0).map(x =>
-      `<button class="chip" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}</div></div>
-    <div class="frow"><label>شو الدفعة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · كريم كيرلي..."></div>
-    <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000"></div>
-    <div class="frow time-pair">
-      <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
-      <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
-    </div>
-    <button class="btn" onclick="savePay()">${p ? "احفظ" : "سجّل الدفعة"}</button>
-    ${p ? `<button class="btn danger" onclick="delPay()">احذف الدفعة</button>` : ""}
+  const dayTxt = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
+  const foot = (saveTxt) => `
+    <button class="btn" onclick="savePay()">${p ? "احفظ" : saveTxt}</button>
+    ${p ? `<button class="btn danger" onclick="delPay()">احذف</button>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
+  let html;
+  if (kind === "product"){
+    const q = p ? (+p.qty || 1) : 1;
+    payState.unit = p ? (+p.amount || 0) / q : 0; payState.unitCost = p ? (+p.cost || 0) / q : 0;
+    html = `<h3>${p ? "تعديل بيع منتج" : "بيع منتج"} — ${dayTxt}</h3>
+      <div class="frow"><label>المنتج — بيعبّي سعر البيع وسعر الشراء لحالو</label><div class="chips">${PRODUCTS.map(x =>
+        `<button class="chip ${p && p.what === x.name ? "on" : ""}" data-p="${x.id}" onclick="payProd(this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}</div></div>
+      <div class="frow"><label>اسم المنتج</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="واكس · بودرة..."></div>
+      <div class="frow"><label>العدد</label><div style="display:flex;gap:8px;align-items:center">
+        <button class="chip" onclick="payQty(-1)">−</button><b id="payQty" style="min-width:34px;text-align:center;font-size:1.1rem">${q}</b><button class="chip" onclick="payQty(1)">+</button></div></div>
+      <div class="frow time-pair">
+        <div><label>سعر البيع — المجموع (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" oninput="prodLive()"></div>
+        <div><label>سعر الشراء — المجموع (ل.س)</label><input id="payCost" inputmode="numeric" value="${p ? (+p.cost || 0) : ""}" oninput="prodLive()"></div>
+      </div>
+      <p class="muted" id="prodLive" style="margin:-4px 0 10px;opacity:.85"></p>
+      <div class="frow time-pair">
+        <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
+        <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
+      </div>` + foot("سجّل البيع");
+  } else if (kind === "expense"){
+    html = `<h3>${p ? "تعديل مصروف" : "مصروف"} — ${dayTxt}</h3>
+      <div class="frow"><label>نوع المصروف</label><div class="chips" id="payCats">${EXP_CATS.map(c =>
+        `<button class="chip ${payState.cat === c.name ? "on" : ""}" onclick="payCat(this)">${c.name}</button>`).join("")}</div></div>
+      <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 30000"></div>
+      <div class="frow"><label>شو المصروف</label><input id="payNote" value="${esc(p && p.note)}" placeholder="معطر · فطور · محارم..."></div>` + foot("سجّل المصروف");
+  } else {
+    html = `<h3>${p ? "تعديل دفعة" : "دفعة بلا موعد"} — ${dayTxt}</h3>
+      <div class="frow"><label>الحلاق</label><div class="chips" id="payBarbers">${BARBERS.map(b =>
+        `<button class="chip ${payState.barber_id === b.id ? "on" : ""}" data-b="${b.id}" onclick="payBarber(this)">${b.name}</button>`).join("")}
+        <button class="chip ${p && !p.barber_id ? "on" : ""}" data-b="" onclick="payBarber(this)">بلا حلاق</button></div></div>
+      <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${SERVICES.filter(x => +x.price > 0).map(x =>
+        `<button class="chip ${p && idsFromWhat(p.what).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}</div></div>
+      <div class="frow"><label>شو الدفعة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · دقن..." oninput="commLive()"></div>
+      <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
+      ${commBlock(p ? rateOf(p) : null)}
+      <div class="frow time-pair">
+        <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
+        <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
+      </div>` + foot("سجّل الدفعة");
+    commCtx = { barber: () => BARBERS.find(b => b.id === payState.barber_id), amount: () => numVal("payAmount"), ids: () => idsFromWhat((document.getElementById("payWhat") || {}).value) };
+  }
+  document.getElementById("bookSheet").innerHTML = html;
   document.getElementById("bookOv").classList.add("on");
+  if (kind === "product") prodLive(); else if (kind === "service") commLive();
 }
 function payBarber(el){
   payState.barber_id = el.dataset.b ? +el.dataset.b : null; payState.barberSet = true;
   document.querySelectorAll("#payBarbers .chip").forEach(c => c.classList.toggle("on", c === el));
+  commLive();
 }
 function paySvc(el){
   el.classList.toggle("on");
@@ -966,24 +1056,62 @@ function paySvc(el){
   const list = ids.map(i => SERVICES.find(x => x.id === i)).filter(Boolean);
   document.getElementById("payWhat").value = list.map(x => x.name).join(" + ");
   document.getElementById("payAmount").value = list.reduce((s, x) => s + (+x.price || 0), 0) || "";
+  commLive();
+}
+function payProd(el){
+  const x = PRODUCTS.find(q => q.id === +el.dataset.p); if (!x) return;
+  document.querySelectorAll("#bookSheet [data-p]").forEach(c => c.classList.toggle("on", c === el));
+  payState.unit = +x.price || 0; payState.unitCost = +x.cost || 0;
+  const q = +document.getElementById("payQty").textContent || 1;
+  document.getElementById("payWhat").value = x.name;
+  document.getElementById("payAmount").value = payState.unit * q || "";
+  document.getElementById("payCost").value = payState.unitCost * q || "";
+  prodLive();
+}
+function payQty(d){
+  const el = document.getElementById("payQty"), old = +el.textContent || 1, q = Math.max(1, old + d);
+  // إذا المبلغ معدّل يدوي منحسب سعر الحبة منو، لحتى ما يضيع التعديل
+  const unit = numVal("payAmount") / old, unitCost = numVal("payCost") / old;
+  el.textContent = q;
+  document.getElementById("payAmount").value = Math.round(unit * q) || "";
+  document.getElementById("payCost").value = Math.round(unitCost * q) || "";
+  prodLive();
+}
+function prodLive(){
+  const el = document.getElementById("prodLive"); if (!el) return;
+  const a = numVal("payAmount"), c = numVal("payCost");
+  el.textContent = a ? `الربح من هالبيعة: ${fmt(a - c)}` : "";
+}
+function payCat(el){
+  payState.cat = el.textContent.trim();
+  document.querySelectorAll("#payCats .chip").forEach(c => c.classList.toggle("on", c === el));
 }
 async function savePay(){
-  const amount = +String(document.getElementById("payAmount").value).replace(/[^\d.]/g, "");
+  const amount = numVal("payAmount");
   if (!amount) return toast("اكتبي المبلغ");
-  if (!payState.id && !payState.barberSet) return toast("اختاري الحلاق (أو بلا حلاق)");
-  const row = { barber_id: payState.barber_id, what: document.getElementById("payWhat").value.trim() || null, amount,
-    customer_name: document.getElementById("payName").value.trim() || null, phone: document.getElementById("payPhone").value.trim() || null };
+  const val = id => ((document.getElementById(id) || {}).value || "").trim() || null;
+  let row;
+  if (payState.kind === "product"){
+    if (!val("payWhat")) return toast("اختاري المنتج أو اكتبي اسمو");
+    row = { kind: "product", barber_id: null, what: val("payWhat"), amount, cost: numVal("payCost"), qty: +document.getElementById("payQty").textContent || 1, customer_name: val("payName"), phone: val("payPhone") };
+  } else if (payState.kind === "expense"){
+    if (!payState.cat) return toast("اختاري نوع المصروف");
+    row = { kind: "expense", barber_id: null, what: payState.cat, amount, note: val("payNote") };
+  } else {
+    if (!payState.barberSet) return toast("اختاري الحلاق (أو بلا حلاق)");
+    row = { kind: "service", barber_id: payState.barber_id, what: val("payWhat"), amount, comm_rate: commPick, customer_name: val("payName"), phone: val("payPhone") };
+  }
   const { error } = payState.id
     ? await db.from("reception_payments").update(row).eq("id", payState.id)
     : await db.from("reception_payments").insert({ ...row, pay_date: iso(curDate) });
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  closeOv("bookOv"); toast("✓ تسجّلت " + fmt(amount)); renderAcc();
+  closeOv("bookOv"); toast("✓ تسجّل " + fmt(amount)); renderAcc();
 }
 async function delPay(){
-  if (!payState.id || !confirm("حذف هالدفعة؟")) return;
+  if (!payState.id || !confirm("حذف هالسطر؟")) return;
   const { error } = await db.from("reception_payments").delete().eq("id", payState.id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  closeOv("bookOv"); toast("✓ انحذفت"); renderAcc();
+  closeOv("bookOv"); toast("✓ انحذف"); renderAcc();
 }
 
 /* ---------- بروفايل الزبون ---------- */
@@ -1108,7 +1236,8 @@ function openAppt(id){
         <button class="chip" onclick="endNow('${a.id}')">✂️ خلص هلق</button>
       </div></div>
     <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيتجمّع من الخدمات، وعدّليه إذا في إضافة برا القائمة</label>
-      <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000"></div>
+      <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
+    ${commBlock(rateOf(a))}
     <div class="chips" style="margin-bottom:4px">
       <button class="chip" onclick="apMoveToggle()">📅 انقل الموعد ليوم أو وقت تاني</button>
       ${a.phone ? `<button class="chip" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
@@ -1128,6 +1257,11 @@ function openAppt(id){
     </div>`}
     <button class="btn ghost" onclick="closeOv('apptOv')">سكّر</button>`;
   document.getElementById("apptOv").classList.add("on");
+  if (!BARBER_VIEW){
+    commCtx = { barber: () => BARBERS.find(b => b.id === a.barber_id), amount: () => numVal("apAmount"),
+      ids: () => [...document.querySelectorAll("#apSvcs .chip.on")].map(c => +c.dataset.s) };
+    commLive();
+  }
 }
 async function setStatus(id, st){
   await db.from("bookings").update({ status: st }).eq("id", id);
@@ -1143,6 +1277,7 @@ async function apTogSvc(id, el){
   a.service_ids = ids; a.service_id = ids[0] || null;
   document.getElementById("apSvcTxt").textContent = svcNames(a) || "بدون خدمات محددة";
   document.getElementById("apAmount").value = svcTotal(a) || "";
+  commLive();
   toast(el.classList.contains("on") ? "✓ انضافت" : "✓ انشالت");
   apDirty = true;
 }
@@ -1176,7 +1311,7 @@ async function apMove(id){
 async function saveAmount(id){
   const a = BOOKINGS.find(x => x.id === id);
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
-  const upd = { amount: v };
+  const upd = { amount: v, comm_rate: v ? commPick : null };
   // حاسب = خلص: إذا الموعد لسا مؤكد/وصل منقلبو «خلص» مع تسجيل الحساب
   if (v && a && ["بانتظار التأكيد", "مؤكد", "وصل"].includes(a.status)) upd.status = "خلص";
   const { error } = await db.from("bookings").update(upd).eq("id", id);
