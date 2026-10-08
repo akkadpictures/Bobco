@@ -968,8 +968,8 @@ async function renderAcc(){
     <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
     <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
     <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج (بلا عطور)</div></div>
-    <div class="kcard" style="background:var(--cream)"><div class="v">${perfDol}$ <span style="font-size:.95rem;font-weight:700">(${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})</span></div>
-      <div class="l">عطر بوب — لحالو${perfSum ? ` · (جوّاتهم سوري ${fmt(perfSum)})` : ""} · الكل ${perfAll} قنينة</div></div>`;
+    <div class="kcard" style="background:var(--cream);cursor:pointer" onclick="openPerfInfo()"><div class="v">${perfDol}$ <span style="font-size:.95rem;font-weight:700">(${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})</span></div>
+      <div class="l">عطر بوب — لحالو · اكبسي للتفصيل</div></div>`;
   document.getElementById("accBarbers").innerHTML =
     `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
     per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}${x.custom ? ` · ${x.custom} بنسبة خاصة` : ""}</span></b><span>${x.n}</span>
@@ -999,8 +999,8 @@ async function renderAcc(){
       <b style="direction:ltr">${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما انباع شي</p>`) +
     head(`عطر بوب — انباع اليوم ${perfQty} · الكل ${perfAll}`) +
     (perfs.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
-      <div><b>عطر بوب${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · انقبض ${perfSyp(p) ? "سوري" : "دولار"}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
-      <b style="direction:ltr">${perfPrice(p)}</b></div>`).join("") || `<p class="muted">ما انباع عطر</p>`) +
+      <div><b>عطر بوب${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
+      <b style="direction:ltr">${perfVal(p)}$</b></div>`).join("") || `<p class="muted">ما انباع عطر</p>`) +
     head(`مصاريف (${exps.length})`) +
     (exps.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
       <div><b>${p.what || "مصروف"}</b><span class="muted">${tm(p)}${p.note ? " · " + p.note : ""}</span></div>
@@ -1150,6 +1150,30 @@ function reportCanvas(){
   c.fillText("من دفتر الاستقبال · " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), W - P, y + 46);
   return cv;
 }
+// تفصيل العطور — بيطلع بس لما تنكبس البطاقة: كم دولار كاش، كم سوري جوّا، وكم قنينة بالمجموع
+function openPerfInfo(){
+  if (!ACC) return;
+  const A = ACC, cashUsd = A.perfs.filter(p => !perfSyp(p)).reduce((s, p) => s + perfVal(p), 0);
+  const tm = p => new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>عطر بوب — ${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}</h3>
+    <div class="pstats">
+      <div><b>${A.perfDol}$</b><span>مبيعات اليوم</span></div>
+      <div><b>${A.perfQty}</b><span>قناني اليوم</span></div>
+      <div><b>${A.perfAll}</b><span>الكل لهلق</span></div>
+      <div><b>${cashUsd}$</b><span>دولار كاش</span></div>
+    </div>
+    <div class="cust-row"><div><b>مقبوض سوري (جوّا)</b><span class="muted">الليرة اللي انقبضت بدل الدولار اليوم</span></div><b style="direction:ltr">${fmt(A.perfSum)}</b></div>
+    <div class="frow" style="margin-top:14px"><label>بيعات اليوم — اكبسي لتعدّلي</label>
+      ${A.perfs.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
+        <div><b>عطر بوب${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · انقبض ${perfSyp(p) ? "سوري " + fmt(perfSyp(p)) : "دولار"}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
+        <b style="direction:ltr">${perfVal(p)}$</b></div>`).join("") || `<p class="muted">ما انباع عطر اليوم</p>`}
+    </div>
+    <button class="btn" onclick="openPay(null,'perfume')">+ بيع عطر</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
+
 /* ---- نسبة الحلاق لهالدفعة: الأساس «تلقائي»، وبتتغير يدوي إذا لزم ---- */
 let commPick = null, commCtx = null; // commPick: null = تلقائي، رقم = نسبة خاصة (0.4 = 40%)
 function commBlock(cur){
