@@ -384,18 +384,23 @@ function renderPerfumeBox(anchor){
     card.innerHTML = `<h2>🧴 صندوق العطور</h2><div class="table-scroll" id="perfumeBox"></div>`;
     host.after(card); box = card.querySelector("#perfumeBox");
   }
+  // بيعة العطر: detail = "دولار" يعني المبلغ بالدولار، غير هيك بالليرة. النقل من الصندوق (نقل · sub عطور) نفس القاعدة.
   const isPerf = e => e.type === "عطر";
   const isOld  = e => e.type === "منتج" && /عطر/.test(e.sub || "") && e.entry_date >= "2026-09-01"; // من تاريخ الدفعة #1 بس
+  const inUsd  = e => e.detail === "دولار" || /\$|دولار/.test(e.detail || "");
   const sum = (l, f) => l.reduce((s, e) => s + f(e), 0);
   const nw = ENTRIES.filter(isPerf), old = ENTRIES.filter(isOld);
   const out = ENTRIES.filter(e => e.type === "نقل" && e.sub === "عطور");
-  const amt = e => +e.amount || 0, cnt = e => +e.count || 1, usd = e => amt(e) / (+e.rate || 13800);
-  const sold = sum(nw, cnt) + sum(old, cnt), revUsd = sum(nw, usd) + sum(old, usd);
+  const amt = e => +e.amount || 0, cnt = e => +e.count || 1;
+  const syp = l => sum(l.filter(e => !inUsd(e)), amt), usd = l => sum(l.filter(inUsd), amt);
+  const sold = sum(nw, cnt) + sum(old, cnt);
+  const revUsd = usd(nw) + (syp(nw) + sum(old, amt)) / 13800; // تقريبي: الليرة محوّلة على 13,800
   box.innerHTML = `<table>
-    <tr><td><strong>بالصندوق (ليرة)</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(sum(nw, amt) - sum(out, amt))}</strong></td></tr>
+    <tr><td><strong>بالصندوق — ليرة</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmtSYP(syp(nw) - syp(out))}</strong></td></tr>
+    <tr><td><strong>بالصندوق — دولار</strong></td><td class="pos"><strong style="font-size:1.2rem">${fmt(usd(nw) - usd(out))} $</strong></td></tr>
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">التفصيل ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;مبيعات العطور (${sum(nw, cnt)} قنينة)</td><td class="pos">${fmtSYP(sum(nw, amt))}</td></tr>
-    <tr><td>&nbsp;&nbsp;− انسحب/تحوّل من الصندوق</td><td class="neg">${fmtSYP(sum(out, amt))}</td></tr>
+    <tr><td>&nbsp;&nbsp;مبيعات العطور (${sum(nw, cnt)} قنينة)</td><td class="pos">${fmtSYP(syp(nw))} + ${fmt(usd(nw))} $</td></tr>
+    <tr><td>&nbsp;&nbsp;− انسحب/تحوّل من الصندوق</td><td class="neg">${fmtSYP(syp(out))} + ${fmt(usd(out))} $</td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">الدفعة #1 ↓</td></tr>
     <tr><td>&nbsp;&nbsp;انباع / الباقي</td><td>${sold} / ${PERFUME_BATCH.bottles - sold} قنينة</td></tr>
     ${old.length ? `<tr><td>&nbsp;&nbsp;مبيعات قبل الفصل (دخلت صندوق الحلاقة)</td><td>${fmtSYP(sum(old, amt))} <span style="opacity:.6">(${sum(old, cnt)} قنينة)</span></td></tr>` : ""}
