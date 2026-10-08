@@ -924,12 +924,26 @@ function splitAmt(ids, amount){
 }
 const idsFromWhat = w => String(w || "").split("+").map(n => (SERVICES.find(x => x.name === n.trim()) || {}).id).filter(Boolean);
 // الأساس تلقائي (نسبة الحلاق + العناية 50%) — وإذا الدفعة إلها نسبة خاصة (rate) بتمشي عليها
-const shareOf = (b, r) => (r.rate !== null && r.rate !== undefined) ? Math.round(r.amount * r.rate)
-  : commRate(b) > 0 ? Math.round(r.cut * commRate(b)) + Math.round(r.care * careRate()) : 0;
-const rateOf = x => (x.comm_rate === null || x.comm_rate === undefined || x.comm_rate === "") ? null : +x.comm_rate;
+// rate = نسبة خاصة للحلاقة، crate = نسبة خاصة للخدمات — كل وحدة لحالها، والفاضية بتمشي عالتلقائي
+const hasRate = v => v !== null && v !== undefined;
+const defCare = b => commRate(b) > 0 ? careRate() : 0;
+const cutRateFor = (b, r) => hasRate(r.rate) ? r.rate : commRate(b);
+const careRateFor = (b, r) => hasRate(r.crate) ? r.crate : defCare(b);
+const shareOf = (b, r) => Math.round(r.cut * cutRateFor(b, r)) + Math.round(r.care * careRateFor(b, r));
+const numOrNull = v => (v === null || v === undefined || v === "") ? null : +v;
+const rateOf = x => numOrNull(x.comm_rate);
+const crateOf = x => numOrNull(x.care_rate);
+const isCustom = r => (hasRate(r.rate) && r.cut > 0) || (hasRate(r.crate) && r.care > 0);
+const pct = v => Math.round(v * 100) + "%";
+// وصف النسبة الخاصة بسطر الحساب
+function rateTag(r){
+  const c = hasRate(r.rate) && r.cut > 0, k = hasRate(r.crate) && r.care > 0;
+  if (c && k) return r.rate === r.crate ? `نسبة خاصة ${pct(r.rate)}` : `حلاقة ${pct(r.rate)} · خدمات ${pct(r.crate)}`;
+  return c ? `حلاقة ${pct(r.rate)}` : k ? `خدمات ${pct(r.crate)}` : "";
+}
 // سطر حساب موحّد من موعد أو من دفعة بلا موعد
-const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.booking_date, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount, rate: rateOf(b), ...splitAmt(svcIds(b), +b.amount) });
-const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, rate: rateOf(p), ...splitAmt(idsFromWhat(p.what), +p.amount) });
+const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.booking_date, barber_id: b.barber_id, name: b.customer_name || "—", what: svcNames(b), amount: +b.amount, rate: rateOf(b), crate: crateOf(b), ...splitAmt(svcIds(b), +b.amount) });
+const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, rate: rateOf(p), crate: crateOf(p), ...splitAmt(idsFromWhat(p.what), +p.amount) });
 const paidBooking = b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC && +b.amount > 0;
 function accDay(d){ document.getElementById(d < 0 ? "prevDay" : d > 0 ? "nextDay" : "todayBtn").click(); }
 async function renderAcc(){
@@ -953,9 +967,9 @@ async function renderAcc(){
   let total = 0, toBarbers = 0;
   const per = BARBERS.map(b => {
     const mine = rows.filter(r => r.barber_id === b.id), sum = mine.reduce((s, r) => s + r.amount, 0), rate = commRate(b);
-    const care = mine.reduce((s, r) => s + (r.rate === null ? r.care : 0), 0), share = mine.reduce((s, r) => s + shareOf(b, r), 0);
+    const care = mine.reduce((s, r) => s + (r.crate === null ? r.care : 0), 0), share = mine.reduce((s, r) => s + shareOf(b, r), 0);
     total += sum; toBarbers += share;
-    return { b, n: mine.length, sum, rate, share, care, custom: mine.filter(r => r.rate !== null).length };
+    return { b, n: mine.length, sum, rate, share, care, custom: mine.filter(isCustom).length };
   });
   const other = rows.filter(r => !BARBERS.some(b => b.id === r.barber_id)), otherSum = other.reduce((s, r) => s + r.amount, 0);
   total += otherSum;
@@ -991,7 +1005,7 @@ async function renderAcc(){
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
       unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
-      <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}${r.rate !== null ? ` · نسبة خاصة ${Math.round(r.rate * 100)}%` : ""}</span></div>
+      <div><b>${r.name}</b><span class="muted">${r.t} · ${bName(r.barber_id)}${r.what ? " · " + r.what : ""}${r.kind === "p" ? " · بلا موعد" : ""}${rateTag(r) ? " · " + rateTag(r) : ""}</span></div>
       <b style="direction:ltr">${fmt(r.amount)}</b></div>`).join("") || `<p class="muted">ما في دفعات مسجّلة لهاليوم بعد</p>`) +
     head(`منتجات انباعت (${prods.length})`) +
     (prods.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
@@ -1016,7 +1030,7 @@ function buildReport(prev){
   const L = []; // {k: h|row|sum|big|gap|note, r: نص يمين, l: رقم يسار, neg}
   A.per.filter(x => x.n).forEach(x => {
     L.push({ k: "h", r: x.b.name });
-    A.rows.filter(r => r.barber_id === x.b.id).forEach(r => L.push({ k: "row", r: (r.what || "—") + (r.rate !== null ? ` · نسبة ${Math.round(r.rate * 100)}%` : ""), l: fmt(r.amount) }));
+    A.rows.filter(r => r.barber_id === x.b.id).forEach(r => L.push({ k: "row", r: (r.what || "—") + (rateTag(r) ? " · " + rateTag(r) : ""), l: fmt(r.amount) }));
     L.push({ k: "sum", r: `المجموع (${x.n})`, l: fmt(x.sum) });
     if (x.rate > 0 || x.share) L.push({ k: "sum", r: `حساب ${x.b.name}`, l: fmt(x.share) });
     L.push({ k: "sum", r: "للصالون", l: fmt(x.sum - x.share) });
@@ -1175,30 +1189,44 @@ function openPerfInfo(){
 }
 
 /* ---- نسبة الحلاق لهالدفعة: الأساس «تلقائي»، وبتتغير يدوي إذا لزم ---- */
-let commPick = null, commCtx = null; // commPick: null = تلقائي، رقم = نسبة خاصة (0.4 = 40%)
-function commBlock(cur){
-  commPick = (cur === null || cur === undefined) ? null : +cur;
-  const opt = (v, t) => `<button class="chip ${commPick === v ? "on" : ""}" data-r="${v === null ? "" : v}" onclick="pickComm(${v === null ? "null" : v})">${t}</button>`;
+let commPick = null, carePick = null, commCtx = null; // null = تلقائي، رقم = نسبة خاصة (0.4 = 40%) — commPick للحلاقة، carePick للخدمات
+function commRow(which, title, cur){
   const known = [null, 0.4, 0.5, 0];
-  return `<div class="frow"><label>نسبة الحلاق من هالدفعة — الأساس تلقائي، غيّريها بس إذا في اتفاق خاص</label>
-    <div class="chips" id="commChips">${opt(null, "تلقائي")}${opt(0.4, "40%")}${opt(0.5, "50%")}${opt(0, "0%")}
-      <input id="commCustom" inputmode="numeric" placeholder="غير %" value="${commPick !== null && !known.includes(commPick) ? Math.round(commPick * 100) : ""}" oninput="pickComm(this.value === '' ? null : Math.min(100, Math.max(0, +this.value || 0)) / 100, true)" style="width:84px;padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;text-align:center"></div>
-    <p class="muted" id="commLive" style="margin-top:6px;opacity:.85"></p></div>`;
+  const opt = (v, t) => `<button class="chip ${cur === v ? "on" : ""}" data-r="${v === null ? "" : v}" onclick="pickComm('${which}',${v === null ? "null" : v})">${t}</button>`;
+  return `<div id="commRow_${which}" style="margin-top:8px">
+    <div style="font-size:.84rem;font-weight:800;margin-bottom:6px">${title} <span class="muted" id="commSub_${which}" style="font-weight:400"></span></div>
+    <div class="chips" id="commChips_${which}">${opt(null, "تلقائي")}${opt(0.4, "40%")}${opt(0.5, "50%")}${opt(0, "0%")}
+      <input id="commCustom_${which}" inputmode="numeric" placeholder="غير %" value="${cur !== null && !known.includes(cur) ? Math.round(cur * 100) : ""}" oninput="pickComm('${which}', this.value === '' ? null : Math.min(100, Math.max(0, +this.value || 0)) / 100, true)" style="width:84px;padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;text-align:center"></div></div>`;
 }
-function pickComm(v, fromInput){
-  commPick = v;
-  document.querySelectorAll("#commChips .chip").forEach(c => c.classList.toggle("on", !fromInput && (c.dataset.r === "" ? v === null : +c.dataset.r === v)));
-  if (!fromInput) { const i = document.getElementById("commCustom"); if (i) i.value = ""; }
+function commBlock(cur, curCare){
+  commPick = numOrNull(cur); carePick = numOrNull(curCare);
+  return `<div class="frow"><label>نسبة الحلاق من هالدفعة — الأساس تلقائي، وكل قسم بيتعدّل لحالو إذا في اتفاق خاص</label>
+    ${commRow("cut", "✂️ الحلاقة", commPick)}
+    ${commRow("care", "🧴 الخدمات", carePick)}
+    <p class="muted" id="commLive" style="margin-top:8px;opacity:.85"></p></div>`;
+}
+function pickComm(which, v, fromInput){
+  if (which === "care") carePick = v; else commPick = v;
+  document.querySelectorAll(`#commChips_${which} .chip`).forEach(c => c.classList.toggle("on", !fromInput && (c.dataset.r === "" ? v === null : +c.dataset.r === v)));
+  if (!fromInput) { const i = document.getElementById("commCustom_" + which); if (i) i.value = ""; }
   commLive();
 }
 function commLive(){
   const el = document.getElementById("commLive"); if (!el || !commCtx) return;
-  const b = commCtx.barber(), amount = commCtx.amount();
+  const b = commCtx.barber(), amount = commCtx.amount(), ids = commCtx.ids();
+  // كل سطر بيبيّن بس إذا الدفعة فيها من قسمو (حلاقة / خدمات)
+  const list = (ids || []).map(i => SERVICES.find(x => x.id === i)).filter(Boolean);
+  const hasCare = list.some(isCareSvc), hasCut = !list.length || list.some(x => !isCareSvc(x));
+  const show = (w, on) => { const r = document.getElementById("commRow_" + w); if (r) r.style.display = on ? "" : "none"; };
+  show("cut", hasCut); show("care", hasCare);
+  const sub = (w, t) => { const x = document.getElementById("commSub_" + w); if (x) x.textContent = t; };
+  sub("cut", b ? `— التلقائي ${pct(commRate(b))}` : ""); sub("care", b ? `— التلقائي ${pct(defCare(b))}` : "");
   if (!b) { el.textContent = "بلا حلاق — كلو للصالون"; return; }
   if (!amount) { el.textContent = ""; return; }
-  const r = { amount, rate: commPick, ...splitAmt(commCtx.ids(), amount) }, share = shareOf(b, r);
-  el.textContent = `حساب ${b.name}: ${fmt(share)} · للصالون: ${fmt(amount - share)}` +
-    (commPick === null ? ` (تلقائي: ${Math.round(commRate(b) * 100)}%${r.care && commRate(b) > 0 ? ` + عناية ${Math.round(careRate() * 100)}%` : ""})` : ` (نسبة خاصة ${Math.round(commPick * 100)}%)`);
+  const r = { amount, rate: commPick, crate: carePick, ...splitAmt(ids, amount) }, share = shareOf(b, r);
+  const part = (name, sum, rate, custom) => sum ? `${name} ${fmt(sum)} عـ${pct(rate)}${custom ? " (خاصة)" : ""}` : "";
+  const parts = [part("حلاقة", r.cut, cutRateFor(b, r), hasRate(commPick)), part("خدمات", r.care, careRateFor(b, r), hasRate(carePick))].filter(Boolean).join(" + ");
+  el.textContent = `حساب ${b.name}: ${fmt(share)} · للصالون: ${fmt(amount - share)}` + (parts ? ` — ${parts}` : "");
 }
 const numVal = id => +String((document.getElementById(id) || {}).value || "").replace(/[^\d.]/g, "") || 0;
 
@@ -1286,7 +1314,7 @@ function openPay(id, kind){
         <button class="chip" onclick="document.getElementById('payWhat').focus()">أخرى</button></div></div>
       <div class="frow"><label>شو الدفعة — اكتبيها باليد إذا مو بالقائمة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · دقن..." oninput="commLive()"></div>
       <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
-      ${commBlock(p ? rateOf(p) : null)}
+      ${commBlock(p ? rateOf(p) : null, p ? crateOf(p) : null)}
       <div class="frow time-pair">
         <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
         <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
@@ -1372,7 +1400,7 @@ async function savePay(){
     row = { kind: "expense", barber_id: null, what: payState.cat, amount, note: val("payNote") };
   } else {
     if (!payState.barberSet) return toast("اختاري الحلاق (أو بلا حلاق)");
-    row = { kind: "service", barber_id: payState.barber_id, what: val("payWhat"), amount, comm_rate: commPick, customer_name: val("payName"), phone: val("payPhone") };
+    row = { kind: "service", barber_id: payState.barber_id, what: val("payWhat"), amount, comm_rate: commPick, care_rate: carePick, customer_name: val("payName"), phone: val("payPhone") };
   }
   const { error } = payState.id
     ? await db.from("reception_payments").update(row).eq("id", payState.id)
@@ -1522,7 +1550,7 @@ function openAppt(id){
       </div></div>
     <div class="frow"><label>💰 الزبون حاسب (ل.س) — بيتجمّع من الخدمات، وعدّليه إذا في إضافة برا القائمة</label>
       <input id="apAmount" inputmode="numeric" value="${a.amount || svcTotal(a) || ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
-    ${commBlock(rateOf(a))}
+    ${commBlock(rateOf(a), crateOf(a))}
     <div class="chips" style="margin-bottom:4px">
       <button class="chip" onclick="apMoveToggle()">📅 انقل الموعد ليوم أو وقت تاني</button>
     </div>
@@ -1551,7 +1579,7 @@ async function setStatus(id, st){
   const cur = BOOKINGS.find(x => x.id === id), upd = { status: st };
   if (cur && +cur.amount > 0 && (st === "ملغي" || st === "ملغى" || st === "ما إجا")){
     if (!confirm(`هالموعد مسجّل عليه حساب ${fmt(+cur.amount)}.\n«${st}» بيشيل الحساب من اليوم. متأكدة؟`)) return;
-    upd.amount = null; upd.comm_rate = null;
+    upd.amount = null; upd.comm_rate = null; upd.care_rate = null;
   }
   apDirty = false; closeOv("apptOv"); applyLocal(id, upd); toast("✓ " + st);
   const { error } = await db.from("bookings").update(upd).eq("id", id);
@@ -1601,7 +1629,7 @@ async function apMove(id){
 }
 // موعد ملغي/ما إجا وعليه مبلغ: يا بينحسب (بيرجع «خلص»)، يا بينشال المبلغ وبيضل ملغي
 async function ghostFix(id, paid){
-  const upd = paid ? { status: "خلص" } : { amount: null, comm_rate: null };
+  const upd = paid ? { status: "خلص" } : { amount: null, comm_rate: null, care_rate: null };
   apDirty = false; closeOv("apptOv"); applyLocal(id, upd);
   toast(paid ? "✓ انحسب باليوم" : "✓ انشال المبلغ");
   const { error } = await db.from("bookings").update(upd).eq("id", id);
@@ -1611,7 +1639,7 @@ async function ghostFix(id, paid){
 async function saveAmount(id){
   const a = BOOKINGS.find(x => x.id === id);
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
-  const upd = { amount: v, comm_rate: v ? commPick : null };
+  const upd = { amount: v, comm_rate: v ? commPick : null, care_rate: v ? carePick : null };
   // حاسب = خلص: إذا الموعد لسا مؤكد/وصل منقلبو «خلص» مع تسجيل الحساب
   if (v && a && ["بانتظار التأكيد", "مؤكد", "وصل"].includes(a.status)) upd.status = "خلص";
   apDirty = false; closeOv("apptOv"); applyLocal(id, upd); toast(v ? "✓ حاسب " + fmt(v) : "✓ انشال الحساب");
