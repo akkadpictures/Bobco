@@ -940,9 +940,12 @@ async function renderAcc(){
   const kindOf = p => p.kind || "service";
   const prods = PAYMENTS.filter(p => kindOf(p) === "product"), perfs = PAYMENTS.filter(p => kindOf(p) === "perfume"), exps = PAYMENTS.filter(p => kindOf(p) === "expense");
   const sales = prods; // العطور لحالها: ما بتفوت بالمنتجات ولا بصافي الدرج
-  const perfSum = perfs.reduce((s, p) => s + (perfUsd(p) ? 0 : (+p.amount || 0)), 0), perfDol = perfs.reduce((s, p) => s + (+p.usd || 0), 0);
+  const perfSum = perfs.reduce((s, p) => s + perfSyp(p), 0), perfDol = perfs.reduce((s, p) => s + perfVal(p), 0);
   const perfQty = perfs.reduce((s, p) => s + (+p.qty || 1), 0);
-  const perfTxt = [perfSum ? fmt(perfSum) + " ل.س" : "", perfDol ? perfDol + "$" : ""].filter(Boolean).join(" + ") || "0";
+  const perfTxt = `${perfDol}$ (${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})` + (perfSum ? ` (جوّاتهم سوري ${fmt(perfSum)})` : "");
+  // كل اللي انباع من أول ما بلّش التسجيل عند الاستقبال
+  let perfAll = perfQty;
+  try { const { data: pa } = await db.from("reception_payments").select("qty").eq("kind", "perfume"); perfAll = (pa || []).reduce((s, x) => s + (+x.qty || 1), 0) || perfQty; } catch(_){}
   const real = BOOKINGS.filter(b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC);
   const rows = [...real.filter(b => +b.amount > 0).map(rowFromBooking), ...PAYMENTS.filter(p => kindOf(p) === "service").map(rowFromPay)].sort((x, y) => x.t.localeCompare(y.t));
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "بلا حلاق";
@@ -965,7 +968,8 @@ async function renderAcc(){
     <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
     <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
     <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج (بلا عطور)</div></div>
-    <div class="kcard" style="background:var(--cream)"><div class="v" style="${perfSum && perfDol ? "font-size:1.05rem" : ""}">${perfTxt}</div><div class="l">عطور — لحالها${perfQty ? " · " + perfQty + " قنينة" : ""}</div></div>`;
+    <div class="kcard" style="background:var(--cream)"><div class="v">${perfDol}$ <span style="font-size:.95rem;font-weight:700">(${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})</span></div>
+      <div class="l">عطر بوب — لحالو${perfSum ? ` · (جوّاتهم سوري ${fmt(perfSum)})` : ""} · الكل ${perfAll} قنينة</div></div>`;
   document.getElementById("accBarbers").innerHTML =
     `<div class="acc-row head"><span>الحلاق</span><span>زباين</span><span class="num">المجموع</span><span class="num">حسابو</span><span class="num">للصالون</span></div>` +
     per.map(x => `<div class="acc-row"><b>${x.b.name} <span class="muted">${Math.round(x.rate * 100)}%${x.care && x.rate > 0 && x.rate !== careRate() ? ` · عناية ${fmt(x.care)} عـ${Math.round(careRate() * 100)}%` : ""}${x.custom ? ` · ${x.custom} بنسبة خاصة` : ""}</span></b><span>${x.n}</span>
@@ -976,7 +980,7 @@ async function renderAcc(){
   const open_ = real.filter(b => ["بانتظار التأكيد", "مؤكد", "وصل"].includes(b.status) && !(+b.amount > 0));
   // ملغي/ما إجا وعليه مبلغ مسجّل — مو محسوب، بس لازم ينشاف
   const ghost = BOOKINGS.filter(b => b.source !== "بريك" && b.source !== OFF_SRC && (!isLive(b) || b.status === "ما إجا") && +b.amount > 0);
-  ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, perfSum, perfDol, perfQty, perfTxt, expSum, net, unpaid: unpaid.length, open_, ghost,
+  ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, perfSum, perfDol, perfQty, perfTxt, perfAll, expSum, net, unpaid: unpaid.length, open_, ghost,
           count: PAYMENTS.find(p => kindOf(p) === "count") || null };
   const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
   const warnRow = (b, pill) => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}${+b.amount > 0 ? " · " + fmt(+b.amount) : ""}</span></div><span class="pill">${pill}</span></div>`;
@@ -993,9 +997,9 @@ async function renderAcc(){
     (prods.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
       <div><b>${p.what || "—"}${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · شراء ${fmt(+p.cost || 0)} · ربح ${fmt((+p.amount || 0) - (+p.cost || 0))}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
       <b style="direction:ltr">${fmt(+p.amount)}</b></div>`).join("") || `<p class="muted">ما انباع شي</p>`) +
-    head(`عطور انباعت (${perfQty}) — لحالها`) +
+    head(`عطر بوب — انباع اليوم ${perfQty} · الكل ${perfAll}`) +
     (perfs.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
-      <div><b>${p.what || "عطر"}${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · ${perfUsd(p) ? "دولار" : "ليرة"}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
+      <div><b>عطر بوب${+p.qty > 1 ? " ×" + p.qty : ""}</b><span class="muted">${tm(p)} · انقبض ${perfSyp(p) ? "سوري" : "دولار"}${p.customer_name ? " · " + p.customer_name : ""}</span></div>
       <b style="direction:ltr">${perfPrice(p)}</b></div>`).join("") || `<p class="muted">ما انباع عطر</p>`) +
     head(`مصاريف (${exps.length})`) +
     (exps.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
@@ -1029,8 +1033,8 @@ function buildReport(prev){
     L.push({ k: "gap" });
   }
   if (A.perfs && A.perfs.length){
-    L.push({ k: "h", r: "عطور" });
-    A.perfs.forEach(p => L.push({ k: "row", r: `${p.what || "عطر"}${+p.qty > 1 ? " ×" + p.qty : ""}`, l: perfPrice(p) }));
+    L.push({ k: "h", r: "عطر بوب" });
+    A.perfs.forEach(p => L.push({ k: "row", r: `عطر بوب${+p.qty > 1 ? " ×" + p.qty : ""}${perfSyp(p) ? ` · سوري ${fmt(perfSyp(p))}` : ""}`, l: perfVal(p) + "$" }));
     L.push({ k: "gap" });
   }
   if (A.exps.length){
@@ -1044,7 +1048,9 @@ function buildReport(prev){
   if (A.prodSum) L.push({ k: "sum", r: "منتجات", l: fmt(A.prodSum) });
   if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + fmt(A.expSum) });
   L.push({ k: "big", r: "صافي اليوم (المتبقي) — بلا عطور", l: fmt(A.net) });
-  if (A.perfQty) L.push({ k: "big", r: `عطور (${A.perfQty}) — لحالها، مو ضمن الصافي`, l: A.perfTxt });
+  if (A.perfQty) L.push({ k: "big", r: `عطر بوب: ${A.perfQty} ${A.perfQty === 1 ? "قنينة" : "قناني"} — لحالو، مو ضمن الصافي`, l: A.perfDol + "$" });
+  if (A.perfSum) L.push({ k: "sum", r: "منهم مقبوض سوري (جوّا)", l: fmt(A.perfSum) });
+  if (A.perfQty) L.push({ k: "sum", r: "كل اللي انباع لهلق", l: A.perfAll + " قنينة" });
   const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
   if (pv !== null) L.push({ k: "sum", r: `صندوق ${prev.pay_date.slice(8)}/${prev.pay_date.slice(5, 7)} + صافي اليوم`, l: fmt(pv + A.net) });
   if (cnt !== null) L.push({ k: "big", r: "صندوق الحلاقة (عدّ الدرج)", l: fmt(cnt) });
@@ -1174,9 +1180,13 @@ const numVal = id => +String((document.getElementById(id) || {}).value || "").re
 
 /* ---- دفعة بلا موعد / بيع منتج / بيع عطر / مصروف ---- */
 // العطور: مبدئياً عطر بوب (25$ بيع · 10.5$ تكلفة الحبة من دفعة #1) — السعر بيتعدّل بكل بيعة
-const PERFUMES = [{ id: "bob", name: "عطر بوب", price: 345000, usd: 25 }]; // السعر بالليرة أو بالدولار — سعر الشراء معروف من الدفعة وما بينكتب كل مرة
-const perfUsd = p => +p.usd > 0;                     // هالبيعة انقبضت بالدولار؟
-const perfPrice = p => perfUsd(p) ? `${+p.usd}$` : fmt(+p.amount || 0);
+// عطر واحد: «عطر بوب». الرقم دايماً بالدولار (usd)، وإذا انقبض سوري منسجّل كم ليرة جوّا (amount). سعر الشراء معروف من الدفعة وما بينكتب.
+const PERFUME = { name: "عطر بوب", usd: 25, syp: 345000 };
+const PERFUMES = [];
+const perfVal = p => +p.usd > 0 ? +p.usd : Math.round((+p.amount || 0) / 13800);   // قيمة البيعة بالدولار (القديم بلا دولار: تقدير)
+const perfSyp = p => +p.amount || 0;                                               // الليرة المقبوضة جوّا
+const perfUsd = p => +p.usd > 0 && !perfSyp(p);                                    // انقبض دولار كاش
+const perfPrice = p => `${perfVal(p)}$` + (perfSyp(p) ? ` (سوري ${fmt(perfSyp(p))})` : "");
 const isSale = k => k === "product" || k === "perfume";
 let payState = {};
 function openPay(id, kind){
@@ -1190,7 +1200,24 @@ function openPay(id, kind){
     ${p ? `<button class="btn danger" onclick="delPay()">احذف</button>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
   let html;
-  if (isSale(kind)){
+  if (kind === "perfume"){
+    const q = p ? (+p.qty || 1) : 1;
+    payState.cur = p ? (perfSyp(p) ? "SYP" : "USD") : "USD";
+    html = `<h3>${p ? "تعديل بيع عطر بوب" : "بيع عطر بوب"} — ${dayTxt}</h3>
+      <input type="hidden" id="payWhat" value="${PERFUME.name}">
+      <div class="frow"><label>كم قنينة</label><div style="display:flex;gap:8px;align-items:center">
+        <button class="chip" onclick="perfQtyStep(-1)">−</button><b id="payQty" style="min-width:34px;text-align:center;font-size:1.1rem">${q}</b><button class="chip" onclick="perfQtyStep(1)">+</button></div></div>
+      <div class="frow"><label>السعر بالدولار — المجموع ($)</label><input id="payAmount" inputmode="decimal" value="${p ? perfVal(p) : PERFUME.usd}"></div>
+      <div class="frow"><label>انقبض بـ</label><div class="chips" id="payCur">
+        <button class="chip ${payState.cur === "USD" ? "on" : ""}" data-c="USD" onclick="payCur(this)">دولار $</button>
+        <button class="chip ${payState.cur === "SYP" ? "on" : ""}" data-c="SYP" onclick="payCur(this)">ليرة سورية</button></div></div>
+      <div class="frow" id="paySypRow" style="${payState.cur === "SYP" ? "" : "display:none"}"><label>كم ليرة انقبضت (ل.س)</label>
+        <input id="paySyp" inputmode="numeric" value="${p && perfSyp(p) ? perfSyp(p) : PERFUME.syp * q}"></div>
+      <div class="frow time-pair">
+        <div><label>اسم الزبون (اختياري)</label><input id="payName" value="${esc(p && p.customer_name)}"></div>
+        <div><label>موبايلو (اختياري)</label><input id="payPhone" inputmode="tel" value="${esc(p && p.phone)}"></div>
+      </div>` + foot("سجّل البيع");
+  } else if (isSale(kind)){
     const perf = kind === "perfume", list = perf ? PERFUMES : PRODUCTS, word = perf ? "عطر" : "منتج";
     payState.list = list;
     const q = p ? (+p.qty || 1) : 1;
@@ -1268,13 +1295,17 @@ function payProd(el){
   setV("payWhat", x.name); setV("payAmount", payState.unit * q || ""); setV("payCost", payState.unitCost * q || "");
   prodLive();
 }
-// عطر: تبديل العملة — بيعبّي سعر الكتالوج بهالعملة إذا العطر من القائمة
+// عطر: بشو انقبض — إذا سوري بتطلع خانة «كم ليرة انقبضت»
 function payCur(el){
   payState.cur = el.dataset.c;
   document.querySelectorAll("#payCur .chip").forEach(c => c.classList.toggle("on", c === el));
-  document.getElementById("payAmountLbl").textContent = payState.cur === "USD" ? "سعر البيع — المجموع ($)" : "سعر البيع — المجموع (ل.س)";
-  const x = payState.pick, q = +document.getElementById("payQty").textContent || 1;
-  document.getElementById("payAmount").value = x ? ((payState.cur === "USD" ? (+x.usd || 0) : (+x.price || 0)) * q || "") : "";
+  document.getElementById("paySypRow").style.display = payState.cur === "SYP" ? "" : "none";
+}
+function perfQtyStep(d){
+  const el = document.getElementById("payQty"), old = +el.textContent || 1, q = Math.max(1, old + d);
+  el.textContent = q;
+  document.getElementById("payAmount").value = Math.round(numVal("payAmount") / old * q * 100) / 100 || "";
+  document.getElementById("paySyp").value = Math.round(numVal("paySyp") / old * q) || "";
 }
 // «أخرى»: إدخال يدوي كامل — الاسم والسعر بينكتبو باليد
 function payOther(el){
@@ -1308,8 +1339,9 @@ async function savePay(){
   let row;
   if (isSale(payState.kind)){
     if (!val("payWhat")) return toast("اختاري من القائمة أو اكتبي الاسم");
-    const usdSale = payState.kind === "perfume" && payState.cur === "USD";
-    row = { kind: payState.kind, barber_id: null, what: val("payWhat"), amount: usdSale ? 0 : amount, usd: usdSale ? amount : null,
+    const perf = payState.kind === "perfume", sypIn = perf && payState.cur === "SYP" ? numVal("paySyp") : 0;
+    if (perf && payState.cur === "SYP" && !sypIn) return toast("اكتبي كم ليرة انقبضت");
+    row = { kind: payState.kind, barber_id: null, what: val("payWhat"), amount: perf ? sypIn : amount, usd: perf ? amount : null,
       cost: payState.kind === "perfume" ? null : numVal("payCost"), qty: +document.getElementById("payQty").textContent || 1, customer_name: val("payName"), phone: val("payPhone") };
   } else if (payState.kind === "expense"){
     if (!payState.cat) return toast("اختاري نوع المصروف");
