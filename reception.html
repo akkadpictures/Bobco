@@ -1661,8 +1661,12 @@ async function renderCustomers(q){
      <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="openProfile('${c.id}')">بروفايل</button>
      <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editCust('${c.id}')">تعديل</button></span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
 }
+// الزبون ممكن يكون مفتوح من الجدول ومو ضمن آخر 60 بالقائمة — منرجع للبروفايل المفتوح
+function custById(id){
+  return CUSTOMERS.find(x => String(x.id) === String(id)) || (PROFILE && String(PROFILE.id) === String(id) ? PROFILE : null);
+}
 function editCust(id){
-  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  const c = custById(id); if (!c) return;
   const esc = v => String(v || "").replace(/"/g, "&quot;");
   document.getElementById("bookSheet").innerHTML = `
     <h3>تعديل زبون</h3>
@@ -1674,7 +1678,7 @@ function editCust(id){
   document.getElementById("bookOv").classList.add("on");
 }
 async function saveCust(id){
-  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  const c = custById(id); if (!c) return;
   const name = document.getElementById("ecName").value.trim(), phone = document.getElementById("ecPhone").value.trim();
   if (!name) return toast("اكتب الاسم");
   const { error } = await db.from("customers").update({ name, phone }).eq("id", c.id);
@@ -1688,7 +1692,7 @@ async function saveCust(id){
   renderCustomers(document.getElementById("custSearch").value.trim());
 }
 async function delCust(id){
-  const c = CUSTOMERS.find(x => String(x.id) === String(id)); if (!c) return;
+  const c = custById(id); if (!c) return;
   if (!confirm(`حذف ${c.name} من قائمة الزباين؟`)) return;
   const { error } = await db.from("customers").delete().eq("id", c.id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
