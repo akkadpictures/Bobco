@@ -981,7 +981,7 @@ async function renderAcc(){
   const warn = (t, l, pill) => l.length ? `<p class="muted" style="margin:10px 0 6px;font-weight:800;opacity:1;color:var(--neg)">${t} (${l.length}):</p>` + l.map(b => warnRow(b, pill)).join("") : "";
   document.getElementById("accList").innerHTML =
     warn("مواعيد لسا مفتوحة وما عليها حساب — إذا الزبون إجا اكبسي «حاسب»، وإذا ما إجا علّميه", open_, "سكّري الموعد") +
-    warn("ملغيين وعليهم مبلغ مسجّل — مو محسوبين. إذا الزبون دفع فعلاً رجّعي الموعد «خلص»", ghost, "راجعيه") +
+    warn("ملغيين وعليهم مبلغ مسجّل — مو محسوبين. إذا الزبون دفع فعلاً رجّعي الموعد «خلص»", ghost, "اكبسي لتسكّريه") +
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
       unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
@@ -1413,6 +1413,15 @@ function openAppt(id){
       <h3 style="margin:0">${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
       ${(a.phone && !BARBER_VIEW) ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
     </div>
+    ${(!BARBER_VIEW && +a.amount > 0 && (!isLive(a) || a.status === "ما إجا")) ? `
+    <div style="background:#fff;border:2px solid var(--neg);border-radius:14px;padding:12px;margin-bottom:12px">
+      <p style="font-weight:800;color:var(--neg);margin-bottom:4px">هالموعد «${a.status}» وعليه ${fmt(+a.amount)} — مو محسوب باليوم</p>
+      <p class="muted" style="margin-bottom:10px;opacity:.85">اختاري وحدة ليتسكّر التنبيه:</p>
+      <div class="btn-row" style="margin:0">
+        <button class="btn" style="margin:0" onclick="ghostFix('${a.id}',true)">الزبون دفع فعلاً — احسبيه</button>
+        <button class="btn ghost" style="margin:0" onclick="ghostFix('${a.id}',false)">ما دفع — شيلي المبلغ</button>
+      </div>
+    </div>` : ""}
     <p class="muted"><span id="apSvcTxt">${svcNames(a)||"بدون خدمات محددة"}</span>${(a.phone && !BARBER_VIEW) ? " · 📞 " + a.phone : ""}${a.source ? " · " + a.source : ""}</p>
     ${a.note ? `<p class="muted">📝 ${a.note}</p>` : ""}
     ${BARBER_VIEW ? "" : `
@@ -1507,6 +1516,15 @@ async function apMove(id){
   pushUndo(before, `نقل ${before.customer_name || "الموعد"} (كان ${before.booking_date === date ? "" : before.booking_date.slice(8) + "/" + before.booking_date.slice(5, 7) + " · "}${before.booking_time})`);
   apDirty = false; document.getElementById("apptOv").classList.remove("on");
   toast(`✓ انتقل لـ ${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} · ${time} عند ${b.name}`);
+  drawCal();
+}
+// موعد ملغي/ما إجا وعليه مبلغ: يا بينحسب (بيرجع «خلص»)، يا بينشال المبلغ وبيضل ملغي
+async function ghostFix(id, paid){
+  const upd = paid ? { status: "خلص" } : { amount: null, comm_rate: null };
+  apDirty = false; closeOv("apptOv"); applyLocal(id, upd);
+  toast(paid ? "✓ انحسب باليوم" : "✓ انشال المبلغ");
+  const { error } = await db.from("bookings").update(upd).eq("id", id);
+  if (error) { console.error(error); toast("ما انحفظ — جرب كمان مرة"); }
   drawCal();
 }
 async function saveAmount(id){
