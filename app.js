@@ -391,6 +391,18 @@ async function submitBooking(){
   const btn = document.getElementById('bookBtn');
   btn.disabled = true; btn.textContent = "عم نثبّت الحجز...";
 
+  // رقم عليه «ما إجا» ولو مرة (أو موقّفتو السكرتيرة): الحجز إله بالاتصال بس. إذا الفحص نفسو فشل منكمّل عادي.
+  try {
+    const { data: ok, error: chkErr } = await db.rpc("can_book_online", { p_phone: phone });
+    if (!chkErr && ok === false) {
+      btn.disabled = false; btn.textContent = "ثبّت الحجز";
+      let n = document.getElementById('callOnly');
+      if (!n) { n = document.createElement('p'); n.id = 'callOnly'; n.style.cssText = "margin-top:12px;font-size:.92rem;line-height:1.7;text-align:center"; btn.insertAdjacentElement('afterend', n); }
+      n.innerHTML = `الحجز لهالرقم بيتثبّت بالاتصال — <a href="tel:+963949534048" style="font-weight:800;text-decoration:underline">اتصل فينا</a> ومنحجزلك فوراً.`;
+      return;
+    }
+  } catch (_) {}
+
   const ids = [...state.services];
   const code = 'BC-' + Math.floor(1000 + Math.random()*9000);
   const hasProtein = items.some(s => NO_PRICE.includes(s.name));

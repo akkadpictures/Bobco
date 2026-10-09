@@ -1480,6 +1480,10 @@ async function openProfile(custId, phone){
       `<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:.88rem"><b>${x.name}</b><span>${x.n} ${x.n > 10 ? "زيارة" : "مرة"}</span></div><div class="bar"><i style="width:${Math.round(x.n / withBarber * 100)}%"></i></div></div>`).join("")}</div>` : ""}
     ${upcoming.length ? `<div class="frow"><label>مواعيد جاية</label>${upcoming.map(x => `<p style="font-size:.9rem">${dAr(x.booking_date)} · ${x.booking_time} · ${bName(x.barber_id)}${svcNames(x) ? " · " + svcNames(x) : ""}</p>`).join("")}</div>` : ""}
     ${(noShow || cancelled) ? `<p class="muted" style="margin-bottom:10px">ما إجا: ${noShow} · لغى: ${cancelled}</p>` : ""}
+    ${c.phone ? `<div class="frow"><label>الحجز من الموقع — تلقائي: من أول «ما إجا» بيصير بالاتصال بس</label>
+      <div class="chips" id="obChips">${[[null, "تلقائي"], ["block", "بالاتصال بس"], ["allow", "مسموح دايماً"]].map(([v, t]) =>
+        `<button class="chip ${(c.online_block || null) === v ? "on" : ""}" data-v="${v || ""}" onclick="setOnlineBlock(${v ? `'${v}'` : "null"})">${t}</button>`).join("")}</div>
+      <p class="muted" id="obState" data-ns="${noShow}" style="margin-top:6px">${onlineState(c.online_block, noShow)}</p></div>` : ""}
     <div class="frow time-pair">
       <div><label>🎂 عيد ميلادو</label><input type="date" id="pfBday" value="${esc(c.birthday ? String(c.birthday).slice(0,10) : "")}"></div>
       <div><label>ملاحظة عن الزبون</label><input id="pfNote" value="${esc(c.note)}" placeholder="بيحب القصة قصيرة..."></div>
@@ -1491,6 +1495,24 @@ async function openProfile(custId, phone){
     </div>
     ${c.id ? `<button class="btn ghost" onclick="editCust('${c.id}')">تعديل الاسم والرقم</button>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+}
+// حالة الحجز أونلاين للزبون: يدوي (block/allow) أو تلقائي حسب عدد «ما إجا»
+function onlineState(v, ns){
+  return v === "block" ? "موقّف — ما بيحسن يحجز من الموقع، بس اتصال"
+    : v === "allow" ? "مسموح — بيحجز من الموقع مهما كان عدد «ما إجا»"
+    : ns >= 1 ? `موقّف تلقائياً — ما إجا ${ns === 1 ? "مرة" : ns + " مرات"}`
+    : "بيحجز من الموقع عادي";
+}
+async function setOnlineBlock(v){
+  const c = PROFILE; if (!c || !c.phone) return;
+  const { data, error } = c.id
+    ? await db.from("customers").update({ online_block: v }).eq("id", c.id).select().single()
+    : await db.from("customers").insert({ name: c.name || "زبون", phone: c.phone, online_block: v }).select().single();
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  Object.assign(c, data || { online_block: v });
+  document.querySelectorAll("#obChips .chip").forEach(x => x.classList.toggle("on", x.dataset.v === (v || "")));
+  const st = document.getElementById("obState"); if (st) st.textContent = onlineState(v, +st.dataset.ns || 0);
+  toast("✓ انحفظ");
 }
 async function saveProfile(){
   const c = PROFILE; if (!c) return;
