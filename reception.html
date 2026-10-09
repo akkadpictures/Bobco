@@ -1901,8 +1901,9 @@ async function togTask(id, v){
 async function delTask(id){ if (!confirm("حذف هالمهمة؟")) return; await db.from("tasks").delete().eq("id", id); renderTasks(); }
 
 /* ---------- tabs ---------- */
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+// التابات الحقيقية بس (جوّا #mainTabs) — زر «خروج» إلو نفس الشكل بس مو تاب، وكان هالكود يلغي كبستو
+document.querySelectorAll("#mainTabs .tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll("#mainTabs .tab").forEach(x => x.classList.toggle("on", x === t));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t.dataset.v));
   if (t.dataset.v === "cust") renderCustomers();
   if (t.dataset.v === "inq") renderInquiries();
