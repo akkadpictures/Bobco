@@ -391,7 +391,7 @@ async function submitBooking(){
   const btn = document.getElementById('bookBtn');
   btn.disabled = true; btn.textContent = "عم نثبّت الحجز...";
 
-  // رقم تكرر عليه «ما إجا» (أو موقّفتو السكرتيرة): الحجز إله بالاتصال بس. إذا الفحص نفسو فشل منكمّل عادي.
+  // رقم عليه «ما إجا» ولو مرة (أو موقّفتو السكرتيرة): الحجز إله بالاتصال بس. إذا الفحص نفسو فشل منكمّل عادي.
   try {
     const { data: ok, error: chkErr } = await db.rpc("can_book_online", { p_phone: phone });
     if (!chkErr && ok === false) {
