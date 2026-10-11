@@ -296,11 +296,11 @@ async function tryPin(){
       const { data, error } = await db.from("barbers").select("id,pin").eq("active", true);
       if (error) throw error;
       const hit = (data||[]).find(b => b.pin && b.pin === v);
-      if (hit){ BARBER_VIEW = String(hit.id); sessionStorage.setItem("bobco_rec", "barber:" + hit.id); openApp(); return; }
+      if (hit){ BARBER_VIEW = String(hit.id); recRemember("barber:" + hit.id); openApp(); return; }
     } else {
       const { data, error } = await db.from("settings").select("value").eq("key", "reception_pin").maybeSingle();
       if (error) throw error;
-      if (data && v === data.value) { sessionStorage.setItem("bobco_rec", "reception"); openApp(); return; }
+      if (data && v === data.value) { recRemember("reception"); openApp(); return; }
     }
     document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة";
     document.getElementById("pin").value = "";
@@ -312,7 +312,18 @@ async function tryPin(){
 document.getElementById("gateBtn").onclick = tryPin;
 document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "Enter") tryPin(); });
 if (BARBER_VIEW || CREW_MODE) document.getElementById("gateTitle").textContent = "جدول الحلاقين";
-const _sess = sessionStorage.getItem("bobco_rec");
+// الدخول بيضل محفوظ عالجهاز 3 أيام (localStorage) — سفاري بيمسح sessionStorage كل ما يسكّر التاب بالخلفية
+const REC_KEEP_MS = 3 * 24 * 60 * 60 * 1000;
+function recRemember(v){ try { localStorage.setItem("bobco_rec", v + "|" + Date.now()); } catch(_){} }
+function recRemembered(){
+  try {
+    const [v, t] = (localStorage.getItem("bobco_rec") || "").split("|");
+    if (v && +t && Date.now() - +t < REC_KEEP_MS) return v;
+    localStorage.removeItem("bobco_rec");
+  } catch(_){}
+  return null;
+}
+const _sess = recRemembered();
 if (_sess){
   if (BARBER_VIEW || CREW_MODE){
     // رابط الحلاقين: بس جلسة حلاق بتفتح
@@ -322,7 +333,7 @@ if (_sess){
     openApp();
   }
 }
-function logout(){ sessionStorage.removeItem("bobco_rec"); location.reload(); }
+function logout(){ try { localStorage.removeItem("bobco_rec"); } catch(_){} location.reload(); }
 
 async function openApp(){
   document.getElementById("gate").style.display = "none";

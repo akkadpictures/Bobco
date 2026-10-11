@@ -26,7 +26,7 @@ async function tryPin(){
   const v = document.getElementById("pin").value.trim();
   const { data } = await db.from("settings").select("value").eq("key", "admin_pin").single();
   if (data && v === data.value) {
-    sessionStorage.setItem("bobco_admin", "1");
+    try { localStorage.setItem("bobco_admin", String(Date.now())); } catch (_) {}
     openPanel();
   } else {
     document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة";
@@ -35,7 +35,17 @@ async function tryPin(){
 }
 document.getElementById("gateBtn").addEventListener("click", tryPin);
 document.getElementById("pin").addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
-if (sessionStorage.getItem("bobco_admin")) openPanel();
+// الدخول بيضل محفوظ عالجهاز 3 أيام (localStorage) — سفاري بيمسح sessionStorage كل ما يسكّر التاب بالخلفية
+const ADMIN_KEEP_MS = 3 * 24 * 60 * 60 * 1000;
+function adminRemembered(){
+  try {
+    const t = +localStorage.getItem("bobco_admin");
+    if (t && Date.now() - t < ADMIN_KEEP_MS) return true;
+    localStorage.removeItem("bobco_admin");
+  } catch (_) {}
+  return false;
+}
+if (adminRemembered()) openPanel();
 
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
