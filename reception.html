@@ -1002,7 +1002,7 @@ async function renderAcc(){
     (otherSum ? `<div class="acc-row"><b>بلا حلاق</b><span>${other.length}</span><span class="num">${fmt(otherSum)}</span><b class="num">—</b><span class="num">${fmt(otherSum)}</span></div>` : "");
   const unpaid = real.filter(b => b.status === "خلص" && !(+b.amount > 0));
   // مواعيد لسا مفتوحة (لا خلص ولا ملغي ولا ما إجا) وما عليها حساب — غالباً زبون إجا وما انكبسلو «حاسب»
-  const open_ = real.filter(b => ["بانتظار التأكيد", "مؤكد", "وصل"].includes(b.status) && !(+b.amount > 0));
+  const open_ = real.filter(b => ["بانتظار التأكيد", "جديد", "مؤكد", "وصل"].includes(b.status) && !(+b.amount > 0));
   // ملغي/ما إجا وعليه مبلغ مسجّل — مو محسوب، بس لازم ينشاف
   const ghost = BOOKINGS.filter(b => b.source !== "بريك" && b.source !== OFF_SRC && (!isLive(b) || b.status === "ما إجا") && +b.amount > 0);
   ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, perfSum, perfDol, perfQty, perfTxt, perfAll, expSum, net, unpaid: unpaid.length, open_, ghost,
@@ -1674,7 +1674,7 @@ async function saveAmount(id){
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
   const upd = { amount: v, comm_rate: v ? commPick : null, care_rate: v ? carePick : null };
   // حاسب = خلص: إذا الموعد لسا مؤكد/وصل منقلبو «خلص» مع تسجيل الحساب
-  if (v && a && ["بانتظار التأكيد", "مؤكد", "وصل"].includes(a.status)) upd.status = "خلص";
+  if (v && a && ["بانتظار التأكيد", "جديد", "مؤكد", "وصل"].includes(a.status)) upd.status = "خلص";
   apDirty = false; closeOv("apptOv"); applyLocal(id, upd); toast(v ? "✓ حاسب " + fmt(v) : "✓ انشال الحساب");
   const { error } = await db.from("bookings").update(upd).eq("id", id);
   if (error) { console.error(error); toast("ما انحفظ — جرب كمان مرة"); }
