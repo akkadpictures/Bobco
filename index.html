@@ -40,7 +40,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20261012">
+<link rel="stylesheet" href="style.css?v=20261012b">
 
 <!-- ===== STRUCTURED DATA: LOCAL BUSINESS ===== -->
 <script type="application/ld+json">
@@ -211,20 +211,20 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .nav-book{border:1px solid var(--line-light);padding:8px 20px;border-radius:999px}
 @media(max-width:640px){.nav-links a:not(.nav-book){display:none}}
 
-.hero{min-height:100svh;background:var(--olive) var(--pattern) top/260px repeat;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;color:var(--cream)}
+.hero{min-height:100svh;background:var(--olive) var(--pattern) top/260px repeat;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;color:#fff}
 .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(40,45,28,.25),rgba(40,45,28,.05) 40%,rgba(40,45,28,.55))}
 .hero-in{position:relative;z-index:1;padding:0 24px;display:flex;flex-direction:column;align-items:center;gap:26px;animation:heroIn 1.1s ease both}
 @keyframes heroIn{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
 .hero-rule{display:flex;align-items:center;gap:16px;font-family:var(--caps);font-size:.72rem;letter-spacing:.42em;text-transform:uppercase;opacity:.85}
 .hero-rule::before,.hero-rule::after{content:"";width:56px;height:1px;background:var(--cream);opacity:.5}
-.hero-tag{font-size:clamp(1.05rem,2.6vw,1.35rem);font-weight:300;max-width:560px;opacity:.94;margin:0;line-height:1.9}
+.hero-tag{font-size:clamp(1.05rem,2.6vw,1.35rem);font-weight:300;max-width:560px;opacity:1;margin:0;line-height:1.9}
 .hero-cta{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:6px}
 .hero-social{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
-.soc-pill{display:inline-flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--line-light);border-radius:999px;padding:9px 22px;color:var(--cream);transition:background .2s}
+.soc-pill{display:inline-flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--line-light);border-radius:999px;padding:9px 22px;color:#fff;transition:background .2s}
 .soc-pill:hover{background:rgba(239,227,202,.1)}
 .soc-pill strong{font-size:.9rem;font-weight:700}
 .soc-pill span{font-size:.72rem;opacity:.7;direction:ltr;font-variant-numeric:tabular-nums}
-.hero-scroll{position:absolute;bottom:28px;right:50%;transform:translateX(50%);color:var(--cream);opacity:.6;font-size:1.4rem;animation:bob 2.2s infinite ease-in-out}
+.hero-scroll{position:absolute;bottom:28px;right:50%;transform:translateX(50%);color:#fff;opacity:.6;font-size:1.4rem;animation:bob 2.2s infinite ease-in-out}
 @keyframes bob{50%{transform:translate(50%,8px)}}
 @media (prefers-reduced-motion:reduce){.hero-in,.hero-scroll{animation:none}}
 
@@ -234,13 +234,13 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .barber-card:hover{transform:translateY(-6px);box-shadow:0 18px 42px rgba(52,57,37,.16)}
 .monogram{width:86px;height:86px;margin:0 auto 18px;border-radius:50%;border:1px solid var(--olive);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:2.4rem;color:var(--olive);position:relative}
 .monogram::after{content:"";position:absolute;inset:5px;border-radius:50%;border:1px dashed rgba(52,57,37,.35)}
-.barber-card h3{font-size:1.75rem;font-weight:400;color:var(--cream);letter-spacing:.01em}
-.barber-card .role{font-size:.85rem;color:var(--cream);opacity:.7;margin:4px 0 20px}
+.barber-card h3{font-size:1.75rem;font-weight:400;color:#fff;letter-spacing:.01em}
+.barber-card .role{font-size:.85rem;color:#fff;opacity:.75;margin:4px 0 20px}
 .barber-card .btn{padding:10px 26px;font-size:.92rem;background:var(--cream);color:var(--olive);border-color:var(--cream)}
 .barber-card:hover{box-shadow:0 18px 42px rgba(40,45,28,.35)}
 
 /* ===== Booking (detailed) ===== */
-.booking{background:var(--olive) var(--pattern) top/260px repeat;color:var(--cream);position:relative}
+.booking{background:var(--olive) var(--pattern) top/260px repeat;color:#fff;position:relative}
 .booking::before{content:"";position:absolute;inset:0;background:rgba(40,45,28,.55)}
 .booking .wrap{position:relative;z-index:1}
 .book-layout{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;margin-top:52px}
@@ -334,10 +334,10 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .confirm-new{margin-top:16px;color:var(--olive);font-weight:700;opacity:.7;padding:8px}
 .confirm-new:hover{opacity:1;text-decoration:underline}
 
-.menu{background:var(--olive-deep);color:var(--cream)}
+.menu{background:var(--olive-deep);color:#fff}
 .menu-board{max-width:860px;margin:52px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:56px}
 @media(max-width:720px){.menu-board{grid-template-columns:1fr;gap:40px}}
-.menu-cat h3{font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.15rem;letter-spacing:.18em;color:var(--cream);opacity:.75;margin-bottom:22px;display:flex;align-items:center;gap:14px}
+.menu-cat h3{font-family:var(--serif);font-style:italic;font-weight:500;font-size:1.15rem;letter-spacing:.18em;color:#fff;opacity:.9;margin-bottom:22px;display:flex;align-items:center;gap:14px}
 .menu-cat h3::after{content:"";flex:1;height:1px;background:var(--line-light)}
 .mi{display:flex;align-items:baseline;gap:10px;padding:9px 0;font-size:1.02rem}
 .mi .nm{font-weight:700}
@@ -356,7 +356,7 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .faq-item h3{font-size:1.02rem;font-weight:800;margin-bottom:9px;color:var(--olive)}
 .faq-item p{line-height:2;opacity:.78;font-size:.96rem}
 
-footer{background:var(--ink);color:var(--cream);padding:70px 0 34px;text-align:center}
+footer{background:var(--ink);color:#fff;padding:70px 0 34px;text-align:center}
 footer .logo{margin-bottom:22px}
 .f-meta{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;font-size:.95rem;opacity:.75;margin-bottom:34px}
 .f-meta a:hover{opacity:1;text-decoration:underline}

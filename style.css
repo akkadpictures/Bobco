@@ -38,7 +38,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 .btn-cream:hover{box-shadow:0 10px 30px rgba(0,0,0,.28);transform:translateY(-2px)}
 .btn-olive{background:var(--olive);color:var(--cream)}
 .btn-olive:hover{background:var(--olive-deep);box-shadow:0 10px 26px rgba(52,57,37,.35);transform:translateY(-2px)}
-.btn-ghost{border:1px solid var(--line-light);color:var(--cream)}
+.btn-ghost{border:1px solid var(--line-light);color:#fff}
 .btn-ghost:hover{background:rgba(239,227,202,.1)}
 .btn[disabled]{opacity:.45;pointer-events:none}
 
