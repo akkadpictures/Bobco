@@ -51,7 +51,7 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
 .card.exp .v{color:var(--neg)}
 
 /* التابات */
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;background:#fff;padding:5px;border-radius:16px;margin-bottom:16px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#fff;padding:5px;border-radius:16px;margin-bottom:16px}
 .tab{padding:12px 6px;border-radius:12px;font-weight:800;font-size:.95rem;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream)}
 .view{display:none}.view.on{display:block}
@@ -115,7 +115,7 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
   .card.box{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;grid-template-areas:"l v" "s v";align-items:center;padding:14px 16px}
   .card.box .l{grid-area:l}.card.box .s{grid-area:s}
   .card.box .v{grid-area:v;font-size:1.9rem}
-  .tab{padding:11px 4px;font-size:.88rem}
+  .tab{padding:11px 2px;font-size:.8rem}
 }
 
 /* ===== لوحات عامة ===== */
@@ -158,6 +158,14 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
 .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .dayhead .nav{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-weight:800}
 .dayhead input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
+.actions3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.act{background:var(--olive);color:var(--cream);border-radius:14px;padding:15px 8px;font-weight:800;font-size:.92rem}
+.act.ghost{background:#fff;color:var(--olive)}
+.sup{background:#fff;border-radius:18px;padding:16px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;width:100%;text-align:start}
+.sup b{font-size:1.05rem;font-weight:800;display:block}
+.sup small{opacity:.55;font-size:.78rem;font-weight:700}
+.sup .bal{font-size:1.35rem;font-weight:800;color:var(--neg)}
+.sup .bal.zero{color:var(--pos)}
 .bigbox{background:var(--olive);color:var(--cream);border-radius:20px;padding:22px 20px;margin-bottom:14px}
 .bigbox .l{font-size:.85rem;font-weight:800;opacity:.75}
 .bigbox .v{font-size:2.6rem;font-weight:800;margin-top:4px}
@@ -208,8 +216,9 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
   <nav class="tabs">
     <button class="tab on" data-v="pos" onclick="showView('pos')">الكاشير</button>
     <button class="tab" data-v="exp" onclick="showView('exp')">المصاريف</button>
+    <button class="tab" data-v="sup" onclick="showView('sup')">الموردين</button>
     <button class="tab" data-v="box" onclick="showView('box')">الصندوق</button>
-    <button class="tab" data-v="day" onclick="showView('day')">دفتر اليوم</button>
+    <button class="tab" data-v="day" onclick="showView('day')">الدفتر</button>
   </nav>
 
   <!-- الكاشير -->
@@ -249,7 +258,9 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
             <button class="on" data-p="till" onclick="xPay('till')">من الصندوق</button>
             <button data-p="debt" onclick="xPay('debt')">دين عالمورّد</button>
           </div>
-          <p class="hint">«من الصندوق» بينطرح من الصندوق ومن صافي اليوم. «دين» بينسجّل بس، وما بينطرح.</p></div>
+          <p class="hint">«من الصندوق» بينطرح من الصندوق ومن صافي اليوم. «دين» بينضاف على حساب المورّد، وما بينطرح.</p></div>
+        <div class="frow" id="xSupRow" style="display:none"><label>المورّد</label>
+          <select id="xSup"></select></div>
         <div class="frow"><label>ملاحظة (اختياري)</label><input id="xNote"></div>
         <button class="btn" onclick="saveExpense()">سجّل المصروف</button>
       </div>
@@ -257,6 +268,17 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
         <div class="panel" id="expList"></div>
       </div>
     </div>
+  </section>
+
+  <!-- الموردين -->
+  <section class="view" id="v-sup">
+    <div class="bigbox"><div class="l">مجموع اللي علينا للموردين</div><div class="v num" id="supTot">0</div><div class="s">ليرة جديدة · ما بينطرح من الصندوق إلا لما تندفع دفعة</div></div>
+    <div class="actions3">
+      <button class="act" onclick="openSupPay()">دفعة لمورّد</button>
+      <button class="act" onclick="openSupBuy()">بضاعة بالدين</button>
+      <button class="act ghost" onclick="openSupNew()">＋ مورّد جديد</button>
+    </div>
+    <div id="supList"></div>
   </section>
 
   <!-- الصندوق -->
@@ -315,7 +337,7 @@ const cupsOf = r => (r.items || []).reduce((s, i) => s + (+i.qty || 0), 0);
 const itemsTxt = r => (r.items || []).map(i => i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
 const EXP_QUICK = ["حليب", "بضاعة", "سيروبات", "كاسات وأغطية", "حلويات", "مي وتلج", "تنظيف", "راتب"];
 
-let ITEMS = [], CAT = null, CART = [], PAY = "cash", XPAY = "till";
+let ITEMS = [], CAT = null, CART = [], PAY = "cash", XPAY = "till", SUPS = [], SUPROWS = [];
 let DAY = bizToday(), ROWS = [], TODAY = [], BOX = null, REPORT = null;
 
 /* ---------- الدخول (محفوظ عالجهاز 3 أيام متل الاستقبال) ---------- */
@@ -347,11 +369,12 @@ async function enter(){
 
 /* ---------- تحميل وتحديث كل شي ---------- */
 async function refresh(){
-  await Promise.all([loadToday(), loadBox()]);
+  await Promise.all([loadToday(), loadBox(), loadSup()]);
   renderCards();
   const v = (document.querySelector(".view.on") || {}).id;
   if (v === "v-exp") renderExp();
   if (v === "v-box") renderBox();
+  if (v === "v-sup") renderSup();
   if (v === "v-day") await loadDay();
 }
 async function loadToday(){
@@ -367,7 +390,7 @@ async function loadBox(){
   const rows = data || [];
   const cashIn = rows.filter(r => r.kind === "sale" && r.pay === "cash").reduce((s, r) => s + +r.amount, 0);
   const usdIn = rows.filter(r => r.kind === "sale" && r.pay === "usd").reduce((s, r) => s + (+r.usd || 0), 0);
-  const tillOut = rows.filter(r => r.kind === "expense" && r.pay !== "debt");
+  const tillOut = rows.filter(r => (r.kind === "expense" && r.pay !== "debt") || r.kind === "supplier_pay");
   const out = tillOut.reduce((s, r) => s + +r.amount, 0);
   const base = anchor ? +anchor.amount : 0, baseUsd = anchor ? (+anchor.usd || 0) : 0;
   BOX = { anchor, cashIn, usdIn, out, tillOut, base, baseUsd, lira: base + cashIn - out, usd: baseUsd + usdIn };
@@ -389,12 +412,14 @@ function calc(rows){
     usd: usdRows.reduce((s, r) => s + (+r.usd || 0), 0),
     usdVal: usdRows.reduce((s, r) => s + +r.amount, 0),
     expSum: tillExp.reduce((s, r) => s + +r.amount, 0),
+    supPays: rows.filter(r => r.kind === "supplier_pay"),
+    supPaySum: rows.filter(r => r.kind === "supplier_pay").reduce((s, r) => s + +r.amount, 0),
     debtSum: debts.reduce((s, r) => s + +r.amount, 0),
     count: rows.find(r => r.kind === "count") || null
   };
   A.cashSales = A.sales - A.usdVal;
   A.net = A.sales - A.expSum;
-  A.cashNet = A.cashSales - A.expSum;
+  A.cashNet = A.cashSales - A.expSum - A.supPaySum;   // اللي لازم يزيد عالدرج (الدفعة للمورّد بتطلع من الدرج)
   return A;
 }
 function renderCards(){
@@ -523,13 +548,21 @@ async function checkout(){
 
 /* ---------- المصاريف ---------- */
 function pickQuick(b){ document.getElementById("xWhat").value = b.textContent; document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.toggle("on", x === b)); document.getElementById("xAmt").focus(); }
-function xPay(p){ XPAY = p; document.querySelectorAll("#xPaySeg button").forEach(b => { b.classList.toggle("on", b.dataset.p === p); b.classList.toggle("red", b.dataset.p === "debt"); }); }
+function xPay(p){
+  XPAY = p;
+  document.querySelectorAll("#xPaySeg button").forEach(b => { b.classList.toggle("on", b.dataset.p === p); b.classList.toggle("red", b.dataset.p === "debt"); });
+  document.getElementById("xSupRow").style.display = p === "debt" ? "block" : "none";
+  if (p === "debt") fillSupSelect("xSup");
+}
 async function saveExpense(){
   const what = document.getElementById("xWhat").value.trim(), amt = +document.getElementById("xAmt").value;
   if (!what) return toast("شو المصروف؟");
   if (!(amt > 0)) return toast("حط المبلغ");
+  let sup = null;
+  if (XPAY === "debt") { sup = document.getElementById("xSup").value; if (!sup) return toast("اختار المورّد"); }
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
+    items: sup ? { supplier: sup } : [],
     note: document.getElementById("xNote").value.trim() || null
   });
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
@@ -544,7 +577,7 @@ function renderExp(){
   const list = A.exps;
   document.getElementById("expList").innerHTML = `<h4>مصاريف اليوم <span class="num">${nl(A.expSum)}</span></h4>` + (list.length ? list.map(r => `
     <div class="row click" onclick="editExpense('${r.id}')">
-      <div><b>${esc(r.what || "مصروف")}${r.pay === "debt" ? `<span class="tag debt">دين — ما انطرح</span>` : ""}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""}</small></div>
+      <div><b>${esc(r.what || "مصروف")}${r.pay === "debt" ? `<span class="tag debt">دين${supOf(r) ? " · " + esc(supOf(r)) : ""}</span>` : ""}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""}</small></div>
       <div class="amt num ${r.pay === "debt" ? "" : "neg"}">${r.pay === "debt" ? "" : "−"}${nl(r.amount)}</div></div>`).join("")
     + (A.debtSum ? `<div class="row"><div><b>دين عالمورّد اليوم</b><small>مسجّل بس، ما انطرح من الصندوق</small></div><div class="amt num">${nl(A.debtSum)}</div></div>` : "")
     : `<p class="empty">ما في مصاريف لليوم</p>`);
@@ -570,6 +603,112 @@ async function saveEditExpense(){
   closeSheet(); toast("✓ انحفظ"); refresh();
 }
 
+/* ---------- الموردين ----------
+   kind=supplier      : تعريف مورّد (what=الاسم · amount=دين قديم افتتاحي · note=تلفون)
+   kind=expense+debt  : بضاعة بالدين (items.supplier=الاسم) ← بتزيد اللي علينا وما بتنطرح من الصندوق
+   kind=supplier_pay  : دفعة من الدرج (what=الاسم) ← بتنقّص اللي علينا وبتنطرح من الصندوق
+   ------------------------------------------------------------- */
+const supOf = r => (r && r.items && !Array.isArray(r.items) && r.items.supplier) || "";
+async function loadSup(){
+  const { data } = await db.from("coffee_sales").select("*").in("kind", ["supplier", "supplier_pay", "expense"]).order("created_at", { ascending: false });
+  SUPROWS = (data || []).filter(r => r.kind !== "expense" || r.pay === "debt");
+  SUPS = SUPROWS.filter(r => r.kind === "supplier").map(s => {
+    const buys = SUPROWS.filter(r => r.kind === "expense" && supOf(r) === s.what);
+    const pays = SUPROWS.filter(r => r.kind === "supplier_pay" && r.what === s.what);
+    const bought = buys.reduce((a, r) => a + +r.amount, 0), paid = pays.reduce((a, r) => a + +r.amount, 0);
+    return { row: s, name: s.what, open: +s.amount || 0, bought, paid, bal: (+s.amount || 0) + bought - paid, buys, pays };
+  }).sort((a, b) => b.bal - a.bal);
+}
+function fillSupSelect(id){
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = SUPS.length ? SUPS.map(s => `<option value="${esc(s.name)}">${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
+    : `<option value="">ما في موردين — زيدهم من قسم «الموردين»</option>`;
+}
+function renderSup(){
+  const tot = SUPS.reduce((s, x) => s + x.bal, 0);
+  document.getElementById("supTot").textContent = nl(tot);
+  document.getElementById("supList").innerHTML = SUPS.length ? SUPS.map((s, i) => `
+    <button class="sup" onclick="openSupDetail(${i})">
+      <div><b>${esc(s.name)}</b><small>بضاعة ${nl(s.open + s.bought)} · مدفوع ${nl(s.paid)}${s.row.note ? " · " + esc(s.row.note) : ""}</small></div>
+      <div class="bal num ${s.bal <= 0 ? "zero" : ""}">${s.bal <= 0 ? "خالص" : nl(s.bal)}</div>
+    </button>`).join("") : `<div class="panel"><p class="empty">ما في موردين لسا — اكبس «＋ مورّد جديد»</p></div>`;
+}
+function openSupNew(){
+  sheet(`<h3>مورّد جديد</h3>
+    <div class="frow"><label>اسم المورّد</label><input id="sName" placeholder="مثلاً: محمصة …، حليب …"></div>
+    <div class="frow"><label>تلفون (اختياري)</label><input id="sPhone" inputmode="tel" dir="ltr"></div>
+    <div class="frow"><label>دين قديم علينا إلو (ليرة جديدة · اختياري)</label><input id="sOpen" type="number" inputmode="numeric" placeholder="0"></div>
+    <button class="btn" onclick="saveSupNew()">زيد المورّد</button>`);
+  setTimeout(() => document.getElementById("sName").focus(), 50);
+}
+async function saveSupNew(){
+  const name = document.getElementById("sName").value.trim();
+  if (!name) return toast("اكتب اسم المورّد");
+  if (SUPS.some(s => s.name === name)) return toast("هالمورّد موجود");
+  const { error } = await db.from("coffee_sales").insert({ kind: "supplier", sale_date: bizToday(), what: name,
+    amount: Math.round((+document.getElementById("sOpen").value || 0) * K), note: document.getElementById("sPhone").value.trim() || null });
+  if (error) return toast("ما انحفظ — جرّب كمان مرة");
+  closeSheet(); toast("✓ انضاف " + name); refresh();
+}
+function supPicker(sel){
+  return SUPS.length ? `<div class="chips" id="spChips">${SUPS.map(s => `<button class="chip ${s.name === sel ? "on" : ""}" onclick="pickSup(this)">${esc(s.name)}</button>`).join("")}</div>`
+    : `<p class="hint">ما في موردين — زيد واحد أول.</p>`;
+}
+function pickSup(b){ window._sp = b.textContent; document.querySelectorAll("#spChips .chip").forEach(x => x.classList.toggle("on", x === b)); }
+function openSupPay(name){
+  window._sp = name || (SUPS.length === 1 ? SUPS[0].name : null);
+  sheet(`<h3>دفعة لمورّد</h3>
+    <div class="frow"><label>لمين؟</label>${supPicker(window._sp)}</div>
+    <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="pAmt" type="number" inputmode="numeric"></div>
+    <div class="frow"><label>ملاحظة (اختياري)</label><input id="pNote"></div>
+    <p class="hint">الدفعة بتطلع من درج الكوفي وبتنقص من اللي علينا للمورّد.</p>
+    <button class="btn" onclick="saveSupPay()">سجّل الدفعة</button>`);
+}
+async function saveSupPay(){
+  const amt = +document.getElementById("pAmt").value;
+  if (!window._sp) return toast("اختار المورّد");
+  if (!(amt > 0)) return toast("حط المبلغ");
+  const { error } = await db.from("coffee_sales").insert({ kind: "supplier_pay", sale_date: bizToday(), what: window._sp,
+    amount: Math.round(amt * K), note: document.getElementById("pNote").value.trim() || null });
+  if (error) return toast("ما انحفظ — جرّب كمان مرة");
+  closeSheet(); toast("✓ انسجّلت الدفعة"); refresh();
+}
+function openSupBuy(name){
+  window._sp = name || (SUPS.length === 1 ? SUPS[0].name : null);
+  sheet(`<h3>بضاعة بالدين</h3>
+    <div class="frow"><label>من مين؟</label>${supPicker(window._sp)}</div>
+    <div class="frow"><label>شو البضاعة؟</label><input id="bWhat" value="بضاعة"></div>
+    <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="bAmt" type="number" inputmode="numeric"></div>
+    <div class="frow"><label>ملاحظة (اختياري)</label><input id="bNote"></div>
+    <p class="hint">بتنضاف على حساب المورّد، وما بتنطرح من الصندوق ولا من صافي اليوم.</p>
+    <button class="btn" onclick="saveSupBuy()">سجّل</button>`);
+}
+async function saveSupBuy(){
+  const amt = +document.getElementById("bAmt").value;
+  if (!window._sp) return toast("اختار المورّد");
+  if (!(amt > 0)) return toast("حط المبلغ");
+  const { error } = await db.from("coffee_sales").insert({ kind: "expense", pay: "debt", sale_date: bizToday(),
+    what: document.getElementById("bWhat").value.trim() || "بضاعة", items: { supplier: window._sp },
+    amount: Math.round(amt * K), note: document.getElementById("bNote").value.trim() || null });
+  if (error) return toast("ما انحفظ — جرّب كمان مرة");
+  closeSheet(); toast("✓ انسجّلت على حساب " + window._sp); refresh();
+}
+function openSupDetail(i){
+  const s = SUPS[i]; if (!s) return;
+  const moves = [...s.buys.map(r => ({ r, t: "buy" })), ...s.pays.map(r => ({ r, t: "pay" }))]
+    .sort((a, b) => b.r.created_at.localeCompare(a.r.created_at));
+  sheet(`<h3>${esc(s.name)}</h3>
+    <div class="bigbox" style="padding:16px 18px"><div class="l">علينا إلو</div><div class="v num" style="font-size:2rem">${nl(s.bal)}</div></div>
+    <div class="btn-row"><button class="btn" style="margin-top:0" onclick="openSupPay('${esc(s.name)}')">دفعة</button><button class="btn ghost" style="margin-top:0" onclick="openSupBuy('${esc(s.name)}')">بضاعة بالدين</button></div>
+    <div class="panel" style="margin-top:14px"><h4>الحركات — اكبس لتمسح</h4>
+      ${s.open ? `<div class="row"><div><b>دين قديم</b><small>رصيد افتتاحي</small></div><div class="amt num">${nl(s.open)}</div></div>` : ""}
+      ${moves.length ? moves.map(m => `<div class="row click" onclick="delRow('${m.r.id}')">
+        <div><b>${m.t === "buy" ? esc(m.r.what || "بضاعة") : "دفعة"}</b><small><span style="white-space:nowrap">${dm(m.r.sale_date)} · ${tm(m.r)}</span>${m.r.note ? " · " + esc(m.r.note) : ""}</small></div>
+        <div class="amt num ${m.t === "pay" ? "pos" : ""}">${m.t === "pay" ? "−" : "+"}${nl(m.r.amount)}</div></div>`).join("") : (s.open ? "" : `<p class="empty">ما في حركات</p>`)}
+    </div>
+    <button class="btn danger" onclick="delRow('${s.row.id}')">امسح المورّد</button>`);
+}
+
 /* ---------- الصندوق ---------- */
 function renderBox(){
   if (!BOX) return;
@@ -580,7 +719,7 @@ function renderBox(){
   document.getElementById("boxCalc").innerHTML = `<h4>كيف انحسب</h4>
     <div class="row"><div><b>${a ? "آخر عدّ" : "ما في عدّ لسا"}</b><small>${a ? since : "اعمل أول عدّ ليبلّش الصندوق من رقم صح"}</small></div><div class="amt num">${nl(B.base)}</div></div>
     <div class="row"><div><b>كاش من المبيعات</b><small>${a ? "من بعد العدّ" : "من البداية"}</small></div><div class="amt num pos">+${nl(B.cashIn)}</div></div>
-    <div class="row"><div><b>مصاريف من الصندوق</b><small>${B.tillOut.length} مصروف</small></div><div class="amt num neg">−${nl(B.out)}</div></div>
+    <div class="row"><div><b>مصاريف ودفعات موردين</b><small>${B.tillOut.length} حركة</small></div><div class="amt num neg">−${nl(B.out)}</div></div>
     <div class="row total-row"><div><b>المفروض بالدرج</b></div><div class="amt num">${nl(B.lira)}</div></div>
     ${B.usd || B.baseUsd ? `<div class="row"><div><b>دولار</b><small>${B.baseUsd ? `عدّ ${B.baseUsd}$ + ` : ""}مبيعات بالدولار ${B.usdIn}$</small></div><div class="amt num">${B.usd}$</div></div>` : ""}
     <p class="hint" style="padding:6px 0 4px">الدين عالمورّد ما بينطرح من الصندوق.</p>`;
@@ -623,6 +762,8 @@ async function loadDay(){
     <div class="row click" onclick="editExpense('${r.id}')">
       <div><b>${esc(r.what || "مصروف")}${r.pay === "debt" ? `<span class="tag debt">دين</span>` : ""}</b><small>${tm(r)}</small></div>
       <div class="amt num ${r.pay === "debt" ? "" : "neg"}">${r.pay === "debt" ? "" : "−"}${nl(r.amount)}</div></div>`).join("")}</div>`;
+  if (A.supPays.length) h += `<div class="panel"><h4>دفعات للموردين (من الدرج)</h4>${A.supPays.map(r => `
+    <div class="row click" onclick="delRow('${r.id}')"><div><b>${esc(r.what)}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""} · اكبس لتمسحها</small></div><div class="amt num neg">−${nl(r.amount)}</div></div>`).join("")}</div>`;
   const counts = ROWS.filter(r => r.kind === "count");
   if (counts.length) h += `<div class="panel"><h4>عدّ الصندوق</h4>${counts.map(r => `
     <div class="row click" onclick="delRow('${r.id}')"><div><b>عدّ</b><small>${tm(r)}${r.usd ? ` · ${+r.usd}$` : ""} · اكبس لتمسحو</small></div><div class="amt num">${nl(r.amount)}</div></div>`).join("")}</div>`;
@@ -661,7 +802,7 @@ async function saveSale(){
 }
 async function delRow(id){
   if (!confirm("أكيد بدك تمسحها؟")) return;
-  const r = ROWS.find(x => x.id === id) || TODAY.find(x => x.id === id);
+  const r = ROWS.find(x => x.id === id) || TODAY.find(x => x.id === id) || SUPROWS.find(x => x.id === id);
   const { error } = await db.from("coffee_sales").delete().eq("id", id);
   if (error) return toast("ما انمسح — جرّب كمان مرة");
   closeSheet();
@@ -692,15 +833,23 @@ async function openReport(){
     A.tillExp.forEach(r => L.push({ k: "row", r: (r.what || "مصروف") + (r.note ? " — " + r.note : ""), l: "−" + nl(r.amount), neg: true }));
     L.push({ k: "gap" });
   }
-  if (A.debts.length){
-    L.push({ k: "h", r: "دين عالمورّد (ما انطرح)" });
-    A.debts.forEach(r => L.push({ k: "row", r: (r.what || "بضاعة") + (r.note ? " — " + r.note : ""), l: nl(r.amount) }));
+  if (A.supPays.length){
+    L.push({ k: "h", r: "دفعات للموردين (من الدرج)" });
+    A.supPays.forEach(r => L.push({ k: "row", r: r.what + (r.note ? " — " + r.note : ""), l: "−" + nl(r.amount), neg: true }));
     L.push({ k: "gap" });
   }
+  if (A.debts.length){
+    L.push({ k: "h", r: "بضاعة بالدين (ما انطرحت)" });
+    A.debts.forEach(r => L.push({ k: "row", r: (r.what || "بضاعة") + (supOf(r) ? " · " + supOf(r) : "") + (r.note ? " — " + r.note : ""), l: nl(r.amount) }));
+    L.push({ k: "gap" });
+  }
+  const supOwed = SUPS.reduce((s, x) => s + x.bal, 0);
+  if (SUPS.length){ L.push({ k: "sum", r: "مجموع اللي علينا للموردين لهلق", l: nl(supOwed) }); L.push({ k: "gap" }); }
   L.push({ k: "h", r: "الخلاصة" });
   L.push({ k: "sum", r: "مبيعات", l: nl(A.sales) });
   if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + nl(A.expSum), neg: true });
   L.push({ k: "big", r: "صافي الكوفي اليوم", l: nl(A.net) });
+  if (A.supPaySum) L.push({ k: "sum", r: "طلع من الدرج للموردين", l: "−" + nl(A.supPaySum), neg: true });
   const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
   if (pv !== null) L.push({ k: "sum", r: `صندوق ${dm(prev.sale_date)} + الكاش الصافي`, l: nl(pv + A.cashNet) });
   if (cnt !== null) L.push({ k: "big", r: "صندوق الكوفي (عدّ الدرج)", l: nl(cnt) });
@@ -768,6 +917,7 @@ function showView(v){
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.v === v));
   if (v === "exp") renderExp();
   if (v === "box") renderBox();
+  if (v === "sup") renderSup();
   if (v === "day") loadDay();
 }
 function sheet(html){ document.getElementById("sheet").innerHTML = html; document.getElementById("ov").classList.add("on"); }
