@@ -36,35 +36,35 @@ input,select,textarea{font-family:var(--ar);font-size:1.05rem}
 /* ===== الهيكل ===== */
 #app{display:none;max-width:1240px;margin:0 auto;padding:14px 14px 40px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:12px;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-radius:18px;padding:14px 18px}
-header .wm{white-space:nowrap;font-family:Georgia,"Times New Roman",serif;color:var(--cream);font-size:1.3rem;letter-spacing:.04em;direction:ltr}
-header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
-.datepill{margin-inline-start:auto;background:rgba(239,227,202,.14);color:var(--cream)!important;border-radius:999px;padding:8px 16px;font-weight:400;color:var(--olive);font-size:.95rem;white-space:nowrap}
-.datepill span{opacity:.6;font-weight:700}
+header .brandlogo{display:block;width:118px;aspect-ratio:688/221;background:#fff;-webkit-mask:url(logo-en.svg) center/contain no-repeat;mask:url(logo-en.svg) center/contain no-repeat;flex:0 0 auto}
+header .sub{color:#fff;font-size:1.05rem;font-weight:400}
+.datepill{margin-inline-start:auto;background:rgba(255,255,255,.12);color:#fff!important;border-radius:999px;padding:8px 16px;font-weight:400;color:var(--olive);font-size:.95rem;white-space:nowrap}
+.datepill span{opacity:.85}
 .where{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .where button{min-width:44px;padding:10px 12px;border-radius:12px;font-weight:400;font-size:.95rem;background:var(--cream-soft);color:var(--olive)}
 .where button.on{background:var(--olive);color:var(--cream)}
 .where button.ext{flex:1 1 100%}
 .wlbl{font-size:.8rem;font-weight:400;opacity:.6;margin-top:14px}
 .tag.wh{background:#e6e3d8;color:var(--ink)}
-.dayttl{font-size:1.35rem;font-weight:400;color:var(--olive);margin:0 4px 12px}
+.dayttl{font-size:1.7rem;font-weight:400;color:var(--olive);margin:0 4px 12px}
 .dayttl small{font-size:.85rem;opacity:.55;font-weight:700;margin-inline-start:8px}
-#logoutBtn{color:var(--cream);font-size:.82rem;opacity:.7;font-weight:700;padding:8px}
+#logoutBtn{color:#fff;font-size:.9rem;opacity:.85;font-weight:700;padding:8px}
 
 /* البطاقات — ظاهرة دايماً فوق */
 .cards{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 .card{background:#fff;border-radius:18px;padding:16px 16px 14px;text-align:start;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(15,15,15,.05);transition:transform .12s}
 .card:active{transform:scale(.98)}
-.card .l{font-size:.8rem;font-weight:400;opacity:.6}
+.card .l{font-size:1rem;font-weight:400;opacity:.75}
 .card .v{font-size:1.75rem;font-weight:400;color:var(--olive);line-height:1.1}
-.card .s{font-size:.78rem;font-weight:400;opacity:.55}
+.card .s{font-size:.82rem;font-weight:400;opacity:.6}
 .card.box{background:#323723 var(--pat-green) 0 0/200% auto repeat-y}
-.card.box .l,.card.box .v,.card.box .s{color:var(--cream)}
+.card.box .l,.card.box .v,.card.box .s{color:#fff;opacity:1}
 .card.box .v{font-size:2.1rem}
 .card.exp .v{color:var(--neg)}
 
 /* التابات */
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#fff;padding:5px;border-radius:16px;margin-bottom:16px}
-.tab{padding:12px 6px;border-radius:12px;font-weight:400;font-size:.95rem;color:var(--olive)}
+.tab{padding:13px 6px;border-radius:12px;font-weight:400;font-size:1.08rem;color:var(--olive)}
 .tab.on{background:var(--olive);color:var(--cream)}
 .view{display:none}.view.on{display:block}
 
@@ -86,7 +86,7 @@ header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
 .item.other b{color:var(--olive)}
 
 .order{background:#fff;border-radius:20px;padding:18px;position:sticky;top:14px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
-.order h3{font-size:1.05rem;font-weight:400;color:var(--olive);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.order h3{font-size:1.3rem;font-weight:400;color:var(--olive);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .order h3 button{font-size:.82rem;opacity:.55;font-weight:700}
 .lines{max-height:36vh;overflow:auto}
 .line{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid rgba(52,57,37,.07)}
@@ -121,21 +121,22 @@ header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
   .menu{grid-template-columns:repeat(2,1fr)}
   .cards{grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
   .card{padding:11px 12px;border-radius:14px;gap:3px}
-  .card .l{font-size:.72rem}
+  .card .l{font-size:.85rem}
   .card .v{font-size:1.3rem}
-  .card .s{font-size:.68rem}
+  .card .s{font-size:.72rem}
   .card.box{grid-column:1/-1;display:grid;grid-template-columns:1fr auto;grid-template-areas:"l v" "s v";align-items:center;padding:14px 16px}
   .card.box .l{grid-area:l}.card.box .s{grid-area:s}
   .card.box .v{grid-area:v;font-size:1.9rem}
-  .tab{padding:11px 2px;font-size:.8rem}
+  .tab{padding:11px 2px;font-size:.9rem}
   header .sub{display:none}
   header{gap:8px}
   .datepill{padding:7px 12px;font-size:.85rem}
+  header .brandlogo{width:96px}
 }
 
 /* ===== لوحات عامة ===== */
 .panel{background:#fff;border-radius:18px;padding:6px 18px 12px;margin-bottom:14px}
-.panel h4{font-size:.85rem;font-weight:400;opacity:.6;padding:14px 0 6px;display:flex;justify-content:space-between;align-items:center}
+.panel h4{font-size:1.12rem;font-weight:400;opacity:.8;color:var(--olive);padding:14px 0 6px;display:flex;justify-content:space-between;align-items:center}
 .row{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid rgba(52,57,37,.07);align-items:center}
 .row.click{cursor:pointer}
 .row:last-child{border-bottom:none}
@@ -157,7 +158,7 @@ header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media(max-width:900px){ .two{grid-template-columns:1fr} }
 .frow{margin-bottom:12px}
-.frow label{display:block;font-size:.85rem;font-weight:400;opacity:.7;margin-bottom:6px}
+.frow label{display:block;font-size:.98rem;font-weight:400;opacity:.8;margin-bottom:6px}
 .chips{display:flex;gap:7px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);border-radius:999px;padding:10px 16px;font-weight:400;font-size:.92rem;background:#fff}
 .chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
@@ -182,9 +183,9 @@ header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
 .sup .bal{font-size:1.35rem;font-weight:400;color:var(--neg)}
 .sup .bal.zero{color:var(--pos)}
 .bigbox{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream);border-radius:20px;padding:22px 20px;margin-bottom:14px}
-.bigbox .l{font-size:.85rem;font-weight:400;opacity:.75}
+.bigbox .l{font-size:1.1rem;font-weight:400;color:#fff}
 .bigbox .v{font-size:2.6rem;font-weight:400;margin-top:4px}
-.bigbox .s{font-size:.85rem;opacity:.75;margin-top:4px}
+.bigbox .s{font-size:.9rem;color:#fff;opacity:.85;margin-top:4px}
 
 /* ===== النوافذ ===== */
 .overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
@@ -215,7 +216,7 @@ header .sub{color:var(--cream);font-size:.95rem;font-weight:700;opacity:.7}
 
 <div id="app">
   <header>
-    <span class="wm">BOB &amp; CO</span>
+    <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
     <span class="datepill" id="todayPill"></span>
     <button id="logoutBtn" onclick="logout()">خروج</button>
