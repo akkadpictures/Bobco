@@ -478,6 +478,9 @@ function renderDay(){
   // إجمالي اليوم = الكاش الفعلي اللي دخل
   const total = t.hRev + t.productSales + t.coffee + t.settle;
   const shopShare = total - t.hComm;
+  // مصاريف الدرج لهاليوم (بلا مصاريف الكوفي وبلا الممولة من برا الدرج) — نفس صافي الدرج بالاستقبال
+  const dayExp = ENTRIES.filter(e => e.entry_date === d && (e.type === "مصروف" || e.type === "مصروف شهري") && e.detail !== "مصاريف كوفي").reduce((s, e) => s + (+e.amount || 0), 0);
+  const drawerNet = t.hRev + t.productSales + t.settle - t.hComm - dayExp;
 
   document.getElementById("dayKpis").innerHTML = `
     ${rateNote()}
@@ -487,6 +490,8 @@ function renderDay(){
     ${kpi("إيراد الكوفي", t.coffee)}
     ${kpi("حصة الحلاقين", t.hComm)}
     ${kpi("حصة المحل", shopShare)}
+    ${kpi("مصاريف اليوم", dayExp, true)}
+    ${kpi("صافي درج الحلاقة (بعد المصاريف)", drawerNet, false, true)}
   `;
 
   const rows = BARBERS.map(b => {
