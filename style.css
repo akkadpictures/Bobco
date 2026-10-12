@@ -61,7 +61,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 #toast.show{opacity:1;transform:translate(50%,0)}
 
 /* ---- Bob & Co logo (real traced brand mark) ---- */
-.logo{display:inline-block;background:var(--cream);-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
+.logo{display:inline-block;background:#fff;-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
 .logo-en{--m:url('logo-en.svg');aspect-ratio:688/221}
 .logo-ar{--m:url('logo-ar.svg');aspect-ratio:535/185}
 .logo-ink{background:var(--olive)}
