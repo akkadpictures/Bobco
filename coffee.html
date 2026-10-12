@@ -65,15 +65,15 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 /* التابات */
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:#fff;padding:5px;border-radius:16px;margin-bottom:16px}
 .tab{padding:13px 6px;border-radius:12px;font-weight:400;font-size:1.08rem;color:var(--olive)}
-.tab.on{background:var(--olive);color:var(--cream)}
+.tab.on{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:#fff}
 .view{display:none}.view.on{display:block}
 
 /* ===== الكاشير ===== */
 .pos{display:grid;grid-template-columns:1fr 390px;gap:16px;align-items:start}
 .cats{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.cat{flex:0 0 auto;padding:10px 20px;border-radius:999px;font-weight:400;font-size:.95rem;color:var(--olive);border:1.5px solid var(--line)}
-.cat.on{background:var(--cream);border-color:var(--cream)}
+.cat{flex:0 0 auto;padding:11px 22px;border-radius:999px;font-weight:400;font-size:1rem;color:#fff;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;opacity:.55;transition:opacity .15s}
+.cat.on{opacity:1;box-shadow:0 4px 14px rgba(15,15,15,.18)}
 .menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
 .item{position:relative;background:#fff;border-radius:18px;padding:20px 16px 16px;text-align:start;min-height:116px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 2px rgba(15,15,15,.06);transition:transform .12s,box-shadow .12s}
 .item:active{transform:scale(.97)}
