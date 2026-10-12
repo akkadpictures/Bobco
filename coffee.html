@@ -97,6 +97,11 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 .stepper button:active{background:#fff}
 .stepper span{min-width:22px;text-align:center;font-weight:400}
 .line .tot{font-weight:400;min-width:56px;text-align:left}
+.pedit{display:inline-flex;align-items:center;gap:4px;margin-top:5px;padding:4px 10px;border-radius:999px;background:var(--cream-soft);color:var(--olive);font-size:.78rem}
+.adjbtn{display:block;width:100%;margin-top:12px;padding:12px;border-radius:12px;border:1.5px dashed rgba(52,57,37,.35);color:var(--olive);font-size:.95rem}
+.adjrow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(52,57,37,.07);font-size:.98rem}
+.adjrow b{font-weight:400}
+.adjrow .x{color:var(--neg);font-size:.85rem;margin-inline-start:8px}
 .empty{padding:26px 6px;text-align:center;opacity:.5;font-size:.95rem}
 .pays{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0 4px}
 .pay{padding:13px 4px;border-radius:12px;font-weight:400;font-size:.95rem;background:var(--cream-soft);color:var(--olive)}
@@ -248,6 +253,8 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
       <aside class="order" id="order">
         <h3>الطلب <button onclick="clearCart()">تفريغ</button></h3>
         <div class="lines" id="lines"></div>
+        <div id="adjLine"></div>
+        <button class="adjbtn" id="adjBtn" onclick="openAdj()">± خصم أو زيادة عالمجموع</button>
         <div class="wlbl">وين؟ (اختياري)</div>
         <div class="where" id="where"></div>
         <div class="pays">
@@ -352,8 +359,8 @@ const bizToday = () => { const d = new Date(); d.setHours(d.getHours() - CUTOFF_
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const tm = r => new Date(r.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 const dm = s => `${+s.slice(8)}/${+s.slice(5, 7)}`;
-const cupsOf = r => (r.items || []).reduce((s, i) => s + (+i.qty || 0), 0);
-const itemsTxt = r => (r.items || []).map(i => i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
+const cupsOf = r => (r.items || []).filter(i => !i.adj).reduce((s, i) => s + (+i.qty || 0), 0);
+const itemsTxt = r => (r.items || []).map(i => i.adj ? `${i.name} ${nl(Math.abs(i.price))}` : i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
 const EXP_QUICK = ["حليب", "بضاعة", "سيروبات", "كاسات وأغطية", "حلويات", "مي", "تلج", "تنظيف", "راتب"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
 let WHERE = null;   // "كرسي 3" · "خارجي" · null
@@ -430,7 +437,7 @@ function calc(rows){
   const tillExp = exps.filter(r => r.pay !== "debt"), debts = exps.filter(r => r.pay === "debt");
   const usdRows = paid.filter(r => r.pay === "usd");
   const per = {};
-  sales.forEach(r => (r.items || []).forEach(i => { per[i.name] = (per[i.name] || 0) + (+i.qty || 0); }));
+  sales.forEach(r => (r.items || []).filter(i => !i.adj).forEach(i => { per[i.name] = (per[i.name] || 0) + (+i.qty || 0); }));
   const A = {
     saleRows: sales, treats, exps, tillExp, debts, per,
     cups: sales.reduce((s, r) => s + cupsOf(r), 0),
@@ -493,7 +500,7 @@ function addItem(id){
   renderCart();
 }
 function step(i, d){ CART[i].qty += d; if (CART[i].qty <= 0) CART.splice(i, 1); renderCart(); }
-function clearCart(){ CART = []; WHERE = null; document.getElementById("where").innerHTML = whereHtml(null, "setWhere"); setPay("cash"); renderCart(); }
+function clearCart(){ CART = []; ADJ = 0; WHERE = null; document.getElementById("where").innerHTML = whereHtml(null, "setWhere"); setPay("cash"); renderCart(); }
 function setPay(p){
   PAY = p;
   document.querySelectorAll(".pay").forEach(b => b.classList.toggle("on", b.dataset.p === p));
@@ -501,16 +508,19 @@ function setPay(p){
   if (p !== "usd") document.getElementById("usdIn").value = "";
   renderCart();
 }
-const cartSum = () => CART.reduce((s, l) => s + l.price * l.qty, 0);
+let ADJ = 0;   // تعديل على مجموع الطلب (ليرة قديمة): سالب = خصم · موجب = زيادة
+const cartSum = () => Math.max(0, CART.reduce((s, l) => s + l.price * l.qty, 0) + ADJ);
 const cartQty = () => CART.reduce((s, l) => s + l.qty, 0);
 function renderCart(){
   document.getElementById("lines").innerHTML = CART.length ? CART.map((l, i) => `
     <div class="line">
-      <div class="nm" onclick="editPrice(${i})">${esc(l.name)}<small>${l.price !== l.base ? "سعر معدّل · " : ""}<span class="num">${nl(l.price)}</span> للكاسة</small></div>
+      <div class="nm" onclick="editPrice(${i})">${esc(l.name)}<small>${l.price !== l.base ? "سعر معدّل · " : ""}<span class="num">${nl(l.price)}</span> للكاسة</small><span class="pedit">✎ غيّر السعر</span></div>
       <div class="stepper"><button onclick="step(${i},1)" aria-label="زيادة">+</button><span>${l.qty}</span><button onclick="step(${i},-1)" aria-label="إنقاص">−</button></div>
       <div class="tot num">${nl(l.price * l.qty)}</div>
     </div>`).join("") : `<div class="empty">اكبس على أي مشروب ليبلّش الطلب</div>`;
   const sum = cartSum(), q = cartQty();
+  document.getElementById("adjLine").innerHTML = ADJ ? `<div class="adjrow"><b>${ADJ < 0 ? "خصم" : "زيادة"}</b><span><span class="num">${ADJ < 0 ? "−" : "+"}${nl(Math.abs(ADJ))}</span><button class="x" onclick="ADJ=0;renderCart()">شيل</button></span></div>` : "";
+  document.getElementById("adjBtn").style.display = CART.length ? "block" : "none";
   document.getElementById("tot").textContent = PAY === "treat" ? "0" : nl(sum);
   document.getElementById("totLbl").textContent = PAY === "treat" ? `ضيافة (قيمتها ${nl(sum)})` : "المجموع";
   const go = document.getElementById("goBtn");
@@ -525,7 +535,8 @@ function openOrder(){ document.getElementById("order").classList.add("open"); }
 function closeOrder(){ document.getElementById("order").classList.remove("open"); }
 document.addEventListener("click", e => {
   const o = document.getElementById("order");
-  if (!e.target.isConnected) return;   // زر انعاد رسمو (عدّاد، كرسي) — مو كبسة برّا
+  if (!e.target.isConnected) return;
+  if (e.target.closest("#ov")) return;   // كبسة جوّا شاشة منبثقة (خصم، سعر…) ما بتسكّر الطلب   // زر انعاد رسمو (عدّاد، كرسي) — مو كبسة برّا
   if (o.classList.contains("open") && !o.contains(e.target) && !e.target.closest("#mbar") && !e.target.closest(".item")) closeOrder();
 });
 function editPrice(i){
@@ -535,6 +546,28 @@ function editPrice(i){
     <p class="hint">السعر الأساسي ${nl(l.base)} — التعديل لهالطلب بس.</p>
     <div class="btn-row"><button class="btn ghost" onclick="closeSheet()">إلغاء</button><button class="btn" onclick="savePrice(${i})">تمام</button></div>`);
   setTimeout(() => document.getElementById("epIn").select(), 50);
+}
+function openAdj(){
+  const base = CART.reduce((s, l) => s + l.price * l.qty, 0);
+  window._adj = { sign: ADJ > 0 ? 1 : -1, base };
+  sheet(`<h3>خصم أو زيادة</h3>
+    <p class="hint" style="margin:-6px 0 14px">مجموع الطلب قبل التعديل: <span class="num">${nl(base)}</span></p>
+    <div class="frow"><div class="seg" id="adjSeg">
+      <button class="${window._adj.sign < 0 ? "on red" : ""}" onclick="adjSign(-1)">خصم</button>
+      <button class="${window._adj.sign > 0 ? "on" : ""}" onclick="adjSign(1)">زيادة</button></div></div>
+    <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="adjAmt" type="number" inputmode="numeric" value="${ADJ ? Math.abs(ADJ) / K : ""}"></div>
+    <div class="chips" style="margin-bottom:4px">${[10, 15, 20, 25, 50].map(p => `<button class="chip" onclick="adjPct(${p})">${p}%</button>`).join("")}</div>
+    <div class="frow" style="margin-top:12px"><label>أو اكتب المجموع النهائي مباشرة</label><input id="adjFinal" type="number" inputmode="numeric" placeholder="مثلاً 500"></div>
+    <div class="btn-row"><button class="btn ghost" onclick="ADJ=0;closeSheet();renderCart()">بلا تعديل</button><button class="btn" onclick="saveAdj()">تمام</button></div>`);
+}
+function adjSign(sg){ window._adj.sign = sg; document.querySelectorAll("#adjSeg button").forEach((b, i) => { const on = (i === 0) === (sg < 0); b.classList.toggle("on", on); b.classList.toggle("red", on && sg < 0); }); }
+function adjPct(p){ document.getElementById("adjAmt").value = Math.round(window._adj.base * p / 100 / K); document.getElementById("adjFinal").value = ""; }
+function saveAdj(){
+  const fin = document.getElementById("adjFinal").value;
+  if (fin !== "") ADJ = Math.round(+fin * K) - window._adj.base;
+  else { const a = +document.getElementById("adjAmt").value || 0; ADJ = window._adj.sign * Math.round(a * K); }
+  if (window._adj.base + ADJ < 0) ADJ = -window._adj.base;
+  closeSheet(); renderCart();
 }
 function savePrice(i){ const v = document.getElementById("epIn").value; if (v !== "" && +v >= 0) CART[i].price = Math.round(+v * K); closeSheet(); renderCart(); }
 function openManual(){
@@ -563,7 +596,7 @@ async function checkout(){
   busy = true; document.getElementById("goBtn").disabled = true;
   const row = {
     sale_date: bizToday(), kind: "sale", pay: PAY, what: WHERE,
-    items: CART.map(l => ({ name: l.name, price: l.price, qty: l.qty })),
+    items: CART.map(l => ({ name: l.name, price: l.price, qty: l.qty })).concat(ADJ ? [{ name: ADJ < 0 ? "خصم" : "زيادة", price: ADJ, qty: 1, adj: true }] : []),
     amount: PAY === "treat" ? 0 : cartSum(), usd
   };
   const { data, error } = await db.from("coffee_sales").insert(row).select().single();
@@ -819,7 +852,8 @@ function openSale(id){
 function drawSale(){
   const E = window._edit, sum = E.items.reduce((s, i) => s + i.price * i.qty, 0);
   sheet(`<h3>تعديل البيعة · ${tm(E.r)}</h3>
-    ${E.items.map((i, k) => `<div class="line"><div class="nm">${esc(i.name)}<small class="num">${nl(i.price)}</small></div>
+    ${E.items.map((i, k) => i.adj ? `<div class="adjrow"><b>${esc(i.name)}</b><span><span class="num">${i.price < 0 ? "−" : "+"}${nl(Math.abs(i.price))}</span><button class="x" onclick="eStep(${k},-1)">شيل</button></span></div>`
+      : `<div class="line"><div class="nm">${esc(i.name)}<small class="num">${nl(i.price)}</small></div>
       <div class="stepper"><button onclick="eStep(${k},1)">+</button><span>${i.qty}</span><button onclick="eStep(${k},-1)">−</button></div>
       <div class="tot num">${nl(i.price * i.qty)}</div></div>`).join("")}
     <div class="frow" style="margin-top:14px"><label>الدفع</label><div class="chips">
