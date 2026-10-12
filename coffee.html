@@ -34,9 +34,19 @@ input,select,textarea{font-family:var(--ar);font-size:1.05rem}
 /* ===== الهيكل ===== */
 #app{display:none;max-width:1240px;margin:0 auto;padding:14px 14px 40px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-header .wm{font-family:Georgia,"Times New Roman",serif;color:var(--olive);font-size:1.3rem;letter-spacing:.04em;direction:ltr}
+header .wm{white-space:nowrap;font-family:Georgia,"Times New Roman",serif;color:var(--olive);font-size:1.3rem;letter-spacing:.04em;direction:ltr}
 header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
-#logoutBtn{margin-inline-start:auto;font-size:.82rem;opacity:.55;font-weight:700;padding:8px}
+.datepill{margin-inline-start:auto;background:#fff;border-radius:999px;padding:8px 16px;font-weight:800;color:var(--olive);font-size:.95rem;white-space:nowrap}
+.datepill span{opacity:.6;font-weight:700}
+.where{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.where button{min-width:44px;padding:10px 12px;border-radius:12px;font-weight:800;font-size:.95rem;background:var(--cream-soft);color:var(--olive)}
+.where button.on{background:var(--olive);color:var(--cream)}
+.where button.ext{flex:1 1 100%}
+.wlbl{font-size:.8rem;font-weight:800;opacity:.6;margin-top:14px}
+.tag.wh{background:#e6e3d8;color:var(--ink)}
+.dayttl{font-size:1.35rem;font-weight:800;color:var(--olive);margin:0 4px 12px}
+.dayttl small{font-size:.85rem;opacity:.55;font-weight:700;margin-inline-start:8px}
+#logoutBtn{font-size:.82rem;opacity:.55;font-weight:700;padding:8px}
 
 /* البطاقات — ظاهرة دايماً فوق */
 .cards{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
@@ -116,6 +126,9 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
   .card.box .l{grid-area:l}.card.box .s{grid-area:s}
   .card.box .v{grid-area:v;font-size:1.9rem}
   .tab{padding:11px 2px;font-size:.8rem}
+  header .sub{display:none}
+  header{gap:8px}
+  .datepill{padding:7px 12px;font-size:.85rem}
 }
 
 /* ===== لوحات عامة ===== */
@@ -129,7 +142,7 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
 .row small{display:block;opacity:.55;font-size:.78rem;margin-top:3px;font-weight:400}
 .row .amt{font-weight:800;white-space:nowrap;font-size:1.02rem}
 .row .amt.neg{color:var(--neg)}
-.row .amt.pos{color:var(--pos)}
+.row .amt.up{color:var(--pos)}
 .row.total-row{border-top:2px solid var(--olive);border-bottom:none;margin-top:4px}
 .row.total-row b,.row.total-row .amt{font-size:1.2rem;color:var(--olive)}
 .tag{font-size:.7rem;font-weight:800;border-radius:999px;padding:3px 9px;background:var(--cream);color:var(--olive);margin-inline-start:6px;vertical-align:1px}
@@ -202,15 +215,16 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
   <header>
     <span class="wm">BOB &amp; CO</span>
     <span class="sub">الكوفي</span>
+    <span class="datepill" id="todayPill"></span>
     <button id="logoutBtn" onclick="logout()">خروج</button>
   </header>
 
   <!-- البطاقات -->
   <div class="cards">
-    <button class="card box" onclick="showView('box')"><span class="l">الصندوق هلق</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
+    <button class="card box" onclick="showView('box')"><span class="l">الصندوق الكلي</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
+    <button class="card" onclick="showView('box')"><span class="l">صندوق اليوم</span><span class="v num" id="cToday">0</span><span class="s" id="cTodayS">&nbsp;</span></button>
     <button class="card" onclick="showView('day')"><span class="l">مبيعات اليوم</span><span class="v num" id="cSales">0</span><span class="s" id="cSalesS">&nbsp;</span></button>
     <button class="card exp" onclick="showView('exp')"><span class="l">مصاريف اليوم</span><span class="v num" id="cExp">0</span><span class="s" id="cExpS">&nbsp;</span></button>
-    <button class="card" onclick="showView('day')"><span class="l">كاسات اليوم</span><span class="v num" id="cCups">0</span><span class="s" id="cCupsS">&nbsp;</span></button>
   </div>
 
   <nav class="tabs">
@@ -231,6 +245,8 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
       <aside class="order" id="order">
         <h3>الطلب <button onclick="clearCart()">تفريغ</button></h3>
         <div class="lines" id="lines"></div>
+        <div class="wlbl">وين؟ (اختياري)</div>
+        <div class="where" id="where"></div>
         <div class="pays">
           <button class="pay on" data-p="cash" onclick="setPay('cash')">كاش</button>
           <button class="pay" data-p="usd" onclick="setPay('usd')">دولار</button>
@@ -285,7 +301,7 @@ header .sub{color:var(--olive);font-size:.95rem;font-weight:700;opacity:.7}
   <section class="view" id="v-box">
     <div class="two">
       <div>
-        <div class="bigbox"><div class="l">المفروض بالدرج هلق</div><div class="v num" id="bbV">—</div><div class="s" id="bbS"></div></div>
+        <div class="bigbox"><div class="l">الصندوق الكلي — المفروض بالدرج هلق</div><div class="v num" id="bbV">—</div><div class="s" id="bbS"></div></div>
         <div class="panel" id="boxCalc"></div>
       </div>
       <div class="panel" style="padding-bottom:18px">
@@ -335,7 +351,15 @@ const tm = r => new Date(r.created_at).toLocaleTimeString("en-GB", { hour: "2-di
 const dm = s => `${+s.slice(8)}/${+s.slice(5, 7)}`;
 const cupsOf = r => (r.items || []).reduce((s, i) => s + (+i.qty || 0), 0);
 const itemsTxt = r => (r.items || []).map(i => i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
-const EXP_QUICK = ["حليب", "بضاعة", "سيروبات", "كاسات وأغطية", "حلويات", "مي وتلج", "تنظيف", "راتب"];
+const EXP_QUICK = ["حليب", "بضاعة", "سيروبات", "كاسات وأغطية", "حلويات", "مي", "تلج", "تنظيف", "راتب"];
+const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
+let WHERE = null;   // "كرسي 3" · "خارجي" · null
+function whereHtml(sel, fn){
+  return Array.from({ length: CHAIRS }, (_, i) => `كرسي ${i + 1}`).map((w, i) =>
+    `<button class="${sel === w ? "on" : ""}" onclick="${fn}('${w}')">${i + 1}</button>`).join("")
+    + `<button class="ext ${sel === "خارجي" ? "on" : ""}" onclick="${fn}('خارجي')">طلب خارجي</button>`;
+}
+function setWhere(w){ WHERE = WHERE === w ? null : w; document.getElementById("where").innerHTML = whereHtml(WHERE, "setWhere"); }
 
 let ITEMS = [], CAT = null, CART = [], PAY = "cash", XPAY = "till", SUPS = [], SUPROWS = [];
 let DAY = bizToday(), ROWS = [], TODAY = [], BOX = null, REPORT = null;
@@ -363,6 +387,7 @@ async function enter(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   document.getElementById("xQuick").innerHTML = EXP_QUICK.map(q => `<button class="chip" onclick="pickQuick(this)">${q}</button>`).join("");
+  document.getElementById("where").innerHTML = whereHtml(null, "setWhere");
   await loadMenu();
   await refresh();
 }
@@ -422,16 +447,18 @@ function calc(rows){
   A.cashNet = A.cashSales - A.expSum - A.supPaySum;   // اللي لازم يزيد عالدرج (الدفعة للمورّد بتطلع من الدرج)
   return A;
 }
+function longDate(isoStr){ const d = new Date(isoStr + "T12:00:00"); return `${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; }
 function renderCards(){
-  const A = calc(TODAY);
+  const A = calc(TODAY), t = bizToday(), d = new Date(t + "T12:00:00");
+  document.getElementById("todayPill").innerHTML = `${AR_DAYS[d.getDay()]} · <span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
+  document.getElementById("cToday").textContent = nl(A.cashNet);
+  document.getElementById("cTodayS").textContent = "كاش − مصاريف";
   document.getElementById("cBox").textContent = BOX ? nl(BOX.lira) : "—";
   document.getElementById("cBoxS").textContent = (BOX && BOX.usd ? `+ ${BOX.usd}$ · ` : "") + "ليرة جديدة";
   document.getElementById("cSales").textContent = nl(A.sales);
-  document.getElementById("cSalesS").textContent = A.usd ? `منها ${A.usd}$` : " ";
+  document.getElementById("cSalesS").textContent = `${A.cups} كاسة` + (A.usd ? ` · منها ${A.usd}$` : "");
   document.getElementById("cExp").textContent = nl(A.expSum);
-  document.getElementById("cExpS").textContent = A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ";
-  document.getElementById("cCups").textContent = A.cups;
-  document.getElementById("cCupsS").textContent = A.treatCups ? `منها ${A.treatCups} ضيافة` : " ";
+  document.getElementById("cExpS").textContent = A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ";
 }
 
 /* ---------- المنيو ---------- */
@@ -463,7 +490,7 @@ function addItem(id){
   renderCart();
 }
 function step(i, d){ CART[i].qty += d; if (CART[i].qty <= 0) CART.splice(i, 1); renderCart(); }
-function clearCart(){ CART = []; setPay("cash"); renderCart(); }
+function clearCart(){ CART = []; WHERE = null; document.getElementById("where").innerHTML = whereHtml(null, "setWhere"); setPay("cash"); renderCart(); }
 function setPay(p){
   PAY = p;
   document.querySelectorAll(".pay").forEach(b => b.classList.toggle("on", b.dataset.p === p));
@@ -495,6 +522,7 @@ function openOrder(){ document.getElementById("order").classList.add("open"); }
 function closeOrder(){ document.getElementById("order").classList.remove("open"); }
 document.addEventListener("click", e => {
   const o = document.getElementById("order");
+  if (!e.target.isConnected) return;   // زر انعاد رسمو (عدّاد، كرسي) — مو كبسة برّا
   if (o.classList.contains("open") && !o.contains(e.target) && !e.target.closest("#mbar") && !e.target.closest(".item")) closeOrder();
 });
 function editPrice(i){
@@ -531,7 +559,7 @@ async function checkout(){
   if (PAY === "usd" && !(usd > 0)) { document.getElementById("usdIn").focus(); return toast("اكتب كم دولار انقبض"); }
   busy = true; document.getElementById("goBtn").disabled = true;
   const row = {
-    sale_date: bizToday(), kind: "sale", pay: PAY,
+    sale_date: bizToday(), kind: "sale", pay: PAY, what: WHERE,
     items: CART.map(l => ({ name: l.name, price: l.price, qty: l.qty })),
     amount: PAY === "treat" ? 0 : cartSum(), usd
   };
@@ -704,7 +732,7 @@ function openSupDetail(i){
       ${s.open ? `<div class="row"><div><b>دين قديم</b><small>رصيد افتتاحي</small></div><div class="amt num">${nl(s.open)}</div></div>` : ""}
       ${moves.length ? moves.map(m => `<div class="row click" onclick="delRow('${m.r.id}')">
         <div><b>${m.t === "buy" ? esc(m.r.what || "بضاعة") : "دفعة"}</b><small><span style="white-space:nowrap">${dm(m.r.sale_date)} · ${tm(m.r)}</span>${m.r.note ? " · " + esc(m.r.note) : ""}</small></div>
-        <div class="amt num ${m.t === "pay" ? "pos" : ""}">${m.t === "pay" ? "−" : "+"}${nl(m.r.amount)}</div></div>`).join("") : (s.open ? "" : `<p class="empty">ما في حركات</p>`)}
+        <div class="amt num ${m.t === "pay" ? "up" : ""}">${m.t === "pay" ? "−" : "+"}${nl(m.r.amount)}</div></div>`).join("") : (s.open ? "" : `<p class="empty">ما في حركات</p>`)}
     </div>
     <button class="btn danger" onclick="delRow('${s.row.id}')">امسح المورّد</button>`);
 }
@@ -716,9 +744,16 @@ function renderBox(){
   document.getElementById("bbV").textContent = nl(B.lira);
   document.getElementById("bbS").textContent = (B.usd ? `ودولار: ${B.usd}$ · ` : "") + "ليرة جديدة";
   const since = a ? `${AR_DAYS[new Date(a.created_at).getDay()]} ${dm(a.sale_date)} · ${tm(a)}` : "";
-  document.getElementById("boxCalc").innerHTML = `<h4>كيف انحسب</h4>
+  const T = calc(TODAY);
+  document.getElementById("boxCalc").innerHTML = `<h4>صندوق اليوم · ${longDate(bizToday())}</h4>
+    <div class="row"><div><b>كاش من مبيعات اليوم</b></div><div class="amt num up">+${nl(T.cashSales)}</div></div>
+    <div class="row"><div><b>مصاريف اليوم من الصندوق</b></div><div class="amt num neg">−${nl(T.expSum)}</div></div>
+    ${T.supPaySum ? `<div class="row"><div><b>دفعات موردين اليوم</b></div><div class="amt num neg">−${nl(T.supPaySum)}</div></div>` : ""}
+    <div class="row total-row"><div><b>صندوق اليوم</b></div><div class="amt num">${nl(T.cashNet)}</div></div>
+    ${T.usd ? `<div class="row"><div><b>دولار اليوم</b></div><div class="amt num">${T.usd}$</div></div>` : ""}
+    <h4 style="margin-top:10px">الصندوق الكلي — كيف انحسب</h4>
     <div class="row"><div><b>${a ? "آخر عدّ" : "ما في عدّ لسا"}</b><small>${a ? since : "اعمل أول عدّ ليبلّش الصندوق من رقم صح"}</small></div><div class="amt num">${nl(B.base)}</div></div>
-    <div class="row"><div><b>كاش من المبيعات</b><small>${a ? "من بعد العدّ" : "من البداية"}</small></div><div class="amt num pos">+${nl(B.cashIn)}</div></div>
+    <div class="row"><div><b>كاش من المبيعات</b><small>${a ? "من بعد العدّ" : "من البداية"}</small></div><div class="amt num up">+${nl(B.cashIn)}</div></div>
     <div class="row"><div><b>مصاريف ودفعات موردين</b><small>${B.tillOut.length} حركة</small></div><div class="amt num neg">−${nl(B.out)}</div></div>
     <div class="row total-row"><div><b>المفروض بالدرج</b></div><div class="amt num">${nl(B.lira)}</div></div>
     ${B.usd || B.baseUsd ? `<div class="row"><div><b>دولار</b><small>${B.baseUsd ? `عدّ ${B.baseUsd}$ + ` : ""}مبيعات بالدولار ${B.usdIn}$</small></div><div class="amt num">${B.usd}$</div></div>` : ""}
@@ -749,14 +784,18 @@ async function loadDay(){
   const A = calc(ROWS);
   const pays = { cash: "", usd: `<span class="tag usd">دولار</span>`, treat: `<span class="tag treat">ضيافة</span>` };
   const cupsHtml = Object.entries(A.per).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<span>${esc(n)} <b>${q}</b></span>`).join("");
-  let h = `<div class="panel"><h4>خلاصة ${DAY === bizToday() ? "اليوم" : dm(DAY)}</h4>
+  const ext = A.saleRows.filter(r => r.what === "خارجي");
+  let h = `<div class="dayttl">${longDate(DAY)}<small>${DAY === bizToday() ? "اليوم" : ""}</small></div>
+    <div class="panel"><h4>الخلاصة</h4>
     <div class="row"><div><b>مبيعات</b><small>${A.cups} كاسة${A.usd ? ` · منها ${A.usd}$` : ""}</small></div><div class="amt num">${nl(A.sales)}</div></div>
     <div class="row"><div><b>مصاريف من الصندوق</b></div><div class="amt num neg">−${nl(A.expSum)}</div></div>
-    <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net)}</div></div></div>`;
+    <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net)}</div></div>
+    <div class="row"><div><b>صندوق اليوم</b><small>كاش − مصاريف − دفعات موردين</small></div><div class="amt num">${nl(A.cashNet)}</div></div>
+    ${ext.length ? `<div class="row"><div><b>طلبات خارجية</b><small>${ext.reduce((s, r) => s + cupsOf(r), 0)} كاسة</small></div><div class="amt num">${nl(ext.reduce((s, r) => s + +r.amount, 0))}</div></div>` : ""}</div>`;
   if (cupsHtml) h += `<div class="panel"><h4>شو انباع</h4><div class="cups">${cupsHtml}</div></div>`;
   h += `<div class="panel"><h4>المبيعات — اكبس لتعدّل أو تمسح</h4>${A.saleRows.length ? A.saleRows.map(r => `
     <div class="row click" onclick="openSale('${r.id}')">
-      <div><b>${esc(itemsTxt(r)) || "—"}${pays[r.pay] || ""}</b><small>${tm(r)}${r.pay === "usd" ? ` · ${+r.usd}$` : ""}${r.note ? " · " + esc(r.note) : ""}</small></div>
+      <div><b>${esc(itemsTxt(r)) || "—"}${r.what ? `<span class="tag wh">${esc(r.what)}</span>` : ""}${pays[r.pay] || ""}</b><small>${tm(r)}${r.pay === "usd" ? ` · ${+r.usd}$` : ""}${r.note ? " · " + esc(r.note) : ""}</small></div>
       <div class="amt num">${r.pay === "treat" ? "0" : nl(r.amount)}</div></div>`).join("") : `<p class="empty">ما في مبيعات لهاليوم</p>`}</div>`;
   if (A.exps.length) h += `<div class="panel"><h4>المصاريف</h4>${A.exps.map(r => `
     <div class="row click" onclick="editExpense('${r.id}')">
@@ -771,7 +810,7 @@ async function loadDay(){
 }
 function openSale(id){
   const r = ROWS.find(x => x.id === id); if (!r) return;
-  window._edit = { r, items: JSON.parse(JSON.stringify(r.items || [])), pay: r.pay };
+  window._edit = { r, items: JSON.parse(JSON.stringify(r.items || [])), pay: r.pay, where: r.what || null };
   drawSale();
 }
 function drawSale(){
@@ -782,11 +821,13 @@ function drawSale(){
       <div class="tot num">${nl(i.price * i.qty)}</div></div>`).join("")}
     <div class="frow" style="margin-top:14px"><label>الدفع</label><div class="chips">
       ${[["cash","كاش"],["usd","دولار"],["treat","ضيافة"]].map(([k, t]) => `<button class="chip ${E.pay === k ? "on" : ""}" onclick="window._edit.pay='${k}';drawSale()">${t}</button>`).join("")}</div></div>
+    <div class="frow"><label>وين؟</label><div class="where" style="margin-top:0">${whereHtml(E.where, "eWhere")}</div></div>
     ${E.pay === "usd" ? `<div class="frow"><label>كم دولار</label><input id="eUsd" type="number" inputmode="decimal" value="${+E.r.usd || ""}"></div>` : ""}
     <div class="frow"><label>ملاحظة</label><input id="eNote2" value="${esc(E.r.note || "")}"></div>
     <div class="total"><span>المجموع</span><b class="num">${E.pay === "treat" ? 0 : nl(sum)}</b></div>
     <div class="btn-row"><button class="btn danger" onclick="delRow('${E.r.id}')">امسح البيعة</button><button class="btn" onclick="saveSale()">احفظ</button></div>`);
 }
+function eWhere(w){ window._edit.where = window._edit.where === w ? null : w; drawSale(); }
 function eStep(k, d){ const E = window._edit; E.items[k].qty += d; if (E.items[k].qty <= 0) E.items.splice(k, 1); drawSale(); }
 async function saveSale(){
   const E = window._edit;
@@ -795,7 +836,7 @@ async function saveSale(){
   if (E.pay === "usd" && !(usd > 0)) return toast("اكتب كم دولار");
   const sum = E.items.reduce((s, i) => s + i.price * i.qty, 0);
   const { error } = await db.from("coffee_sales").update({
-    items: E.items, pay: E.pay, usd, amount: E.pay === "treat" ? 0 : sum, note: document.getElementById("eNote2").value.trim() || null
+    items: E.items, pay: E.pay, usd, what: E.where, amount: E.pay === "treat" ? 0 : sum, note: document.getElementById("eNote2").value.trim() || null
   }).eq("id", E.r.id);
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
   closeSheet(); toast("✓ انحفظ"); refresh();
@@ -816,7 +857,7 @@ async function openReport(){
   const { data } = await db.from("coffee_sales").select("*").eq("kind", "count").lt("sale_date", DAY).order("created_at", { ascending: false }).limit(1);
   const prev = (data || [])[0] || null;
   const d = new Date(DAY + "T12:00:00");
-  const title = `${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  const title = longDate(DAY);
   const L = [];
   if (Object.keys(A.per).length){
     L.push({ k: "h", r: `الكاسات (${A.cups})` });
@@ -826,6 +867,8 @@ async function openReport(){
   L.push({ k: "h", r: "المبيعات" });
   L.push({ k: "sum", r: "مجموع المبيعات", l: nl(A.sales) });
   if (A.usd){ L.push({ k: "sum", r: `منها دولار (قيمتها ${nl(A.usdVal)})`, l: A.usd + "$" }); L.push({ k: "sum", r: "منها كاش ليرة", l: nl(A.cashSales) }); }
+  const extR = A.saleRows.filter(r => r.what === "خارجي");
+  if (extR.length) L.push({ k: "row", r: `طلبات خارجية: ${extR.reduce((s, r) => s + cupsOf(r), 0)} كاسة`, l: nl(extR.reduce((s, r) => s + +r.amount, 0)) });
   if (A.treatCups) L.push({ k: "row", r: `ضيافة: ${A.treatCups} كاسة (قيمتها ${nl(A.treatVal)})`, l: "0" });
   L.push({ k: "gap" });
   if (A.tillExp.length){
@@ -850,6 +893,7 @@ async function openReport(){
   if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + nl(A.expSum), neg: true });
   L.push({ k: "big", r: "صافي الكوفي اليوم", l: nl(A.net) });
   if (A.supPaySum) L.push({ k: "sum", r: "طلع من الدرج للموردين", l: "−" + nl(A.supPaySum), neg: true });
+  L.push({ k: "big", r: "صندوق اليوم (كاش)", l: nl(A.cashNet) });
   const cnt = A.count ? +A.count.amount : null, pv = prev ? +prev.amount : null;
   if (pv !== null) L.push({ k: "sum", r: `صندوق ${dm(prev.sale_date)} + الكاش الصافي`, l: nl(pv + A.cashNet) });
   if (cnt !== null) L.push({ k: "big", r: "صندوق الكوفي (عدّ الدرج)", l: nl(cnt) });
