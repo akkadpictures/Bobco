@@ -685,10 +685,26 @@ function openBreak(barberId, start, existing){
       <p class="muted" id="brkInfo" style="margin-top:6px"></p></div>
     <div class="frow"><label>ملاحظة (اختياري)</label><input id="brkNote" value="${existing && existing.note ? String(existing.note).replace(/"/g,"&quot;") : ""}" placeholder="غدا · صلاة · مشوار..."></div>
     <button class="btn" onclick="saveBreak()">${existing ? "احفظ التعديل" : "ثبّت البريك"}</button>
-    ${existing ? `<button class="btn danger" onclick="setStatus('${existing.id}','ملغي')">شيل البريك</button>` : ""}
+    ${existing ? `<button class="btn danger" onclick="setStatus('${existing.id}','ملغي')">شيل البريك</button>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0">
+      <label style="display:block;font-weight:800;margin-bottom:6px">📅 احجزي موعد بقلب البريك (استثنائي)</label>
+      <div style="display:flex;gap:8px;align-items:center"><input type="time" id="brkBookT" step="300" value="${brkNowIn(existing)}" style="flex:1">
+      <button class="btn" style="margin:0;flex:1" onclick="brkBookIn(${barberId})">احجز هون</button></div>
+    </div>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
   document.getElementById("bookOv").classList.add("on");
   brkSync();
+}
+// وقت مقترح للحجز جوا البريك: هلق (مقرّب لـ5 د) إذا هلق ضمن البريك، وإلا بداية البريك
+function brkNowIn(x){
+  const st = toMin(x.booking_time), en = st + bookingMins(x), now = new Date();
+  const n = Math.ceil((now.getHours()*60 + now.getMinutes()) / 5) * 5;
+  return toLabel(iso(now) === iso(curDate) && n >= st && n < en ? n : st);
+}
+function brkBookIn(barberId){
+  const t = (document.getElementById("brkBookT").value || "").slice(0, 5);
+  if (!t) return toast("اختاري الساعة");
+  closeOv("bookOv"); openBook(barberId, t);
 }
 function brkBarber(el){
   brk.barber_id = +el.dataset.b;
