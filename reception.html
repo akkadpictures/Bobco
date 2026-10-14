@@ -449,7 +449,8 @@ function paintCal(){
       const off = isOff(b);
       // كل المواعيد والبريكات اللي بتبلش ضمن هالمربع — حتى لو مو عراس الفترة (مثلاً 13:15)
       const mine = BOOKINGS.filter(x => x.barber_id === b.id && isLive(x) && x.source !== OFF_SRC);
-      const starts = mine.filter(x => { const st = toMin(x.booking_time); return st >= t && st < t + step; });
+      // اللي بيبلش قبل فتح الجدول (مثلاً بريك من 9 والجدول من 10:30) منرسمو بأول صف — وإلا بيسكّر العمود وهو مخفي
+      const starts = mine.filter(x => { const st = toMin(x.booking_time); return (st >= t && st < t + step) || (t === open && st < open && st + bookingMins(x) > open); });
       // أول دقيقة فاضية بالمربع — إذا الموعد اللي قبل تقصّر، الحجز الجديد بيبلش من عند ما خلص
       let free = t;
       mine.forEach(x => { const st = toMin(x.booking_time), en = st + bookingMins(x); if (st <= free && en > free) free = en; });
@@ -463,7 +464,8 @@ function paintCal(){
         html += `<div class="blk" style="top:${gap}px;height:${n * 46 - 1 - gap}px"></div>`; // الحافة التحتانية عخط الساعة بالظبط
       }
       for (const appt of starts){
-        const st = toMin(appt.booking_time), mins = bookingMins(appt);
+        const st0 = toMin(appt.booking_time), cut = Math.max(0, open - st0); // الجزء قبل فتح الجدول بينقص من الرسم بس
+        const st = st0 + cut, mins = bookingMins(appt) - cut;
         const top = 2 + ((st - t) / step) * 46;
         const h = Math.max(18, (mins / step) * 46 - 5);
         const tm = `<span class="tm" style="font-weight:400;font-size:.72rem">${appt.booking_time}–${toLabel(st + mins)}</span>`;
