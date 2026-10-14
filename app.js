@@ -382,6 +382,7 @@ function update(){
 }
 
 /* ---------- submit ---------- */
+const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 async function submitBooking(){
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
@@ -455,16 +456,22 @@ async function submitBooking(){
     `الخدمات: ${svcNames}\n` +
     `الإجمالي: ${fmtSYP(sum)}` + proteinTxt + `\n` +
     `منستناك بـ Bob & Co ☕✂`;
-  document.getElementById('waShop').href = `https://api.whatsapp.com/send?phone=${SHOP_WA}&text=${encodeURIComponent(detailsRaw)}`;
-  document.getElementById('waSelf').href = `https://api.whatsapp.com/send?text=${encodeURIComponent(selfRaw)}`;
+  // عالموبايل منفتح تطبيق واتساب مباشرة (whatsapp://) بدل صفحة api.whatsapp.com اللي بتاخد وقت لتحمّل وتحوّل
+  const waUrl = (ph, txt) => IS_MOBILE
+    ? `whatsapp://send?${ph ? 'phone=' + ph + '&' : ''}text=${encodeURIComponent(txt)}`
+    : `https://web.whatsapp.com/send?${ph ? 'phone=' + ph + '&' : ''}text=${encodeURIComponent(txt)}`;
+  ['waShop', 'waSelf'].forEach(id => {
+    const el = document.getElementById(id);
+    el.href = waUrl(id === 'waShop' ? SHOP_WA : '', id === 'waShop' ? detailsRaw : selfRaw);
+    if (IS_MOBILE) el.removeAttribute('target'); else el.target = '_blank';
+  });
 
   // لما يكبس "أرسل واتساب" → يتثبّت الحجز (يتحوّل من "بانتظار التأكيد" لـ "جديد")
   const bookingId = inserted ? inserted.id : null;
   const waBtn = document.getElementById('waShop');
-  waBtn.onclick = async () => {
-    if (bookingId) {
-      await db.from("bookings").update({ status: "جديد" }).eq("id", bookingId);
-    }
+  // ما منستنى الداتابيز — واتساب بيفتح فوراً والتحديث بيكمّل بالخلفية
+  waBtn.onclick = () => {
+    if (bookingId) db.from("bookings").update({ status: "جديد" }).eq("id", bookingId).then(({ error }) => error && console.error(error));
     const chk = document.getElementById('confirmCheck');
     if (chk) chk.textContent = "✓ تم إرسال حجزك — منستناك!";
   };

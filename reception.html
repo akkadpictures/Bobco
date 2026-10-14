@@ -1569,6 +1569,16 @@ function openAppt(id){
     ${BARBER_VIEW ? "" : `
     <div class="status-row">${STATUSES.map(s =>
       `<button class="status-btn ${a.status===s.k?"on":""}" style="background:${s.c}" onclick="setStatus('${a.id}','${s.k}')">${s.k}</button>`).join("")}</div>
+    <div class="chips" style="margin-bottom:4px">
+      <button class="chip" onclick="apEditToggle()">✏️ عدّلي الاسم / الرقم / الملاحظة</button>
+      ${a.phone ? `<button class="chip" onclick="waConfirm('${a.id}')">💬 ابعتي تأكيد واتساب</button>` : ""}
+    </div>
+    <div id="apEditBox" style="display:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin:8px 0 12px">
+      <div class="frow"><label>الاسم</label><input id="edName" value="${esc_(a.customer_name)}"></div>
+      <div class="frow"><label>الموبايل</label><input id="edPhone" inputmode="tel" value="${esc_(a.phone)}" placeholder="09xxxxxxxx"></div>
+      <div class="frow" style="margin-bottom:0"><label>ملاحظة</label><input id="edNote" value="${esc_(a.note)}"></div>
+      <button class="btn" style="margin-top:12px" onclick="apSaveInfo('${a.id}')">احفظ التعديل</button>
+    </div>
     <div class="frow"><label>✂️ الخدمات — اكبسي لتضيفي خدمة تانية أو تشيلي وحدة</label>
       <div class="chips" id="apSvcs">${SERVICES.map(x =>
         `<button class="chip ${svcIds(a).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="apTogSvc('${a.id}',this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}</div></div>
@@ -1614,6 +1624,8 @@ async function setStatus(id, st){
     if (!confirm(`هالموعد مسجّل عليه حساب ${fmt(+cur.amount)}.\n«${st}» بيشيل الحساب من اليوم. متأكدة؟`)) return;
     upd.amount = null; upd.comm_rate = null; upd.care_rate = null;
   }
+  // تثبيت الموعد → رسالة تأكيد للزبون عالواتس (بتنفتح فوراً قبل أي انتظار لحتى ما ينحجب)
+  if (st === "مؤكد" && cur && cur.phone && cur.status !== "مؤكد") waConfirm(id);
   apDirty = false; closeOv("apptOv"); applyLocal(id, upd); toast("✓ " + st);
   const { error } = await db.from("bookings").update(upd).eq("id", id);
   if (error) { console.error(error); toast("ما انحفظ — جرب كمان مرة"); }
@@ -1634,6 +1646,44 @@ async function apTogSvc(id, el){
   apDirty = true;
 }
 let apDirty = false;
+const esc_ = v => String(v || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+function apEditToggle(){ const b = document.getElementById("apEditBox"); b.style.display = b.style.display === "none" ? "block" : "none"; }
+// تعديل بيانات الموعد — متاح قبل الدفع وبعدو
+async function apSaveInfo(id){
+  const a = BOOKINGS.find(x => x.id === id); if (!a) return;
+  const name = document.getElementById("edName").value.trim(), phone = document.getElementById("edPhone").value.trim(), note = document.getElementById("edNote").value.trim();
+  if (!name) return toast("اكتبي الاسم");
+  if (phone && !/^0?9\d{8}$/.test(phone.replace(/\s/g, ""))) return toast("تأكدي من الرقم (09XXXXXXXX)");
+  const upd = { customer_name: name, phone: phone || null, note: note || null };
+  const { error } = await db.from("bookings").update(upd).eq("id", id);
+  if (error) { console.error(error); return toast("ما انحفظ — جربي كمان مرة"); }
+  if (phone && phone !== a.phone){
+    const { data: ex } = await db.from("customers").select("id").eq("phone", phone).maybeSingle();
+    if (!ex) await db.from("customers").insert({ name, phone });
+  }
+  apDirty = false; closeOv("apptOv"); applyLocal(id, upd); toast("✓ تعدّل"); drawCal();
+}
+// رسالة تأكيد للزبون عالواتس: عالموبايل/الآيباد بيفتح التطبيق مباشرة، عالكمبيوتر واتساب ويب
+const WA_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function waConfirm(id){
+  const a = BOOKINGS.find(x => x.id === id); if (!a || !a.phone) return toast("ما في رقم لهالزبون");
+  let ph = String(a.phone).replace(/\D/g, "");
+  if (ph.startsWith("00")) ph = ph.slice(2);
+  if (ph.startsWith("0")) ph = "963" + ph.slice(1); else if (ph.startsWith("9") && ph.length === 9) ph = "963" + ph;
+  const d = new Date((a.booking_date || iso(curDate)) + "T12:00:00");
+  const b = BARBERS.find(x => x.id === a.barber_id);
+  const svc = svcNames(a);
+  const txt = `أهلاً ${a.customer_name || ""}،\n` +
+    `تم تأكيد موعدك بـ Bob & Co ✓\n\n` +
+    `اليوم: ${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}\n` +
+    `الساعة: ${a.booking_time}\n` +
+    (b ? `الحلاق: ${b.name}\n` : "") +
+    (svc ? `الخدمات: ${svc}\n` : "") +
+    `\nمنستناك ☕✂`;
+  const q = `phone=${ph}&text=${encodeURIComponent(txt)}`;
+  if (WA_MOBILE) location.href = `whatsapp://send?${q}`;
+  else window.open(`https://web.whatsapp.com/send?${q}`, "wa_bobco");
+}
 function apMoveToggle(){ const b = document.getElementById("apMoveBox"); b.style.display = b.style.display === "none" ? "block" : "none"; }
 // نقل الموعد ليوم/وقت/حلاق تاني من شاشة الموعد — بيفحص العطلة والتعارض باليوم الجديد قبل ما ينقل
 async function apMove(id){
