@@ -1093,7 +1093,7 @@ function renderStats(){
   // ---- الربح عبر الأشهر (أعمدة) ----
   renderMonthlyBars(monthTotals);
   // ---- مصادر الدخل (دائري) ----
-  renderSourcesDonut(allT);
+  renderSourcesDonut(allT, list);
   // ---- توزيع المصاريف (دائري) ----
   renderExpDonut(list);
   // ---- أيام الأسبوع ----
@@ -1124,23 +1124,22 @@ function renderMonthlyBars(monthTotals){
   }).join("") + `</div>`;
 }
 
-function renderSourcesDonut(t){
+function renderSourcesDonut(t, list){
+  // الحلاقة لحال والخدمات لحال، والعطور (مبيع، بالليرة: المقبوض سوري أو الدولار × سعر اليوم)
+  let cut = 0, care = 0, perf = 0;
+  (list || []).forEach(e => {
+    if (e.type === "حلاقة") cut += calc(e).rev;
+    else if (e.type === "خدمة") care += calc(e).rev;
+    else if (e.type === "عطر") perf += (+e.cost > 0) ? +e.cost : (+e.amount || 0) * RATE();
+  });
   const parts = [
-    { label: "حلاقة وخدمات", val: t.hRev },
-    { label: "ربح المنتجات", val: t.products },
+    { label: "الحلاقة", val: cut },
+    { label: "الخدمات", val: care },
     { label: "الكوفي", val: t.coffee },
+    { label: "ربح المنتجات", val: t.products },
+    { label: "العطور", val: perf },
   ].filter(p => p.val > 0);
   document.getElementById("statSourcesChart").innerHTML = donut(parts);
-}
-
-function renderExpDonut(list){
-  const byCat = {};
-  list.filter(e => (e.type==="مصروف"||e.type==="مصروف شهري"||e.type==="مصروف ممول") && !isCapBuy(e)).forEach(e => {
-    const k = e.detail || "أخرى";
-    byCat[k] = (byCat[k]||0) + (+e.amount||0);
-  });
-  const parts = Object.entries(byCat).map(([label,val]) => ({label,val})).sort((a,b)=>b.val-a.val);
-  document.getElementById("statExpChart").innerHTML = parts.length ? donut(parts) : `<div class="empty">ما في مصاريف بالفترة</div>`;
 }
 
 function donut(parts){
