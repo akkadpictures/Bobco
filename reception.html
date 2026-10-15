@@ -29,7 +29,7 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 .gate-card{background:var(--cream);border-radius:20px;padding:36px 30px;width:min(360px,92vw);text-align:center}
 .gate-card h2{font-size:1.35rem;font-weight:400}
 .gate-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:1.3rem;letter-spacing:.3em;background:#fff}
-.gate-card button{width:100%;margin-top:12px;background:var(--olive);color:var(--cream);padding:13px;border-radius:12px;font-weight:800;font-size:1rem}
+.gate-card button{width:100%;margin-top:12px;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream);padding:13px;border-radius:12px;font-weight:800;font-size:1rem}
 #gateErr{color:var(--neg);font-size:.85rem;margin-top:10px;min-height:1.2em}
 /* ===== app shell ===== */
 #app{display:none;max-width:1280px;margin:0 auto;padding:14px 14px 90px}
@@ -52,7 +52,7 @@ header .tab.on{background:#fff;color:var(--olive);border-color:#fff}
 .day-stats span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
 .grid-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:16px;max-height:72vh;position:relative}
 table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
-.grid th{position:sticky;top:0;background:var(--olive);color:var(--cream);padding:10px 6px;font-size:.9rem;z-index:5;min-width:150px}
+.grid th{position:sticky;top:0;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;background-attachment:local;color:var(--cream);padding:10px 6px;font-size:.9rem;z-index:5;min-width:150px}
 .barber-mode .grid th{font-size:1.45rem;font-weight:400;padding:16px 6px;letter-spacing:.02em}
 .grid th.time{min-width:58px;right:0;position:sticky;z-index:6}
 .grid td{border-bottom:1px solid rgba(52,57,37,.07);border-inline-start:1px solid rgba(52,57,37,.07);height:46px;vertical-align:top;position:relative;padding:0}
@@ -120,7 +120,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .svc{border:1px solid var(--line);border-radius:11px;padding:9px 11px;font-size:.84rem;font-weight:700;background:#fff;display:flex;justify-content:space-between;gap:6px}
 .svc.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .svc small{opacity:.65;font-weight:400}
-.btn{display:block;width:100%;background:var(--olive);color:var(--cream);padding:14px;border-radius:13px;font-weight:800;font-size:1.02rem;margin-top:14px}
+.btn{display:block;width:100%;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream);padding:14px;border-radius:13px;font-weight:800;font-size:1.02rem;margin-top:14px}
 .btn.ghost{background:#fff;color:var(--olive);border:1px solid var(--line)}
 .btn.danger{background:var(--neg)}
 .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -136,7 +136,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .cust-row b{display:block}
 .pill{background:var(--cream);border-radius:999px;padding:4px 11px;font-size:.75rem;font-weight:800;color:var(--olive);white-space:nowrap}
 .inq-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px}
-.inq-btn{background:var(--olive);color:var(--cream);border-radius:14px;padding:18px 8px;font-weight:800;font-size:.95rem}
+.inq-btn{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream);border-radius:14px;padding:18px 8px;font-weight:800;font-size:.95rem}
 .inq-btn small{display:block;font-weight:400;font-size:.72rem;opacity:.75;margin-top:3px}
 .kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
@@ -148,7 +148,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .inq-sum>div:first-child{border-inline-start:none}
 .inq-sum b{display:block;font-size:1.45rem;font-weight:800;color:var(--olive);line-height:1.1}
 .inq-sum span{font-size:.72rem;opacity:.6;font-weight:700}
-.inq-sum .hl{background:var(--olive)}.inq-sum .hl b,.inq-sum .hl span{color:var(--cream)}
+.inq-sum .hl{background:#323723 var(--pat-green) 0 0/200% auto repeat-y}.inq-sum .hl b,.inq-sum .hl span{color:var(--cream)}
 .inq-ch{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
 .chc{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 14px}
 .chc.top{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
@@ -257,7 +257,7 @@ html,body{max-width:100%;overflow-x:hidden}
       <button class="nav" onclick="accDay(1)">›</button>
       <button class="nav" onclick="accDay(0)">اليوم</button>
       <span style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="nav" style="background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openPay(null,'service')">+ دفعة بلا موعد</button>
+        <button class="nav" style="background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:#fff;border-color:transparent" onclick="openPay(null,'service')">+ دفعة بلا موعد</button>
         <button class="nav" onclick="openPay(null,'product')">+ منتج</button>
         <button class="nav" onclick="openPay(null,'perfume')">+ عطر</button>
         <button class="nav" onclick="openPay(null,'expense')">+ مصروف</button>
@@ -1029,7 +1029,7 @@ async function renderAcc(){
     <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
     <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
     <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
-    <div class="kcard" style="background:var(--olive)"><div class="v" style="color:var(--cream)">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج (بلا عطور)</div></div>
+    <div class="kcard" style="background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-color:transparent"><div class="v" style="color:#fff">${fmt(net)}</div><div class="l" style="color:var(--cream);opacity:.8">صافي الدرج (بلا عطور)</div></div>
     <div class="kcard" style="background:var(--cream);cursor:pointer" onclick="openPerfInfo()"><div class="v">${perfDol}$ <span style="font-size:.95rem;font-weight:700">(${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})</span></div>
       <div class="l">عطر بوب — لحالو · اكبسي للتفصيل</div></div>`;
   document.getElementById("accBarbers").innerHTML =
