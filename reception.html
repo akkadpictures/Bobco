@@ -1028,7 +1028,7 @@ async function renderAcc(){
     <div class="kcard"><div class="v">${fmt(total)}</div><div class="l">حلاقة وخدمات (${rows.length})</div></div>
     <div class="kcard"><div class="v">${fmt(toBarbers)}</div><div class="l">للحلاقين</div></div>
     <div class="kcard"><div class="v">${fmt(prodSum)}</div><div class="l">منتجات${prodSum ? " · ربح " + fmt(prodSum - prodCost) : ""}</div></div>
-    <div class="kcard"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف</div></div>
+    <div class="kcard" style="cursor:pointer" onclick="openExpInfo()"><div class="v">${fmt(expSum)}</div><div class="l">مصاريف${exps.length ? ` (${exps.length})` : ""} · اكبسي للتفصيل</div></div>
     <div class="kcard" style="background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-color:transparent"><div class="v" style="color:#fff;font-weight:700">${fmt(net)}</div><div class="l" style="color:#D9C7A3;opacity:1;font-weight:400">صافي الدرج (بلا عطور)</div></div>
     <div class="kcard" style="background:var(--cream);cursor:pointer" onclick="openPerfInfo()"><div class="v">${perfDol}$ <span style="font-size:.95rem;font-weight:700">(${perfQty} ${perfQty === 1 ? "قنينة" : "قناني"})</span></div>
       <div class="l">عطر بوب — لحالو · اكبسي للتفصيل</div></div>`;
@@ -1213,6 +1213,22 @@ function reportCanvas(){
   return cv;
 }
 // تفصيل العطور — بيطلع بس لما تنكبس البطاقة: كم دولار كاش، كم سوري جوّا، وكم قنينة بالمجموع
+// قائمة مصاريف اليوم: كل مصروف بوقتو وملاحظتو — كبسة عليه لتعدّليه
+function openExpInfo(){
+  if (!ACC) return;
+  const A = ACC, tm = p => new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const list = A.exps.slice().sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>مصاريف ${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}</h3>
+    <div class="cust-row" style="background:var(--cream);border-radius:12px;padding:12px 14px;margin-bottom:8px"><b>المجموع (${list.length})</b><b style="direction:ltr">${fmt(A.expSum)}</b></div>
+    ${list.length ? list.map(p => `<div class="cust-row" style="cursor:pointer" onclick="openPay('${p.id}')">
+        <div><b>${p.what || "مصروف"}</b><span class="muted">${tm(p)}${p.note ? " · " + p.note : ""}</span></div>
+        <b style="direction:ltr;color:var(--neg)">−${fmt(+p.amount || 0)}</b></div>`).join("")
+      : `<p class="muted" style="padding:10px 0">ما في مصاريف هاليوم</p>`}
+    <button class="btn" onclick="closeOv('bookOv');openPay(null,'expense')">+ مصروف جديد</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+  document.getElementById("bookOv").classList.add("on");
+}
 function openPerfInfo(){
   if (!ACC) return;
   const A = ACC, cashUsd = A.perfs.filter(p => !perfSyp(p)).reduce((s, p) => s + perfVal(p), 0);
