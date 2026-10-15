@@ -456,6 +456,13 @@ async function drawCal(){
   paintCal();
 }
 // الرسم لحالو بلا تحميل — لحتى أي كبسة تبيّن فوراً بلا ما تستنى الشبكة
+// باترن ترويسة الجدول سحبة وحدة: كل خانة بتاخد نفس حجم الباترن (حسب عرض الجدول) ومزاحة بمكانها — بلا قطع بين الأسامي
+function headPat(){
+  const t = document.querySelector("#gridWrap table.grid"); if (!t) return;
+  const w = t.offsetWidth;
+  t.querySelectorAll("th").forEach(th => { th.style.backgroundSize = `${w * 2}px auto`; th.style.backgroundPosition = `${-th.offsetLeft}px 0`; });
+}
+window.addEventListener("resize", () => headPat());
 function paintCal(){
   const { open, close, step } = slotGrid();
   const cols = BARBER_VIEW ? BARBERS.filter(b => String(b.id) === String(BARBER_VIEW)) : BARBERS;
@@ -507,6 +514,7 @@ function paintCal(){
   html += `</table>`;
   const wrap = document.getElementById("gridWrap");
   wrap.innerHTML = html;
+  headPat();
   // منع سكرول اللمس بس فوق المواعيد نفسها ووقت النقل — مو عالجدول كلو (كان يتقّل السحب عالتابلت)
   if (!BARBER_VIEW) wrap.querySelectorAll(".appt").forEach(el => el.addEventListener("touchmove", mvTouchBlock, { passive: false }));
   placeNow();
