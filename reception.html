@@ -1869,7 +1869,7 @@ async function renderInquiries(){
       <div><b>${today.length}</b><span>اليوم</span></div>
       <div><b>${INQUIRIES.length}</b><span>هالشهر</span></div>
       <div><b>${conv.length}</b><span>حجز مؤكد</span></div>
-      <div class="hl"><b dir="ltr">${pct(conv.length, INQUIRIES.length)}%</b><span>نسبة التحويل</span></div>
+      <div class="hl"><b dir="ltr">${pct(conv.length, INQUIRIES.length)}%</b><span>نسبة الحجز</span></div>
     </div>
     <div class="inq-ch">${chs.map((c, k) => `
       <div class="chc${k === 0 && c.n ? " top" : ""}">
