@@ -139,6 +139,22 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}
 .kcard .v{font-size:1.5rem;font-weight:800;color:var(--olive)}
 .kcard .l{font-size:.75rem;opacity:.65;font-weight:700}
+#inqStats{display:block}
+.inq-sum{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.inq-sum>div{padding:14px 6px;text-align:center;border-inline-start:1px solid var(--line)}
+.inq-sum>div:first-child{border-inline-start:none}
+.inq-sum b{display:block;font-size:1.45rem;font-weight:800;color:var(--olive);line-height:1.1}
+.inq-sum span{font-size:.72rem;opacity:.6;font-weight:700}
+.inq-sum .hl{background:var(--olive)}.inq-sum .hl b,.inq-sum .hl span{color:var(--cream)}
+.inq-ch{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.chc{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 14px}
+.chc.top{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
+.chc-h{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:800;font-size:.9rem}
+.chc-h em{font-style:normal;font-size:.68rem;background:var(--cream);color:var(--olive);padding:2px 7px;border-radius:99px;white-space:nowrap}
+.chc>b{display:block;font-size:1.9rem;font-weight:800;color:var(--olive);margin:4px 0 6px;line-height:1}
+.chc-bar{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:8px}
+.chc-bar i{display:block;height:100%;background:var(--olive);border-radius:99px}
+.chc small{font-size:.7rem;opacity:.65;font-weight:700}
 .toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:.3s}
 .toast.show{opacity:1}
 @media(max-width:700px){ .grid th{min-width:128px} .grid td.cell{min-width:128px} .svc-list{grid-template-columns:1fr} }
@@ -1840,13 +1856,29 @@ async function renderInquiries(){
   const conv = INQUIRIES.filter(i => i.converted);
   const byCh = {}; INQUIRIES.forEach(i => byCh[i.channel] = (byCh[i.channel]||0)+1);
   const top = Object.entries(byCh).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`).join(" · ") || "—";
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const tIso = iso(new Date());
+  // بطاقة لكل قناة: عدد الشهر · اليوم · كم تحوّل لحجز — مرتبة من الأقوى، والشريط حصّتها من المجموع
+  const chs = INQ_CHANNELS.map(ch => {
+    const all = INQUIRIES.filter(i => i.channel === ch);
+    return { ch, n: all.length, today: all.filter(i => i.at.slice(0,10) === tIso).length, conv: all.filter(i => i.converted).length };
+  }).sort((a, b) => b.n - a.n);
+  const max = Math.max(1, ...chs.map(c => c.n));
   document.getElementById("inqStats").innerHTML = `
-    <div class="kcard"><div class="v">${today.length}</div><div class="l">استفسارات اليوم</div></div>
-    <div class="kcard"><div class="v">${INQUIRIES.length}</div><div class="l">هالشهر</div></div>
-    <div class="kcard"><div class="v">${conv.length}</div><div class="l">تحولو لحجز</div></div>
-    <div class="kcard"><div class="v">${INQUIRIES.length ? Math.round(conv.length/INQUIRIES.length*100) : 0}%</div><div class="l">نسبة التحويل</div></div>`;
+    <div class="inq-sum">
+      <div><b>${today.length}</b><span>اليوم</span></div>
+      <div><b>${INQUIRIES.length}</b><span>هالشهر</span></div>
+      <div><b>${conv.length}</b><span>صارو حجز</span></div>
+      <div class="hl"><b dir="ltr">${pct(conv.length, INQUIRIES.length)}%</b><span>نسبة التحويل</span></div>
+    </div>
+    <div class="inq-ch">${chs.map((c, k) => `
+      <div class="chc${k === 0 && c.n ? " top" : ""}">
+        <div class="chc-h"><span>${c.ch}</span>${c.today ? `<em>+${c.today} اليوم</em>` : ""}</div>
+        <b>${c.n}</b>
+        <div class="chc-bar"><i style="width:${Math.round(c.n / max * 100)}%"></i></div>
+        <small>${c.conv} صارو حجز · <bdi dir="ltr">${pct(c.conv, c.n)}%</bdi></small>
+      </div>`).join("")}</div>`;
   document.getElementById("inqList").innerHTML =
-    `<p class="muted" style="margin-bottom:8px">قنوات الشهر: ${top}</p>` +
     INQUIRIES.slice(0,25).map(i =>
       `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${new Date(i.at).toLocaleString("ar-SY",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>
        <span style="display:flex;gap:6px;align-items:center"><button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
