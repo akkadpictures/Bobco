@@ -1499,12 +1499,19 @@ function bdaySoon(bd){
   return diff === 0 ? "عيد ميلادو اليوم" : diff <= 7 ? `عيد ميلادو بعد ${diff} يوم` : "";
 }
 let PROFILE = null;
-async function openProfile(custId, phone){
+// بروفايل من شاشة الموعد: بالرقم إذا موجود، وإلا بالاسم (زيارات نفس الاسم بلا رقم)
+function profileFromAppt(id){
+  const a = BOOKINGS.find(x => x.id === id); if (!a) return;
+  if (a.phone) return openProfile(null, a.phone);
+  openProfile(null, null, a.customer_name || "");
+}
+async function openProfile(custId, phone, byName){
   let c = custId ? CUSTOMERS.find(x => String(x.id) === String(custId)) : null;
   if (!c && phone){
     const { data } = await db.from("customers").select("*").eq("phone", phone).limit(1);
     c = (data || [])[0] || { name: "", phone };
   }
+  if (!c && byName) c = { name: byName, phone: null, _byName: true };
   if (!c) return;
   PROFILE = c;
   const sheet = document.getElementById("bookSheet");
@@ -1518,6 +1525,10 @@ async function openProfile(custId, phone){
     ]);
     bk = (a.data || []).filter(x => x.source !== "بريك" && x.source !== OFF_SRC); py = b.data || [];
     if (!c.name && bk[0]) c.name = bk[0].customer_name || "";
+  } else if (c._byName && c.name){
+    const { data } = await db.from("bookings").select("*").eq("customer_name", c.name).is("phone", null)
+      .order("booking_date", { ascending: false }).order("booking_time", { ascending: false });
+    bk = (data || []).filter(x => x.source !== "بريك" && x.source !== OFF_SRC);
   }
   const today = iso(new Date());
   const bName = id => (BARBERS.find(b => b.id === id) || {}).name || "—";
@@ -1541,7 +1552,8 @@ async function openProfile(custId, phone){
   const esc = v => String(v == null ? "" : v).replace(/"/g, "&quot;");
   sheet.innerHTML = `
     <h3 style="margin-bottom:2px">${c.name || "زبون"} ${bdaySoon(c.birthday) ? `<span class="pill" style="background:var(--olive);color:var(--cream)">🎂 ${bdaySoon(c.birthday)}</span>` : ""}</h3>
-    <p class="muted">${c.phone ? "📞 " + c.phone : "بلا رقم — الزيارات بتنحسب عالرقم"} · ${verdict}</p>
+    <p class="muted">${c.phone ? "📞 " + c.phone : (c._byName ? "بلا رقم — الزيارات حسب الاسم" : "بلا رقم — الزيارات بتنحسب عالرقم")} · ${verdict}</p>
+    ${c._byName ? `<p style="background:var(--cream);border-radius:12px;padding:10px 12px;font-size:.85rem;margin-bottom:12px">حطّي رقم الزبون من «✏️ عدّلي الاسم / الرقم» بشاشة الموعد، ليصير إلو بروفايل كامل (عيد ميلاد، ملاحظات، وزيارات مضبوطة).</p>` : ""}
     <div class="pstats">
       <div><b>${visits.length}</b><span>زيارة</span></div>
       <div><b>${visits.length ? dAr(visits[0].d).replace(/\/\d{4}$/, "") : "—"}</b><span>آخر زيارة</span></div>
@@ -1556,11 +1568,11 @@ async function openProfile(custId, phone){
       <div class="chips" id="obChips">${[[null, "تلقائي"], ["block", "بالاتصال بس"], ["allow", "مسموح دايماً"]].map(([v, t]) =>
         `<button class="chip ${(c.online_block || null) === v ? "on" : ""}" data-v="${v || ""}" onclick="setOnlineBlock(${v ? `'${v}'` : "null"})">${t}</button>`).join("")}</div>
       <p class="muted" id="obState" data-ns="${noShow}" style="margin-top:6px">${onlineState(c.online_block, noShow)}</p></div>` : ""}
-    <div class="frow time-pair">
+    ${c._byName ? "" : `<div class="frow time-pair">
       <div><label>🎂 عيد ميلادو</label><input type="date" id="pfBday" value="${esc(c.birthday ? String(c.birthday).slice(0,10) : "")}"></div>
       <div><label>ملاحظة عن الزبون</label><input id="pfNote" value="${esc(c.note)}" placeholder="بيحب القصة قصيرة..."></div>
     </div>
-    <button class="btn" onclick="saveProfile()">احفظ</button>
+    <button class="btn" onclick="saveProfile()">احفظ</button>`}
     <div class="frow" style="margin-top:16px"><label>سجل الزيارات</label>
       ${visits.slice(0, 20).map(v => `<div class="cust-row" style="padding:9px 2px"><div><b style="font-weight:700">${dAr(v.d)}${v.t ? " · " + v.t : ""}</b><span class="muted">${bName(v.barber_id)}${v.what ? " · " + v.what : ""}</span></div><span style="direction:ltr;font-weight:700">${v.amount ? fmt(v.amount) : ""}</span></div>`).join("") || `<p class="muted">ما في زيارات مسجّلة</p>`}
       ${visits.length > 20 ? `<p class="muted" style="margin-top:6px">+ ${visits.length - 20} زيارة أقدم</p>` : ""}
@@ -1614,7 +1626,7 @@ function openAppt(id){
   sheet.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <h3 style="margin:0">${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
-      ${(a.phone && !BARBER_VIEW) ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');openProfile(null,'${a.phone}')">بروفايل الزبون</button>` : ""}
+      ${!BARBER_VIEW ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');profileFromAppt('${a.id}')">بروفايل الزبون</button>` : ""}
     </div>
     ${(!BARBER_VIEW && +a.amount > 0 && (!isLive(a) || a.status === "ما إجا")) ? `
     <div style="background:#fff;border:2px solid var(--neg);border-radius:14px;padding:12px;margin-bottom:12px">
