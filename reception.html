@@ -1840,10 +1840,10 @@ async function renderCustomers(q){
     (data||[]).forEach(b => counts[b.phone] = (counts[b.phone]||0) + 1);
   }
   document.getElementById("custList").innerHTML = CUSTOMERS.map(c =>
-    `<div class="cust-row"><div class="cname" onclick="openProfile('${c.id}')"><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
+    `<div class="cust-row" style="cursor:pointer" onclick="openProfile('${c.id}')"><div class="cname"><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
      <span style="display:flex;gap:6px;align-items:center">${bdaySoon(c.birthday) ? `<span class="pill" style="background:var(--olive);color:var(--cream)">🎂 ${bdaySoon(c.birthday)}</span>` : ""}<span class="pill">${counts[c.phone]||0} زيارة</span>
-     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="openProfile('${c.id}')">بروفايل</button>
-     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editCust('${c.id}')">تعديل</button></span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
+     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="event.stopPropagation();openProfile('${c.id}')">بروفايل</button>
+     <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="event.stopPropagation();editCust('${c.id}')">تعديل</button></span></div>`).join("") || `<p class="muted">ما في زباين مسجلين بعد</p>`;
 }
 // الزبون ممكن يكون مفتوح من الجدول ومو ضمن آخر 60 بالقائمة — منرجع للبروفايل المفتوح
 function custById(id){
