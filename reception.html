@@ -104,7 +104,10 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .grip{position:absolute;inset-inline:0;bottom:0;height:13px;cursor:ns-resize;touch-action:none;display:block}
 .grip::after{content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:30px;height:3px;border-radius:3px;background:rgba(255,255,255,.6)}
 .appt.dragging{opacity:.88;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:4}
-.time-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.time-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.time-pair>div{min-width:0}
+.time-pair input{width:100%;min-width:0;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:46px}
+.pf-pair{grid-template-columns:1fr}
 /* ===== modal ===== */
 .overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .overlay.on{display:flex}
@@ -663,7 +666,7 @@ function togSrc(el){
 }
 async function saveBook(){
   const name = document.getElementById("bkName").value.trim();
-  const phone = document.getElementById("bkPhone").value.trim();
+  const phone = cleanPh(document.getElementById("bkPhone").value);
   if (!name) return toast("اكتب اسم الزبون");
   const ids = [...bookState.services];
   const mins = ids.reduce((s,i) => s + (+(SERVICES.find(x=>x.id===i)||{}).duration_min || 30), 0) || Number(SETTINGS.slot_minutes||30);
@@ -1568,7 +1571,7 @@ async function openProfile(custId, phone, byName){
       <div class="chips" id="obChips">${[[null, "تلقائي"], ["block", "بالاتصال بس"], ["allow", "مسموح دايماً"]].map(([v, t]) =>
         `<button class="chip ${(c.online_block || null) === v ? "on" : ""}" data-v="${v || ""}" onclick="setOnlineBlock(${v ? `'${v}'` : "null"})">${t}</button>`).join("")}</div>
       <p class="muted" id="obState" data-ns="${noShow}" style="margin-top:6px">${onlineState(c.online_block, noShow)}</p></div>` : ""}
-    ${c._byName ? "" : `<div class="frow time-pair">
+    ${c._byName ? "" : `<div class="frow time-pair pf-pair">
       <div><label>🎂 عيد ميلادو</label><input type="date" id="pfBday" value="${esc(c.birthday ? String(c.birthday).slice(0,10) : "")}"></div>
       <div><label>ملاحظة عن الزبون</label><input id="pfNote" value="${esc(c.note)}" placeholder="بيحب القصة قصيرة..."></div>
     </div>
@@ -1719,12 +1722,14 @@ async function apTogSvc(id, el){
   apDirty = true;
 }
 let apDirty = false;
+// الرقم بلا مسافات ولا رموز اتجاه مخفية (بتجي من النسخ من واتساب وبتخرّب التطابق)
+const cleanPh = v => String(v || "").replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\s]/g, "");
 const esc_ = v => String(v || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 function apEditToggle(){ const b = document.getElementById("apEditBox"); b.style.display = b.style.display === "none" ? "block" : "none"; }
 // تعديل بيانات الموعد — متاح قبل الدفع وبعدو
 async function apSaveInfo(id){
   const a = BOOKINGS.find(x => x.id === id); if (!a) return;
-  const name = document.getElementById("edName").value.trim(), phone = document.getElementById("edPhone").value.trim(), note = document.getElementById("edNote").value.trim();
+  const name = document.getElementById("edName").value.trim(), phone = cleanPh(document.getElementById("edPhone").value), note = document.getElementById("edNote").value.trim();
   if (!name) return toast("اكتبي الاسم");
   if (phone && !/^0?9\d{8}$/.test(phone.replace(/\s/g, ""))) return toast("تأكدي من الرقم (09XXXXXXXX)");
   const upd = { customer_name: name, phone: phone || null, note: note || null };
@@ -1836,8 +1841,11 @@ async function renderCustomers(q){
   const phones = CUSTOMERS.map(c => c.phone);
   let counts = {};
   if (phones.length){
-    const { data } = await db.from("bookings").select("phone").in("phone", phones);
-    (data||[]).forEach(b => counts[b.phone] = (counts[b.phone]||0) + 1);
+    // الزيارة = موعد صار فعلاً (مو ملغي، مو «ما إجا»، مو بالمستقبل) — نفس عدّ البروفايل
+    const { data } = await db.from("bookings").select("phone,status,source,booking_date").in("phone", phones);
+    const today = iso(new Date());
+    (data||[]).filter(b => isLive(b) && b.status !== "ما إجا" && b.booking_date <= today && b.source !== "بريك" && b.source !== OFF_SRC)
+      .forEach(b => counts[b.phone] = (counts[b.phone]||0) + 1);
   }
   document.getElementById("custList").innerHTML = CUSTOMERS.map(c =>
     `<div class="cust-row" style="cursor:pointer" onclick="openProfile('${c.id}')"><div class="cname"><b>${c.name}</b><span class="muted">📞 ${c.phone}</span></div>
@@ -1863,7 +1871,7 @@ function editCust(id){
 }
 async function saveCust(id){
   const c = custById(id); if (!c) return;
-  const name = document.getElementById("ecName").value.trim(), phone = document.getElementById("ecPhone").value.trim();
+  const name = document.getElementById("ecName").value.trim(), phone = cleanPh(document.getElementById("ecPhone").value);
   if (!name) return toast("اكتب الاسم");
   const { error } = await db.from("customers").update({ name, phone }).eq("id", c.id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
