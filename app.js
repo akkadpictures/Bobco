@@ -210,9 +210,12 @@ function renderCalendar(){
 }
 
 /* ---------- step 3: slots (duration-aware + real bookings) ---------- */
-function slotGrid(){
-  const [oh, om] = (SETTINGS.open_time || "12:00").split(":").map(Number);
-  const [ch, cm] = (SETTINGS.close_time || "22:00").split(":").map(Number);
+// الجمعة إلها دوام خاص للمحل (fri_open_time / fri_close_time) — باقي الأيام الدوام العادي
+function slotGrid(d){
+  d = d || state.date;
+  const fri = d && d.getDay && d.getDay() === 5 && SETTINGS.fri_open_time;
+  const [oh, om] = ((fri ? SETTINGS.fri_open_time : SETTINGS.open_time) || "12:00").split(":").map(Number);
+  const [ch, cm] = ((fri ? (SETTINGS.fri_close_time || SETTINGS.close_time) : SETTINGS.close_time) || "22:00").split(":").map(Number);
   const step = Number(SETTINGS.slot_minutes || 30);
   return { open: oh*60+om, close: ch*60+cm, step };
 }
@@ -225,17 +228,18 @@ function isDayOff(barberId, dateStr){
   return new Date(dateStr + "T12:00:00").getDay() === +b.day_off;      // العطلة الأسبوعية الثابتة
 }
 async function getTaken(barberId, dateStr){
+  const dD = new Date(dateStr + "T12:00:00");
   const key = barberId + "|" + dateStr;
   if(takenCache[key]) return takenCache[key];
   if (isDayOff(barberId, dateStr)){
     // يوم عطلة الحلاق — كل الفترات مقفولة
-    const all = new Set(); const { open, close, step } = slotGrid();
+    const all = new Set(); const { open, close, step } = slotGrid(dD);
     for(let t = open; t < close; t += step) all.add(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
     takenCache[key] = all; return all;
   }
   const { data } = await db.from("bookings").select("booking_time,status,duration_min,service_ids,service_id")
     .eq("barber_id", barberId).eq("booking_date", dateStr);
-  const { step } = slotGrid();
+  const { step } = slotGrid(dD);
   const toM = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
   const toL = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
   const taken = new Set();
@@ -247,13 +251,13 @@ async function getTaken(barberId, dateStr){
       mins = ids.reduce((s,id) => { const sv = SERVICES.find(x => x.id === id); return s + (sv ? (+sv.duration_min || step) : step); }, 0) || step;
     }
     const start = toM(r.booking_time);
-    const { open: gridOpen } = slotGrid();
+    const { open: gridOpen } = slotGrid(dD);
     for(let t = gridOpen + Math.floor((start - gridOpen) / step) * step; t < start + mins; t += step) taken.add(toL(t));
   });
   // دوام الحلاق: أي فترة قبل بداية دوامو أو بعد نهايتو مقفولة أونلاين
   const bb = BARBERS.find(x => x.id === barberId);
   if (bb && (bb.work_start || bb.work_end)){
-    const { open, close } = slotGrid();
+    const { open, close } = slotGrid(dD);
     const ws = bb.work_start ? toM(bb.work_start) : open, we = bb.work_end ? toM(bb.work_end) : close;
     for(let t = open; t < close; t += step) if (t < ws || t >= we) taken.add(toL(t));
   }

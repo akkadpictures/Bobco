@@ -401,9 +401,11 @@ async function loadInquiries(){
 }
 
 /* ---------- grid helpers ---------- */
+// الجمعة: المحل بيفتح من fri_open_time لـ fri_close_time (2 الضهر لـ 11 بالليل)
 function slotGrid(){
-  const [oh, om] = (SETTINGS.rec_open_time || SETTINGS.open_time || "10:30").split(":").map(Number);
-  const [ch, cm] = (SETTINGS.rec_close_time || SETTINGS.close_time || "23:30").split(":").map(Number);
+  const fri = curDate.getDay() === 5 && SETTINGS.fri_open_time;
+  const [oh, om] = ((fri ? SETTINGS.fri_open_time : (SETTINGS.rec_open_time || SETTINGS.open_time)) || "10:30").split(":").map(Number);
+  const [ch, cm] = ((fri ? (SETTINGS.fri_close_time || SETTINGS.rec_close_time || SETTINGS.close_time) : (SETTINGS.rec_close_time || SETTINGS.close_time)) || "23:30").split(":").map(Number);
   const step = Number(SETTINGS.slot_minutes || 30);
   return { open: oh*60+om, close: ch*60+cm, step };
 }
