@@ -385,9 +385,15 @@ async function loadBase(){
   BARBERS = br.data||[]; SERVICES = sv.data||[];
   PRODUCTS = pr.data||[]; EXP_CATS = (ec.data||[]).filter(c => c.name !== "مصاريف كوفي");
 }
+// كل تحميل إلو رقم: إذا تغيّر اليوم (تقليب أو انقلاب نص الليل) قبل ما يرجع الرد، الرد القديم بينرمى
+// — هيك ما بيطلع يوم مكتوب فوق وحسابات يوم تاني تحت
+let LOAD_SEQ = 0;
 async function loadDay(){
-  const { data } = await db.from("bookings").select("*").eq("booking_date", iso(curDate)).order("booking_time");
+  const seq = ++LOAD_SEQ, day = iso(curDate);
+  const { data } = await db.from("bookings").select("*").eq("booking_date", day).order("booking_time");
+  if (seq !== LOAD_SEQ || day !== iso(curDate)) return false;
   BOOKINGS = data||[];
+  return true;
 }
 async function loadCustomers(q){
   let qr = db.from("customers").select("*").order("created_at", { ascending:false }).limit(60);
@@ -461,7 +467,7 @@ function initCal(){
 }
 async function drawCal(){
   updDayLabel();
-  await loadDay();
+  if (!(await loadDay())) return; // تحميل أقدم من آخر طلب — التحميل الأحدث بيرسم
   paintCal();
 }
 // الرسم لحالو بلا تحميل — لحتى أي كبسة تبيّن فوراً بلا ما تستنى الشبكة
@@ -1025,9 +1031,13 @@ const rowFromBooking = b => ({ kind: "b", id: b.id, t: b.booking_time, d: b.book
 const rowFromPay = p => ({ kind: "p", id: p.id, t: new Date(p.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), d: p.pay_date, barber_id: p.barber_id, name: p.customer_name || "بلا موعد", what: p.what || p.note || "", amount: +p.amount, rate: rateOf(p), crate: crateOf(p), ...splitAmt(idsFromWhat(p.what), +p.amount) });
 const paidBooking = b => isLive(b) && b.source !== "بريك" && b.source !== OFF_SRC && +b.amount > 0;
 function accDay(d){ document.getElementById(d < 0 ? "prevDay" : d > 0 ? "nextDay" : "todayBtn").click(); }
+let ACC_SEQ = 0;
 async function renderAcc(){
+  const seq = ++ACC_SEQ, day = iso(curDate);
+  const { data, error } = await db.from("reception_payments").select("*").eq("pay_date", day).order("created_at");
+  if (seq !== ACC_SEQ || day !== iso(curDate)) return; // رد قديم ليوم تاني
+  if (BOOKINGS.some(b => b.booking_date && b.booking_date !== day)) return drawCal(); // الحجوزات لسا ليوم تاني
   document.getElementById("accDate").textContent = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
-  const { data, error } = await db.from("reception_payments").select("*").eq("pay_date", iso(curDate)).order("created_at");
   if (error) console.error(error);
   PAYMENTS = data || [];
   const kindOf = p => p.kind || "service";
