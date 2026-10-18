@@ -289,7 +289,10 @@ html,body{max-width:100%;overflow-x:hidden}
 <script>
 /* ============ Bob & Co — Reception ============ */
 let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [], PRODUCTS = [], EXP_CATS = [];
-let curDate = new Date();
+// يوم الشغل: لحد الساعة 4 الصبح منضل على يوم امبارح (المحل بيسكّر بعد نص الليل) — متل صفحة الكوفي
+const CUTOFF_H = 4;
+const bizNow = () => new Date(Date.now() - CUTOFF_H * 3600e3);
+let curDate = bizNow();
 const params = new URLSearchParams(location.search);
 let BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
 const CREW_MODE = params.get("crew");     // دخول الحلاقين: بعد الرمز بيختار الحلاق اسمو
@@ -462,10 +465,12 @@ function initCal(){
   d.onchange = () => { curDate = new Date(d.value + "T12:00:00"); drawCal(); };
   document.getElementById("prevDay").onclick = () => { curDate.setDate(curDate.getDate()-1); d.value = iso(curDate); drawCal(); };
   document.getElementById("nextDay").onclick = () => { curDate.setDate(curDate.getDate()+1); d.value = iso(curDate); drawCal(); };
-  document.getElementById("todayBtn").onclick = () => { curDate = new Date(); d.value = iso(curDate); drawCal(); };
+  document.getElementById("todayBtn").onclick = () => { curDate = bizNow(); d.value = iso(curDate); drawCal(); };
   drawCal();
 }
 async function drawCal(){
+  const di = document.getElementById("calDate");
+  if (di && di.value !== iso(curDate)) di.value = iso(curDate); // خانة التاريخ دايماً نفس اليوم المعروض
   updDayLabel();
   if (!(await loadDay())) return; // تحميل أقدم من آخر طلب — التحميل الأحدث بيرسم
   paintCal();
@@ -582,9 +587,9 @@ function placeNow(){
   wrap.insertAdjacentHTML("beforeend", `<div class="nowline" style="top:${headH + ((mins - open) / step) * 46}px"><span>${toLabel(mins)}</span></div>`);
 }
 // إذا الشاشة ضلت مفتوحة لتاني يوم (تابلت الحلاقين مثلاً) بتنقلب لحالها عاليوم الجديد
-let lastToday = new Date().toDateString();
+let lastToday = bizNow().toDateString();
 setInterval(() => {
-  const t = new Date().toDateString();
+  const t = bizNow().toDateString();
   if (t !== lastToday){
     const wasToday = curDate.toDateString() === lastToday;
     lastToday = t;
