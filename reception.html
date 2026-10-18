@@ -289,9 +289,8 @@ html,body{max-width:100%;overflow-x:hidden}
 <script>
 /* ============ Bob & Co — Reception ============ */
 let SETTINGS = {}, BARBERS = [], SERVICES = [], BOOKINGS = [], CUSTOMERS = [], INQUIRIES = [], PRODUCTS = [], EXP_CATS = [];
-// يوم الشغل: لحد الساعة 4 الصبح منضل على يوم امبارح (المحل بيسكّر بعد نص الليل) — متل صفحة الكوفي
-const CUTOFF_H = 4;
-const bizNow = () => new Date(Date.now() - CUTOFF_H * 3600e3);
+// اليوم = تاريخ الجهاز (بيقلب عنص الليل)
+const bizNow = () => new Date();
 let curDate = bizNow();
 const params = new URLSearchParams(location.search);
 let BARBER_VIEW = params.get("barber"); // read-only crew mode: ?barber=ID
