@@ -430,8 +430,12 @@ const toLabel = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60)
 const toMin = s => { const [h,m] = s.split(":").map(Number); return h*60+m; };
 const isLive = x => x.status !== "ملغي" && x.status !== "ملغى";
 const OFF_SRC = "عطلة"; // عطلة يوم محدد = سطر بالحجوزات بيغطي اليوم كلو، فبيسكّر الحجز أونلاين كمان
-const weeklyOff = b => b.day_off !== null && b.day_off !== undefined && +b.day_off === curDate.getDay();
-const offRow = b => BOOKINGS.find(x => x.barber_id === b.id && isLive(x) && x.source === OFF_SRC);
+// فتح استثنائي بيوم العطلة الأسبوعية = سطر عطلة بحالة «فتح» — الحلاق بيداوم بدوامو العادي (ما بيصير مفتوح كل اليوم)
+const OPEN_ST = "فتح";
+const openRow = b => BOOKINGS.find(x => x.barber_id === b.id && x.source === OFF_SRC && x.status === OPEN_ST);
+const weeklyMatch = b => b.day_off !== null && b.day_off !== undefined && +b.day_off === curDate.getDay();
+const weeklyOff = b => weeklyMatch(b) && !openRow(b);
+const offRow = b => BOOKINGS.find(x => x.barber_id === b.id && isLive(x) && x.source === OFF_SRC && x.status !== OPEN_ST);
 const isOffToday = b => weeklyOff(b) || !!offRow(b);
 const inShift = (b, t) => (!b.work_start || t >= toMin(b.work_start)) && (!b.work_end || t < toMin(b.work_end));
 function bookingMins(b){
@@ -788,12 +792,15 @@ function openOff(barberId){
 function drawOff(){
   const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
   document.querySelectorAll("#bookSheet [data-b]").forEach(c => c.classList.toggle("on", +c.dataset.b === b.id));
-  const row = offRow(b), wk = weeklyOff(b);
+  const row = offRow(b), wk = weeklyOff(b), op = openRow(b);
+  const shiftTxt = (b.work_start || b.work_end) ? `بدوامو ${b.work_start || "…"}–${b.work_end || "…"}` : "بدوام مفتوح";
   const dayTxt = `${AR_DAYS[curDate.getDay()]} ${curDate.getDate()}/${curDate.getMonth()+1}`;
   const n = BOOKINGS.filter(x => x.barber_id === b.id && isLive(x) && x.source !== OFF_SRC && x.source !== "بريك").length;
   document.getElementById("offBody").innerHTML = `
     <div class="frow"><label>عطلة يوم ${dayTxt}</label>
-      ${wk ? `<p class="muted">هاد يوم عطلتو الأسبوعية — إذا تغيّرت، بدّليها من تحت</p>`
+      ${wk ? `<button class="btn" style="margin-top:0" onclick="setOpenDay(true)">افتحي ${dayTxt} استثنائياً — ${shiftTxt}</button>
+              <p class="muted" style="margin-top:6px">هاد يوم عطلتو الأسبوعية. الفتح لهاليوم بس، وبيضل بدوامو العادي</p>`
+        : op ? `<button class="btn danger" style="margin-top:0" onclick="setOpenDay(false)">رجّعي ${dayTxt} عطلة (كان مفتوح استثنائياً)</button>`
         : row ? `<button class="btn danger" style="margin-top:0" onclick="setDayOff(false)">شيل العطلة — ${b.name} مداوم ${dayTxt}</button>`
         : `<button class="btn" style="margin-top:0" onclick="setDayOff(true)">سكّر ${dayTxt} عطلة لـ ${b.name}</button>`}
       ${n && !wk ? `<p class="muted" style="margin-top:6px">عندو ${n} موعد بهاليوم — بيضلو ظاهرين بالجدول لتنقليهم أو تلغيهم</p>` : ""}
@@ -809,7 +816,7 @@ function drawOff(){
       </div>
       <div class="btn-row">
         <button class="btn" onclick="saveShift(false)">احفظ الدوام</button>
-        <button class="btn ghost" onclick="saveShift(true)">دوام مفتوح</button>
+        <button class="btn ghost" onclick="if(confirm('بيمسح دوامو الثابت وبيصير متاح من أول النهار لآخرو بكل الأيام. متأكدة؟'))saveShift(true)">بلا دوام ثابت (متاح كل النهار)</button>
       </div></div>`;
 }
 async function setDayOff(on){
@@ -821,6 +828,17 @@ async function setDayOff(on){
     : (row ? await db.from("bookings").update({ status: "ملغي" }).eq("id", row.id) : {});
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
   toast(on ? "✓ " + b.name + " عطلة" : "✓ انشالت العطلة");
+  await drawCal(); drawOff();
+}
+async function setOpenDay(on){
+  const b = BARBERS.find(x => x.id === offBarber); if (!b) return;
+  const op = openRow(b);
+  const { error } = on
+    ? await db.from("bookings").insert({ customer_name: "فتح استثنائي", barber_id: b.id, booking_date: iso(curDate), booking_time: "00:00",
+        duration_min: 1, status: OPEN_ST, source: OFF_SRC, created_by: "reception" })
+    : (op ? await db.from("bookings").update({ status: "ملغي" }).eq("id", op.id) : {});
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  toast(on ? "✓ " + b.name + " مداوم اليوم بدوامو" : "✓ رجع عطلة");
   await drawCal(); drawOff();
 }
 async function setWeekly(d){
@@ -1775,10 +1793,11 @@ async function apMove(id){
   const { open, close } = slotGrid(), st = toMin(time), mins = bookingMins(a);
   if (st < open || st >= close) return toast(`الوقت برا ساعات الجدول (${toLabel(open)}–${toLabel(close)})`);
   const d = new Date(date + "T12:00:00");
-  if (b.day_off !== null && b.day_off !== undefined && +b.day_off === d.getDay()) return toast(`${b.name} بعطلتو الأسبوعية يوم ${AR_DAYS[d.getDay()]}`);
   const { data, error: e1 } = await db.from("bookings").select("*").eq("booking_date", date).eq("barber_id", b.id);
   if (e1) { console.error(e1); return toast("صار خطأ — جرب كمان مرة"); }
-  const others = (data || []).filter(x => x.id !== a.id && isLive(x));
+  const openedThatDay = (data || []).some(x => x.source === OFF_SRC && x.status === OPEN_ST);
+  if (!openedThatDay && b.day_off !== null && b.day_off !== undefined && +b.day_off === d.getDay()) return toast(`${b.name} بعطلتو الأسبوعية يوم ${AR_DAYS[d.getDay()]}`);
+  const others = (data || []).filter(x => x.id !== a.id && isLive(x) && x.status !== OPEN_ST);
   if (others.some(x => x.source === OFF_SRC)) return toast(`${b.name} بعطلة يوم ${d.getDate()}/${d.getMonth() + 1}`);
   const clash = others.find(x => st < toMin(x.booking_time) + bookingMins(x) && st + mins > toMin(x.booking_time));
   if (clash) return toast(`في ${clash.source === "بريك" ? "بريك" : "موعد"} بهالوقت عند ${b.name} (${clash.booking_time})`);

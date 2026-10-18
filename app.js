@@ -36,10 +36,12 @@ const MAX_AHEAD = 2;
 let takenCache = {};
 // عطل يوم محدد اللي بتحطها السكرتيرة من الاستقبال — مفتاحها "رقم الحلاق|التاريخ"
 let OFF_DAYS = new Set();
+let OPEN_DAYS = new Set(); // فتح استثنائي بيوم العطلة الأسبوعية (بدوام الحلاق العادي)
 async function loadOffDays(){
   const { data } = await db.from("bookings").select("barber_id,booking_date,status")
     .eq("source", "عطلة").gte("booking_date", iso(today));
-  OFF_DAYS = new Set((data || []).filter(r => r.status !== "ملغى" && r.status !== "ملغي").map(r => r.barber_id + "|" + r.booking_date));
+  OFF_DAYS = new Set((data || []).filter(r => r.status !== "ملغى" && r.status !== "ملغي" && r.status !== "فتح").map(r => r.barber_id + "|" + r.booking_date));
+  OPEN_DAYS = new Set((data || []).filter(r => r.status === "فتح").map(r => r.barber_id + "|" + r.booking_date));
 }
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -224,6 +226,7 @@ function isDayOff(barberId, dateStr){
   const b = BARBERS.find(x => x.id === barberId);
   if (!b) return false;
   if (OFF_DAYS.has(barberId + "|" + dateStr)) return true;            // عطلة يوم محدد من الاستقبال
+  if (OPEN_DAYS.has(barberId + "|" + dateStr)) return false;          // فتح استثنائي من الاستقبال
   if (b.day_off === null || b.day_off === undefined) return false;
   return new Date(dateStr + "T12:00:00").getDay() === +b.day_off;      // العطلة الأسبوعية الثابتة
 }
@@ -237,13 +240,13 @@ async function getTaken(barberId, dateStr){
     for(let t = open; t < close; t += step) all.add(`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`);
     takenCache[key] = all; return all;
   }
-  const { data } = await db.from("bookings").select("booking_time,status,duration_min,service_ids,service_id")
+  const { data } = await db.from("bookings").select("booking_time,status,duration_min,service_ids,service_id,source")
     .eq("barber_id", barberId).eq("booking_date", dateStr);
   const { step } = slotGrid(dD);
   const toM = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
   const toL = t => `${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
   const taken = new Set();
-  (data||[]).filter(r => r.status !== "ملغى" && r.status !== "ملغي").forEach(r => {
+  (data||[]).filter(r => r.status !== "ملغى" && r.status !== "ملغي" && r.source !== "عطلة").forEach(r => {
     // كل حجز بيحجب كل الفترات اللي بيغطيها حسب مدتو (مواعيد الاستقبال والأونلاين سوا)
     let mins = +r.duration_min || 0;
     if(!mins){
