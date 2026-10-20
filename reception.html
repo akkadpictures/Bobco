@@ -1502,6 +1502,8 @@ async function savePay(){
     if (!val("payWhat")) return toast("اختاري من القائمة أو اكتبي الاسم");
     const perf = payState.kind === "perfume", sypIn = perf && payState.cur === "SYP" ? numVal("paySyp") : 0;
     if (perf && payState.cur === "SYP" && !sypIn) return toast("اكتبي كم ليرة انقبضت");
+    // حماية: خانة السعر بالدولار — إذا انكتب فيها مبلغ بالليرة بالغلط (مثلاً 335000) منوقف
+    if (perf && amount > 2000) return toast("خانة السعر بالدولار ($) — المبلغ بالليرة بينكتب بخانة «كم ليرة انقبضت»");
     row = { kind: payState.kind, barber_id: null, what: val("payWhat"), amount: perf ? sypIn : amount, usd: perf ? amount : null,
       cost: payState.kind === "perfume" ? null : numVal("payCost"), qty: +document.getElementById("payQty").textContent || 1, customer_name: val("payName"), phone: val("payPhone") };
   } else if (payState.kind === "expense"){
