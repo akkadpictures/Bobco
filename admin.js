@@ -416,21 +416,17 @@ function renderPerfumeBox(anchor){
   </table>`;
 }
 
-// ☕ شراكة الكوفي: فترة بلال (لغاية 30/9/2026: زيد 80% / بلال 20%) ثم عهد محمود (من 1/10: زيد 70% / محمود مدير مشغّل 30%)
-const MAHMOUD_START = "2026-10-01";
+// ☕ شراكة الكوفي: صندوق الكوفي مع بلال — زيد 80% / بلال 20%.
+// محمود كان بفترة تجربة من 1/10 وطلع (21/10/2026) — ما إلو حصة، ومبيعات ومصاريف فترتو رجعت لصندوق الكوفي تبع بلال.
 function coffeeSplitRows(){
-  const cofRev = d => ENTRIES.filter(e => e.type === "كوفي" && d(e.entry_date)).reduce((s, e) => s + (+e.amount || 0), 0);
-  const cofEx  = d => ENTRIES.filter(e => (e.type === "مصروف" || e.type === "مصروف شهري") && e.detail === "مصاريف كوفي" && d(e.entry_date)).reduce((s, e) => s + (+e.amount || 0), 0);
-  const net1 = cofRev(dt => dt < MAHMOUD_START) - cofEx(dt => dt < MAHMOUD_START);
-  const net2 = cofRev(dt => dt >= MAHMOUD_START) - cofEx(dt => dt >= MAHMOUD_START);
+  const cofRev = ENTRIES.filter(e => e.type === "كوفي").reduce((s, e) => s + (+e.amount || 0), 0);
+  const cofEx  = ENTRIES.filter(e => (e.type === "مصروف" || e.type === "مصروف شهري") && e.detail === "مصاريف كوفي").reduce((s, e) => s + (+e.amount || 0), 0);
+  const net = cofRev - cofEx;
   return `
     <tr><td colspan="2" style="padding-top:14px;font-size:.8rem;opacity:.55;font-weight:800">شراكة الكوفي ↓</td></tr>
-    <tr><td>&nbsp;&nbsp;فترة بلال (لـ 30/9) — صافي</td><td>${fmtSYP(net1)}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة بلال 20% <span style="opacity:.6">(بذمة آخر السنة)</span></td><td>${fmtSYP(Math.round(net1 * 0.2))}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة زيد 80% <span style="opacity:.6">(استرداد رأس المال)</span></td><td>${fmtSYP(Math.round(net1 * 0.8))}</td></tr>
-    <tr><td>&nbsp;&nbsp;عهد محمود (من 1/10) — صافي</td><td>${fmtSYP(net2)}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة محمود 30% <span style="opacity:.6">(مدير مشغّل)</span></td><td>${fmtSYP(Math.round(net2 * 0.3))}</td></tr>
-    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة زيد 70% <span style="opacity:.6">(استرداد رأس المال)</span></td><td>${fmtSYP(Math.round(net2 * 0.7))}</td></tr>`;
+    <tr><td>&nbsp;&nbsp;صافي الكوفي</td><td>${fmtSYP(net)}</td></tr>
+    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة بلال 20% <span style="opacity:.6">(بذمة آخر السنة)</span></td><td>${fmtSYP(Math.round(net * 0.2))}</td></tr>
+    <tr><td>&nbsp;&nbsp;&nbsp;&nbsp;حصة زيد 80% <span style="opacity:.6">(استرداد رأس المال)</span></td><td>${fmtSYP(Math.round(net * 0.8))}</td></tr>`;
 }
 
 function renderRent(collected){
