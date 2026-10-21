@@ -231,7 +231,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && pa
 const kpi = (l, v, neg, hero) => `<div class="kpi ${hero ? "hero" : ""}"><div class="l">${l}</div><div class="v ${neg && v ? "neg" : ""}">${fmtSYP(v)}</div>${usdLine(v)}</div>`;
 
 const dashMonth = document.getElementById("dashMonth");
-dashMonth.value = new Date().toISOString().slice(0, 7);
+dashMonth.value = todayDam().slice(0, 7);
 dashMonth.addEventListener("change", renderDash);
 
 function renderDash(){
@@ -463,7 +463,7 @@ function renderRent(collected){
 
 /* ---------- daily summary ---------- */
 const dayPick = document.getElementById("dayPick");
-dayPick.value = new Date().toISOString().slice(0, 10);
+dayPick.value = todayDam();
 dayPick.addEventListener("change", renderDay);
 
 function renderDay(){
@@ -503,7 +503,7 @@ function renderDay(){
 }
 
 function renderLogForm(){
-  document.getElementById("eDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("eDate").value = todayDam();
   syncLogForm();
   document.getElementById("eType").addEventListener("change", syncLogForm);
   document.getElementById("eSub").addEventListener("change", syncSubUI);
@@ -541,7 +541,7 @@ function syncLogForm(){
     pSel.onchange = applyProductPick;
     applyProductPick();
   }
-  if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.keys(CUT_PRICES()).map(n => [n, cutPriceAt(n, document.getElementById("eDate").value || new Date().toISOString().slice(0, 10))]).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
+  if (t === "حلاقة") { lS.textContent = "نوع الحلاقة"; sSel.innerHTML = Object.keys(CUT_PRICES()).map(n => [n, cutPriceAt(n, document.getElementById("eDate").value || todayDam())]).map(([n, p]) => `<option value="${n}">${n} — ${fmt(p)}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "خدمة") { lS.textContent = "الخدمة"; sSel.innerHTML = SERVICES.filter(s => s.active !== false && s.section === "عناية").map(s => `<option value="${s.name}">${s.name}${+s.price ? " — " + fmt(s.price) : " — حسب الطلب"}</option>`).join("") + `<option value="آخر">آخر — سعر يدوي</option>`; }
   if (t === "كوفي") { lS.textContent = "المشروب"; sSel.innerHTML = `<option value="">— مبلغ يدوي —</option>` + COFFEE.filter(c => c.active !== false).map(c => `<option value="${c.name}">${c.name} — ${fmt(c.price)}</option>`).join(""); }
   if (t === "مصروف" || t === "مصروف شهري" || t === "مصروف ممول") { lD.textContent = "البند"; dSel.innerHTML = EXPCATS.map(c => `<option>${c.name}</option>`).join(""); }
@@ -750,14 +750,14 @@ async function delEntry(id){
 }
 
 const bookDate = document.getElementById("bookDate");
-bookDate.value = new Date().toISOString().slice(0, 10);
+bookDate.value = todayDam();
 bookDate.addEventListener("change", renderBookings);
 document.getElementById("bookAll").addEventListener("click", () => { bookDate.value = ""; renderBookings(); });
 
 async function renderBookings(){
   let q = db.from("bookings").select("*, barbers(name), services(name, price)").order("booking_date").order("booking_time");
   if (bookDate.value) q = q.eq("booking_date", bookDate.value);
-  else q = q.gte("booking_date", new Date().toISOString().slice(0, 10));
+  else q = q.gte("booking_date", todayDam());
   const { data } = await q;
   const STATES = ["جديد", "مؤكد", "منجز", "ملغى"];
   // عدد الحجوزات المعلّقة (بانتظار التأكيد) — للتنبيه
@@ -884,7 +884,7 @@ async function addBarber(){
   await loadAll(); renderSettings(); syncLogForm(); toast("انضاف ✓");
 }
 async function addPrice(){
-  await db.from("price_periods").insert({ from_date: new Date().toISOString().slice(0, 10), price: 0, note: "عرض جديد" });
+  await db.from("price_periods").insert({ from_date: todayDam(), price: 0, note: "عرض جديد" });
   await loadAll(); renderSettings();
 }
 async function saveCutPrices(){
@@ -1344,7 +1344,7 @@ function renderCoffeeInvest(){
   const pct = Math.max(0, Math.min(100, zaidNow / capital * 100));
 
   const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayDam();
 
   let phase, ph2End = null;
   if (!recDate) phase = 1;
