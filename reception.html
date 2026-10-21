@@ -321,7 +321,8 @@ const STATUSES = [
 const stColor = s => (STATUSES.find(x => x.k === s) || STATUSES[1]).c;
 const SOURCES = ["تلفون","واتساب","انستغرام","مر عالمحل","زبون قديم"];
 const INQ_CHANNELS = ["انستغرام","واتساب","تلفون","فيسبوك","مر عالمحل"];
-const iso = d => d.toISOString().slice(0,10);
+// تاريخ محلي (مو UTC) — قبل كان بعد 12 بالليل لـ 3 الصبح يرجع يوم لورا ويخربط الجدول
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 // fmt و toast جايين من config.js المشترك — ما منعيد تعريفهن
 
 /* ---------- gate ---------- */
