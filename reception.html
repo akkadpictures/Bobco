@@ -153,6 +153,19 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .inq-sum span{font-size:.72rem;opacity:.6;font-weight:700}
 .inq-sum .hl{background:#323723 var(--pat-green) 0 0/200% auto repeat-y}.inq-sum .hl b,.inq-sum .hl span{color:var(--cream)}
 .inq-ch{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.inq-days{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:6px;scrollbar-width:none}
+.inq-days::-webkit-scrollbar{display:none}
+.iday{flex:0 0 auto;min-width:78px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 10px;text-align:center;cursor:pointer;font-family:inherit;color:var(--ink)}
+.iday span{display:block;font-size:.68rem;font-weight:700;opacity:.65}
+.iday b{display:block;font-size:1.35rem;font-weight:800;color:var(--olive);line-height:1.2}
+.iday small{font-size:.64rem;opacity:.55;font-weight:700}
+.iday.on{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-color:#323723}
+.iday.on span,.iday.on b,.iday.on small{color:#fff;opacity:1}
+.clk{cursor:pointer}.chc.sel{border-color:var(--olive);box-shadow:0 0 0 2px var(--olive) inset}.inq-sum .sel{background:var(--cream)}
+.inq-fh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;font-weight:700;padding:4px 2px 10px;color:var(--olive)}
+.inq-fh button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:4px 10px;font-family:inherit;font-weight:700;cursor:pointer;color:var(--olive)}
+.inq-note{display:block;font-size:.76rem;color:var(--ink);opacity:.8;margin-top:2px}
+#inqNote{width:100%;margin-top:8px}
 .chc{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 14px}
 .chc.top{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
 .chc-h{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:800;font-size:.9rem}
@@ -1932,71 +1945,108 @@ let custTmr;
 document.getElementById("custSearch").oninput = e => { clearTimeout(custTmr); custTmr = setTimeout(() => renderCustomers(e.target.value.trim()), 350); };
 
 /* ---------- inquiries ---------- */
-async function renderInquiries(){
-  await loadInquiries();
+// فلتر الاستفسارات: كبسة على يوم أو قناة بتفلتر القائمة تحت
+let INQ_F = { day:null, ch:null };
+const INQ_TOPICS = ["سعر","موعد","بكج عريس","موقع/عنوان","دوام","عناية/بشرة","عطور","كوفي"];
+const inqDay = i => iso(new Date(i.at));
+function inqFilter(k, v){ INQ_F[k] = INQ_F[k] === v ? null : v; renderInquiries("local"); }
+function inqClear(){ INQ_F = { day:null, ch:null }; renderInquiries("local"); }
+async function renderInquiries(keep){
+  if (!keep) INQ_F = { day:null, ch:null };
+  if (keep !== "local") await loadInquiries();
   document.getElementById("inqBtns").innerHTML = INQ_CHANNELS.map(ch =>
     `<button class="inq-btn" onclick="logInq('${ch}')">${ch}<small>سجل استفسار</small></button>`).join("");
-  const today = INQUIRIES.filter(i => i.at.slice(0,10) === iso(new Date()));
-  const conv = INQUIRIES.filter(i => i.converted);
-  const byCh = {}; INQUIRIES.forEach(i => byCh[i.channel] = (byCh[i.channel]||0)+1);
-  const top = Object.entries(byCh).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`).join(" · ") || "—";
-  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
   const tIso = iso(new Date());
-  // بطاقة لكل قناة: عدد الشهر · اليوم · كم تحوّل لحجز — مرتبة من الأقوى، والشريط حصّتها من المجموع
+  const today = INQUIRIES.filter(i => inqDay(i) === tIso);
+  const conv = INQUIRIES.filter(i => i.converted);
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  // الأرقام بالبطاقات بتمشي مع اليوم المختار (إذا في)
+  const base = INQ_F.day ? INQUIRIES.filter(i => inqDay(i) === INQ_F.day) : INQUIRIES;
   const chs = INQ_CHANNELS.map(ch => {
-    const all = INQUIRIES.filter(i => i.channel === ch);
-    return { ch, n: all.length, today: all.filter(i => i.at.slice(0,10) === tIso).length, conv: all.filter(i => i.converted).length };
+    const all = base.filter(i => i.channel === ch);
+    return { ch, n: all.length, today: INQ_F.day ? 0 : all.filter(i => inqDay(i) === tIso).length, conv: all.filter(i => i.converted).length };
   }).sort((a, b) => b.n - a.n);
   const max = Math.max(1, ...chs.map(c => c.n));
+  // شريط الأيام: كل يوم بالشهر فيه استفسارات، الأحدث أول
+  const byDay = {}; INQUIRIES.forEach(i => { const d = inqDay(i); (byDay[d] = byDay[d] || []).push(i); });
+  const days = Object.keys(byDay).sort().reverse();
+  const dLbl = d => { const x = new Date(d + "T12:00:00"); return `${["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"][x.getDay()]} <bdi dir="ltr">${x.getDate()}/${x.getMonth()+1}</bdi>`; };
   document.getElementById("inqStats").innerHTML = `
     <div class="inq-sum">
-      <div><b>${today.length}</b><span>اليوم</span></div>
-      <div><b>${INQUIRIES.length}</b><span>هالشهر</span></div>
+      <div class="clk${INQ_F.day === tIso ? " sel" : ""}" onclick="inqFilter('day','${tIso}')"><b>${today.length}</b><span>اليوم</span></div>
+      <div class="clk" onclick="inqClear()"><b>${INQUIRIES.length}</b><span>هالشهر</span></div>
       <div><b>${conv.length}</b><span>حجز مؤكد</span></div>
       <div class="hl"><b dir="ltr">${pct(conv.length, INQUIRIES.length)}%</b><span>نسبة الحجز</span></div>
     </div>
+    <div class="inq-days">${days.map(d => {
+      const L = byDay[d], cv = L.filter(i => i.converted).length;
+      return `<button class="iday${INQ_F.day === d ? " on" : ""}" onclick="inqFilter('day','${d}')"><span>${dLbl(d)}</span><b>${L.length}</b><small>${cv} حجز</small></button>`;
+    }).join("") || `<span class="muted">لسا ما في استفسارات هالشهر</span>`}</div>
     <div class="inq-ch">${chs.map((c, k) => `
-      <div class="chc${k === 0 && c.n ? " top" : ""}">
+      <div class="chc clk${INQ_F.ch === c.ch ? " sel" : ""}${!INQ_F.ch && k === 0 && c.n ? " top" : ""}" onclick="inqFilter('ch','${c.ch}')">
         <div class="chc-h"><span>${c.ch}</span>${c.today ? `<em>+${c.today} اليوم</em>` : ""}</div>
         <b>${c.n}</b>
         <div class="chc-bar"><i style="width:${Math.round(c.n / max * 100)}%"></i></div>
         <small>${c.conv} حجز مؤكد · <bdi dir="ltr">${pct(c.conv, c.n)}%</bdi></small>
       </div>`).join("")}</div>`;
-  document.getElementById("inqList").innerHTML =
-    INQUIRIES.slice(0,25).map(i =>
-      `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${new Date(i.at).toLocaleString("ar-SY",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div>
+  const list = base.filter(i => !INQ_F.ch || i.channel === INQ_F.ch);
+  const fl = [INQ_F.ch, INQ_F.day && dLbl(INQ_F.day)].filter(Boolean).join(" · ");
+  const head = fl
+    ? `<div class="inq-fh"><span>${fl} — <b>${list.length}</b> استفسار · ${list.filter(i=>i.converted).length} حجز</span><button onclick="inqClear()">✕ الكل</button></div>`
+    : `<div class="inq-fh"><span>آخر الاستفسارات — اكبسي على يوم أو قناة لتفلتري</span></div>`;
+  const tm = i => new Date(i.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("inqList").innerHTML = head +
+    (fl ? list : list.slice(0,40)).map(i =>
+      `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${fl && INQ_F.day ? "" : dLbl(inqDay(i)) + " · "}<bdi dir="ltr">${tm(i)}</bdi></span>${i.note ? `<span class="inq-note">${esc_(i.note)}</span>` : ""}</div>
        <span style="display:flex;gap:6px;align-items:center"><button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
          onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ حجز مؤكد" : "تأكيد الحجز"}</button>
-       <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editInq('${i.id}')">تعديل</button></span></div>`).join("");
+       <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editInq('${i.id}')">تعديل</button></span></div>`).join("")
+    + (list.length ? "" : `<p class="muted" style="text-align:center;padding:14px">ما في استفسارات هون</p>`);
+}
+function inqNoteSheet(i, title){
+  document.getElementById("bookSheet").innerHTML = `
+    <h3>${title}</h3>
+    <div class="frow"><label>شو كان بدو؟ (اختياري)</label><div class="chips">${INQ_TOPICS.map(t =>
+      `<button class="chip" onclick="var n=document.getElementById('inqNote');n.value=(n.value?n.value+' · ':'')+'${t}'">${t}</button>`).join("")}</div>
+      <textarea id="inqNote" rows="2" placeholder="مثلاً: سأل عن سعر الكامل ونزل يوم الخميس">${esc_(i.note || "")}</textarea></div>
+    <div class="frow"><label>القناة — اكبسي الصح إذا انسجل غلط</label><div class="chips">${INQ_CHANNELS.map(ch =>
+      `<button class="chip ${i.channel === ch ? "on" : ""}" onclick="setInqCh('${i.id}','${ch}')">${ch}</button>`).join("")}</div></div>
+    <button class="btn" onclick="saveInqNote('${i.id}')">احفظي</button>
+    <button class="btn danger" onclick="delInq('${i.id}')">احذف الاستفسار</button>
+    <button class="btn ghost" onclick="closeOv('bookOv')">إغلاق</button>`;
+  document.getElementById("bookOv").classList.add("on");
 }
 function editInq(id){
   const i = INQUIRIES.find(x => String(x.id) === String(id)); if (!i) return;
-  document.getElementById("bookSheet").innerHTML = `
-    <h3>تعديل استفسار</h3>
-    <div class="frow"><label>القناة — اكبسي الصح إذا انسجل غلط</label><div class="chips">${INQ_CHANNELS.map(ch =>
-      `<button class="chip ${i.channel === ch ? "on" : ""}" onclick="setInqCh('${i.id}','${ch}')">${ch}</button>`).join("")}</div></div>
-    <button class="btn danger" onclick="delInq('${i.id}')">احذف الاستفسار</button>
-    <button class="btn ghost" onclick="closeOv('bookOv')">إلغاء</button>`;
-  document.getElementById("bookOv").classList.add("on");
+  inqNoteSheet(i, "تفاصيل الاستفسار");
+}
+async function saveInqNote(id){
+  const note = document.getElementById("inqNote").value.trim() || null;
+  const { error } = await db.from("inquiries").update({ note }).eq("id", id);
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  const i = INQUIRIES.find(x => String(x.id) === String(id)); if (i) i.note = note;
+  closeOv("bookOv"); toast("✓ انحفظ"); renderInquiries("local");
 }
 async function setInqCh(id, ch){
   const { error } = await db.from("inquiries").update({ channel: ch }).eq("id", id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  closeOv("bookOv"); toast("✓ صار " + ch); renderInquiries();
+  closeOv("bookOv"); toast("✓ صار " + ch); renderInquiries(true);
 }
 async function delInq(id){
   if (!confirm("حذف هالاستفسار؟")) return;
   const { error } = await db.from("inquiries").delete().eq("id", id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  closeOv("bookOv"); toast("✓ انحذف"); renderInquiries();
+  closeOv("bookOv"); toast("✓ انحذف"); renderInquiries(true);
 }
 async function logInq(ch){
-  await db.from("inquiries").insert({ channel: ch });
-  toast("✓ انسجل استفسار " + ch); renderInquiries();
+  const { data, error } = await db.from("inquiries").insert({ channel: ch }).select().single();
+  if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
+  toast("✓ انسجل استفسار " + ch); await renderInquiries(true);
+  if (data) inqNoteSheet(data, "✓ انسجل " + ch);
 }
 async function togConv(id, v){
   await db.from("inquiries").update({ converted: v }).eq("id", id);
-  renderInquiries();
+  renderInquiries(true);
 }
 
 /* ---------- tasks: من طرف مين + الأولوية (عاجل / إله مدة / لبعدين) ---------- */
