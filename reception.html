@@ -164,6 +164,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .clk{cursor:pointer}.chc.sel{border-color:var(--olive);box-shadow:0 0 0 2px var(--olive) inset}.inq-sum .sel{background:var(--cream)}
 .inq-fh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;font-weight:700;padding:4px 2px 10px;color:var(--olive)}
 .inq-fh button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:4px 10px;font-family:inherit;font-weight:700;cursor:pointer;color:var(--olive)}
+.inq-dec{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 10px}.inq-dec .btn{margin:0}
 .inq-note{display:block;font-size:.76rem;color:var(--ink);opacity:.8;margin-top:2px}
 #inqNote{width:100%;margin-top:8px}
 .chc{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 14px}
@@ -247,7 +248,8 @@ html,body{max-width:100%;overflow-x:hidden}
   <section class="view" id="v-inq">
     <div class="kgrid" id="inqStats"></div>
     <div class="panelbox">
-      <p style="font-weight:800;margin-bottom:10px">وصلنا استفسار؟ كبسة وحدة بتسجلو:</p>
+      <p style="font-weight:800;margin-bottom:4px">إجت رسالة أو اتصال؟ سجّليها فوراً — حتى لو ما حجز</p>
+      <p class="muted" style="font-size:.78rem;margin-bottom:12px;line-height:1.6">كل رسالة بتنسجل لحالها، وبعدين إذا ثبّت اكبسي «✓ ثبّت حجز». هيك منعرف كم واحد سأل من كل إعلان، وكم واحد منهم حجز فعلاً.</p>
       <div class="inq-btns" id="inqBtns"></div>
       <div id="inqList"></div>
     </div>
@@ -1956,7 +1958,7 @@ async function renderInquiries(keep){
   if (!keep) INQ_F = { day:null, ch:null };
   if (keep !== "local") await loadInquiries();
   document.getElementById("inqBtns").innerHTML = INQ_CHANNELS.map(ch =>
-    `<button class="inq-btn" onclick="logInq('${ch}')">${ch}<small>سجل استفسار</small></button>`).join("");
+    `<button class="inq-btn" onclick="logInq('${ch}')">${ch}<small>+ رسالة جديدة</small></button>`).join("");
   const tIso = iso(new Date());
   const today = INQUIRIES.filter(i => inqDay(i) === tIso);
   const conv = INQUIRIES.filter(i => i.converted);
@@ -2000,33 +2002,37 @@ async function renderInquiries(keep){
     (fl ? list : list.slice(0,40)).map(i =>
       `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${fl && INQ_F.day ? "" : dLbl(inqDay(i)) + " · "}<bdi dir="ltr">${tm(i)}</bdi></span>${i.note ? `<span class="inq-note">${esc_(i.note)}</span>` : ""}</div>
        <span style="display:flex;gap:6px;align-items:center"><button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
-         onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ حجز مؤكد" : "تأكيد الحجز"}</button>
+         onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ ثبّت" : "ثبّت حجز؟"}</button>
        <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editInq('${i.id}')">تعديل</button></span></div>`).join("")
     + (list.length ? "" : `<p class="muted" style="text-align:center;padding:14px">ما في استفسارات هون</p>`);
 }
-function inqNoteSheet(i, title){
+function inqNoteSheet(i, title, fresh){
   document.getElementById("bookSheet").innerHTML = `
     <h3>${title}</h3>
     <div class="frow"><label>شو كان بدو؟ (اختياري)</label><div class="chips">${INQ_TOPICS.map(t =>
       `<button class="chip" onclick="var n=document.getElementById('inqNote');n.value=(n.value?n.value+' · ':'')+'${t}'">${t}</button>`).join("")}</div>
-      <textarea id="inqNote" rows="2" placeholder="مثلاً: سأل عن سعر الكامل ونزل يوم الخميس">${esc_(i.note || "")}</textarea></div>
-    <div class="frow"><label>القناة — اكبسي الصح إذا انسجل غلط</label><div class="chips">${INQ_CHANNELS.map(ch =>
+      <textarea id="inqNote" rows="2" placeholder="مثلاً: سأل عن سعر الكامل">${esc_(i.note || "")}</textarea></div>
+    <div class="inq-dec">
+      <button class="btn${i.converted ? "" : " ghost"}" onclick="saveInqNote('${i.id}',true)">✓ ثبّت حجز</button>
+      <button class="btn${i.converted ? " ghost" : ""}" onclick="saveInqNote('${i.id}',false)">${fresh ? "بس سأل — لسا ما ثبّت" : "ما ثبّت"}</button>
+    </div>
+    ${fresh ? "" : `<div class="frow"><label>القناة — اكبسي الصح إذا انسجل غلط</label><div class="chips">${INQ_CHANNELS.map(ch =>
       `<button class="chip ${i.channel === ch ? "on" : ""}" onclick="setInqCh('${i.id}','${ch}')">${ch}</button>`).join("")}</div></div>
-    <button class="btn" onclick="saveInqNote('${i.id}')">احفظي</button>
-    <button class="btn danger" onclick="delInq('${i.id}')">احذف الاستفسار</button>
+    <button class="btn danger" onclick="delInq('${i.id}')">احذف</button>`}
     <button class="btn ghost" onclick="closeOv('bookOv')">إغلاق</button>`;
   document.getElementById("bookOv").classList.add("on");
 }
 function editInq(id){
   const i = INQUIRIES.find(x => String(x.id) === String(id)); if (!i) return;
-  inqNoteSheet(i, "تفاصيل الاستفسار");
+  inqNoteSheet(i, i.channel + " — تفاصيل الرسالة");
 }
-async function saveInqNote(id){
+async function saveInqNote(id, conv){
   const note = document.getElementById("inqNote").value.trim() || null;
-  const { error } = await db.from("inquiries").update({ note }).eq("id", id);
+  const upd = { note }; if (typeof conv === "boolean") upd.converted = conv;
+  const { error } = await db.from("inquiries").update(upd).eq("id", id);
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  const i = INQUIRIES.find(x => String(x.id) === String(id)); if (i) i.note = note;
-  closeOv("bookOv"); toast("✓ انحفظ"); renderInquiries("local");
+  const i = INQUIRIES.find(x => String(x.id) === String(id)); if (i) Object.assign(i, upd);
+  closeOv("bookOv"); toast(conv ? "✓ انسجلت وثبّت حجز" : "✓ انسجلت"); renderInquiries("local");
 }
 async function setInqCh(id, ch){
   const { error } = await db.from("inquiries").update({ channel: ch }).eq("id", id);
@@ -2042,8 +2048,8 @@ async function delInq(id){
 async function logInq(ch){
   const { data, error } = await db.from("inquiries").insert({ channel: ch }).select().single();
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
-  toast("✓ انسجل استفسار " + ch); await renderInquiries(true);
-  if (data) inqNoteSheet(data, "✓ انسجل " + ch);
+   await renderInquiries(true);
+  if (data) inqNoteSheet(data, "✓ انسجلت رسالة " + ch, true);
 }
 async function togConv(id, v){
   await db.from("inquiries").update({ converted: v }).eq("id", id);
