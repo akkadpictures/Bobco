@@ -254,7 +254,7 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
         <h3>الطلب <button onclick="clearCart()">تفريغ</button></h3>
         <div class="lines" id="lines"></div>
         <div id="adjLine"></div>
-        <button class="adjbtn" id="adjBtn" onclick="openAdj()">± خصم أو زيادة عالمجموع</button>
+        <button class="adjbtn" id="adjBtn" onclick="openAdj()">٪ خصم (ستاف أو غيرو) · أو زيادة</button>
         <div class="wlbl">وين؟ (اختياري)</div>
         <div class="where" id="where"></div>
         <div class="pays">
@@ -452,6 +452,10 @@ function calc(rows){
     debtSum: debts.reduce((s, r) => s + +r.amount, 0),
     count: rows.find(r => r.kind === "count") || null
   };
+  const discs = paid.flatMap(r => (r.items || []).filter(i => i.adj && i.price < 0));
+  A.disc = discs.reduce((s, i) => s - i.price, 0);
+  A.discStaff = discs.filter(i => i.why === "ستاف").reduce((s, i) => s - i.price, 0);
+  A.discN = discs.length;
   A.cashSales = A.sales - A.usdVal;
   A.net = A.sales - A.expSum;
   A.cashNet = A.cashSales - A.expSum - A.supPaySum;   // اللي لازم يزيد عالدرج (الدفعة للمورّد بتطلع من الدرج)
@@ -500,7 +504,7 @@ function addItem(id){
   renderCart();
 }
 function step(i, d){ CART[i].qty += d; if (CART[i].qty <= 0) CART.splice(i, 1); renderCart(); }
-function clearCart(){ CART = []; ADJ = 0; WHERE = null; document.getElementById("where").innerHTML = whereHtml(null, "setWhere"); setPay("cash"); renderCart(); }
+function clearCart(){ CART = []; ADJ = 0; ADJ_WHY = null; ADJ_WHO = ""; WHERE = null; document.getElementById("where").innerHTML = whereHtml(null, "setWhere"); setPay("cash"); renderCart(); }
 function setPay(p){
   PAY = p;
   document.querySelectorAll(".pay").forEach(b => b.classList.toggle("on", b.dataset.p === p));
@@ -509,6 +513,10 @@ function setPay(p){
   renderCart();
 }
 let ADJ = 0;   // تعديل على مجموع الطلب (ليرة قديمة): سالب = خصم · موجب = زيادة
+// الخصم لازم يكون إلو سبب: ستاف (مين) أو مو ستاف (مين/ليش)
+const STAFF = ["بلال","تامر","علاء","علي","رشا","محمود"];
+let ADJ_WHY = null, ADJ_WHO = "";   // ADJ_WHY: "ستاف" | "مو ستاف"
+const adjLabel = () => ADJ > 0 ? "زيادة" : "خصم" + (ADJ_WHY ? ` ${ADJ_WHY}` : "") + (ADJ_WHO ? ` — ${ADJ_WHO}` : "");
 const cartSum = () => Math.max(0, CART.reduce((s, l) => s + l.price * l.qty, 0) + ADJ);
 const cartQty = () => CART.reduce((s, l) => s + l.qty, 0);
 function renderCart(){
@@ -519,7 +527,7 @@ function renderCart(){
       <div class="tot num">${nl(l.price * l.qty)}</div>
     </div>`).join("") : `<div class="empty">اكبس على أي مشروب ليبلّش الطلب</div>`;
   const sum = cartSum(), q = cartQty();
-  document.getElementById("adjLine").innerHTML = ADJ ? `<div class="adjrow"><b>${ADJ < 0 ? "خصم" : "زيادة"}</b><span><span class="num">${ADJ < 0 ? "−" : "+"}${nl(Math.abs(ADJ))}</span><button class="x" onclick="ADJ=0;renderCart()">شيل</button></span></div>` : "";
+  document.getElementById("adjLine").innerHTML = ADJ ? `<div class="adjrow"><b>${esc(adjLabel())}</b><span><span class="num">${ADJ < 0 ? "−" : "+"}${nl(Math.abs(ADJ))}</span><button class="x" onclick="ADJ=0;ADJ_WHY=null;ADJ_WHO='';renderCart()">شيل</button></span></div>` : "";
   document.getElementById("adjBtn").style.display = CART.length ? "block" : "none";
   document.getElementById("tot").textContent = PAY === "treat" ? "0" : nl(sum);
   document.getElementById("totLbl").textContent = PAY === "treat" ? `ضيافة (قيمتها ${nl(sum)})` : "المجموع";
@@ -549,20 +557,46 @@ function editPrice(i){
 }
 function openAdj(){
   const base = CART.reduce((s, l) => s + l.price * l.qty, 0);
-  window._adj = { sign: ADJ > 0 ? 1 : -1, base };
+  window._adj = { sign: ADJ > 0 ? 1 : -1, base, why: ADJ_WHY, who: ADJ_WHO };
   sheet(`<h3>خصم أو زيادة</h3>
-    <p class="hint" style="margin:-6px 0 14px">مجموع الطلب قبل التعديل: <span class="num">${nl(base)}</span></p>
+    <p class="hint" style="margin:-6px 0 14px">مجموع الطلب بالسعر العادي: <span class="num">${nl(base)}</span></p>
     <div class="frow"><div class="seg" id="adjSeg">
       <button class="${window._adj.sign < 0 ? "on red" : ""}" onclick="adjSign(-1)">خصم</button>
       <button class="${window._adj.sign > 0 ? "on" : ""}" onclick="adjSign(1)">زيادة</button></div></div>
-    <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="adjAmt" type="number" inputmode="numeric" value="${ADJ ? Math.abs(ADJ) / K : ""}"></div>
+    <div id="adjWhyBox" style="${window._adj.sign < 0 ? "" : "display:none"}">
+      <div class="frow"><label>الخصم لمين؟</label><div class="seg" id="adjWhy">
+        <button class="${window._adj.why === "ستاف" ? "on" : ""}" onclick="adjWhy('ستاف')">ستاف</button>
+        <button class="${window._adj.why === "مو ستاف" ? "on" : ""}" onclick="adjWhy('مو ستاف')">مو ستاف</button></div></div>
+      <div class="chips" id="adjStaff" style="margin-bottom:10px;${window._adj.why === "ستاف" ? "" : "display:none"}">${STAFF.map(n =>
+        `<button class="chip ${window._adj.who === n ? "on" : ""}" onclick="adjWho(this)">${n}</button>`).join("")}</div>
+      <div class="frow" id="adjNoteRow" style="${window._adj.why ? "" : "display:none"}"><label id="adjNoteLbl">${window._adj.why === "ستاف" ? "أو اكتب الاسم" : "مين وليش؟"}</label>
+        <input id="adjWho" placeholder="${window._adj.why === "ستاف" ? "اسم الموظف" : "مثلاً: معتز — صديق"}" value="${esc(window._adj.who && !STAFF.includes(window._adj.who) ? window._adj.who : "")}" oninput="window._adj.who=this.value.trim();document.querySelectorAll('#adjStaff .chip').forEach(x=>x.classList.remove('on'))"></div>
+    </div>
+    <div class="frow"><label>قيمة الخصم (ليرة جديدة)</label><input id="adjAmt" type="number" inputmode="numeric" value="${ADJ ? Math.abs(ADJ) / K : ""}"></div>
     <div class="chips" style="margin-bottom:4px">${[10, 15, 20, 25, 50].map(p => `<button class="chip" onclick="adjPct(${p})">${p}%</button>`).join("")}</div>
-    <div class="frow" style="margin-top:12px"><label>أو اكتب المجموع النهائي مباشرة</label><input id="adjFinal" type="number" inputmode="numeric" placeholder="مثلاً 500"></div>
-    <div class="btn-row"><button class="btn ghost" onclick="ADJ=0;closeSheet();renderCart()">بلا تعديل</button><button class="btn" onclick="saveAdj()">تمام</button></div>`);
+    <div class="frow" style="margin-top:12px"><label>أو اكتب السعر اللي دفعو كلّو</label><input id="adjFinal" type="number" inputmode="numeric" placeholder="مثلاً 200"></div>
+    <div class="btn-row"><button class="btn ghost" onclick="ADJ=0;ADJ_WHY=null;ADJ_WHO='';closeSheet();renderCart()">بلا خصم</button><button class="btn" onclick="saveAdj()">تمام</button></div>`);
 }
-function adjSign(sg){ window._adj.sign = sg; document.querySelectorAll("#adjSeg button").forEach((b, i) => { const on = (i === 0) === (sg < 0); b.classList.toggle("on", on); b.classList.toggle("red", on && sg < 0); }); }
+function adjWhy(w){
+  const A = window._adj; A.why = w; A.who = "";
+  document.querySelectorAll("#adjWhy button").forEach(b => b.classList.toggle("on", b.textContent === w));
+  document.getElementById("adjStaff").style.display = w === "ستاف" ? "" : "none";
+  document.querySelectorAll("#adjStaff .chip").forEach(x => x.classList.remove("on"));
+  document.getElementById("adjNoteRow").style.display = "";
+  document.getElementById("adjNoteLbl").textContent = w === "ستاف" ? "أو اكتب الاسم" : "مين وليش؟";
+  const i = document.getElementById("adjWho"); i.value = ""; i.placeholder = w === "ستاف" ? "اسم الموظف" : "مثلاً: معتز — صديق";
+}
+function adjWho(b){
+  window._adj.who = b.textContent; document.getElementById("adjWho").value = "";
+  document.querySelectorAll("#adjStaff .chip").forEach(x => x.classList.toggle("on", x === b));
+}
+function adjSign(sg){ window._adj.sign = sg; document.getElementById("adjWhyBox").style.display = sg < 0 ? "" : "none"; document.querySelectorAll("#adjSeg button").forEach((b, i) => { const on = (i === 0) === (sg < 0); b.classList.toggle("on", on); b.classList.toggle("red", on && sg < 0); }); }
 function adjPct(p){ document.getElementById("adjAmt").value = Math.round(window._adj.base * p / 100 / K); document.getElementById("adjFinal").value = ""; }
 function saveAdj(){
+  const A = window._adj;
+  if (A.sign < 0 && !A.why) return toast("اختار: الخصم لستاف ولا لغيرو؟");
+  if (A.sign < 0 && !A.who) return toast(A.why === "ستاف" ? "اختار مين من الستاف" : "اكتب مين وليش");
+  ADJ_WHY = A.sign < 0 ? A.why : null; ADJ_WHO = A.sign < 0 ? A.who : "";
   const fin = document.getElementById("adjFinal").value;
   if (fin !== "") ADJ = Math.round(+fin * K) - window._adj.base;
   else { const a = +document.getElementById("adjAmt").value || 0; ADJ = window._adj.sign * Math.round(a * K); }
@@ -596,7 +630,7 @@ async function checkout(){
   busy = true; document.getElementById("goBtn").disabled = true;
   const row = {
     sale_date: bizToday(), kind: "sale", pay: PAY, what: WHERE,
-    items: CART.map(l => ({ name: l.name, price: l.price, qty: l.qty })).concat(ADJ ? [{ name: ADJ < 0 ? "خصم" : "زيادة", price: ADJ, qty: 1, adj: true }] : []),
+    items: CART.map(l => ({ name: l.name, price: l.price, qty: l.qty })).concat(ADJ ? [{ name: adjLabel(), price: ADJ, qty: 1, adj: true, why: ADJ < 0 ? ADJ_WHY : null, who: ADJ < 0 ? ADJ_WHO : null }] : []),
     amount: PAY === "treat" ? 0 : cartSum(), usd
   };
   const { data, error } = await db.from("coffee_sales").insert(row).select().single();
@@ -906,6 +940,7 @@ async function openReport(){
   if (A.usd){ L.push({ k: "sum", r: `منها دولار (قيمتها ${nl(A.usdVal)})`, l: A.usd + "$" }); L.push({ k: "sum", r: "منها كاش ليرة", l: nl(A.cashSales) }); }
   const extR = A.saleRows.filter(r => r.what === "خارجي");
   if (extR.length) L.push({ k: "row", r: `طلبات خارجية: ${extR.reduce((s, r) => s + cupsOf(r), 0)} كاسة`, l: nl(extR.reduce((s, r) => s + +r.amount, 0)) });
+  if (A.disc) L.push({ k: "row", r: `خصومات: ${A.discN}` + (A.discStaff ? ` (منها ستاف ${nl(A.discStaff)})` : ""), l: "−" + nl(A.disc), neg: true });
   if (A.treatCups) L.push({ k: "row", r: `ضيافة: ${A.treatCups} كاسة (قيمتها ${nl(A.treatVal)})`, l: "0" });
   L.push({ k: "gap" });
   if (A.tillExp.length){
