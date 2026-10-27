@@ -1,6 +1,8 @@
 // ============ Bob & Co — Face ID (WebAuthn passkey على الجهاز) ============
 // المفتاح بينحفظ بالـ Secure Enclave تبع الآيفون؛ نحنا بس منحفظ رقم تعريفه هون.
-// إذا Face ID مفعّل: كل فتحة للتطبيق (أو رجعة بعد 5 دقايق بالخلفية) بتطلب Face ID، والرمز بيضل احتياط.
+// إذا Face ID مفعّل: كل فتحة للتطبيق (أو رجعة بعد 5 دقايق بالخلفية) بتطلع شاشة قفل، لمسة وحدة عليها = Face ID مباشرة.
+// ملاحظة: iOS ما بيسمح لمواقع الويب تشغّل Face ID بلا لمسة — إذا انطلب لحالو بيطلع شيت "Continue" إضافي،
+// فمنخلّي اللمسة الوحيدة هي نفسها اللي بتفتح Face ID.
 (function () {
   const KEY = "bobco_faceid";          // id المفتاح (base64url)
   const UNLOCK = "bobco_unlocked";     // sessionStorage — فتحة هالجلسة
@@ -69,8 +71,18 @@
 
   function setMsg(t) { const e = $("gateErr"); if (e) e.textContent = t || ""; }
 
+  function showLock() {
+    const p = $("panel");
+    if (p) p.style.display = "none";
+    $("gate").style.display = "none";
+    $("lockErr").textContent = "";
+    $("lock").hidden = false;
+  }
+  function hideLock() { $("lock").hidden = true; }
+
   function showGate() {
     const g = $("gate"), p = $("panel");
+    hideLock();
     if (p) p.style.display = "none";
     if (g) g.style.display = "flex";
     $("gateEnroll").hidden = true;
@@ -80,6 +92,7 @@
   }
 
   function reveal() {
+    hideLock();
     ss.set(UNLOCK, "1");
     ls.set("bobco_admin", String(Date.now()));
     if (typeof onUnlock === "function") onUnlock();
@@ -87,16 +100,17 @@
 
   async function tryFaceID() {
     if (busy || !enrolled()) return;
-    busy = true; setMsg("");
-    $("fidBtn").classList.add("busy");
+    busy = true; setMsg(""); $("lockErr").textContent = "";
+    $("fidBtn").classList.add("busy"); $("lock").classList.add("busy");
     try {
       if (await verify()) reveal();
     } catch (e) {
       if (e && e.name === "NotAllowedError") setMsg("");          // ألغى أو ما انطلب بلمسة — الزر جاهز
       else if (e && e.name === "InvalidStateError") setMsg("Face ID مش متاح هلق — ادخل بالرمز");
       else setMsg("ما زبط Face ID — جرّب كمان مرة أو ادخل بالرمز");
+      if (!$("lock").hidden) $("lockErr").textContent = (e && e.name === "NotAllowedError") ? "" : "ما زبط — المس كمان مرة";
     } finally {
-      busy = false; $("fidBtn").classList.remove("busy");
+      busy = false; $("fidBtn").classList.remove("busy"); $("lock").classList.remove("busy");
     }
   }
 
@@ -133,14 +147,19 @@
 
   function syncLockBtn() { const b = $("lockBtn"); if (b) b.hidden = !enrolled(); }
 
-  function lockNow() { if (!enrolled()) return; ss.del(UNLOCK); showGate(); tryFaceID(); }
+  function lockNow() { if (!enrolled()) return; ss.del(UNLOCK); showLock(); }
+
+  // اللمسة على شاشة القفل هي نفسها اللي بتفتح Face ID (user gesture) — بلا أي شيت بالنص
+  function wireLock() {
+    $("lock").addEventListener("click", e => { if (e.target.closest("#usePin")) return; tryFaceID(); });
+    $("usePin").addEventListener("click", e => { e.stopPropagation(); showGate(); setTimeout(() => { const p = $("pin"); if (p) p.focus(); }, 50); });
+  }
 
   // قفل تلقائي بعد فترة بالخلفية
   let hiddenAt = 0;
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { hiddenAt = Date.now(); return; }
     if (enrolled() && hiddenAt && Date.now() - hiddenAt > LOCK_AFTER_MS && $("panel").style.display === "block") lockNow();
-    else if (enrolled() && $("gate").style.display !== "none" && !$("gateLogin").hidden) tryFaceID();
   });
 
   window.BobFaceID = {
@@ -149,11 +168,10 @@
     // بيقرّر شو بيصير أول ما تنفتح الصفحة. بيرجّع true إذا Face ID أخد الموضوع.
     boot(open, remembered) {
       onUnlock = open;
-      document.addEventListener("DOMContentLoaded", () => { syncLockBtn(); });
+      wireLock();
       if (!enrolled()) return false;
       if (ss.get(UNLOCK) && remembered) { open(); return true; }
-      showGate();
-      tryFaceID(); // سفاري أحياناً بيطلب لمسة — إذا هيك الزر جاهز
+      showLock();
       return true;
     }
   };

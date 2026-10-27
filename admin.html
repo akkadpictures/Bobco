@@ -9,7 +9,7 @@
 <link rel="icon" href="app/favicon-32.png" sizes="32x32" type="image/png">
 <!-- تطبيق على الشاشة الرئيسية -->
 <link rel="manifest" href="app/admin.webmanifest">
-<link rel="apple-touch-icon" href="app/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="app/touch-icon-1024.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="إدارة بوب">
@@ -48,6 +48,17 @@ input,select,textarea{font-family:var(--ar);font-size:1rem}
 .fid-btn.busy .ring{animation:fidPulse 1.1s ease-in-out infinite}
 @keyframes fidPulse{50%{transform:scale(.95);opacity:.8}}
 [hidden]{display:none!important}
+/* شاشة القفل — لمسة وحدة بأي مكان = Face ID مباشرة */
+#lock{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:var(--olive) url('app/pattern.jpg') center/cover no-repeat;color:var(--cream);text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;padding:env(safe-area-inset-top) 24px env(safe-area-inset-bottom)}
+#lock .logo{width:min(220px,58vw);background:var(--cream);margin-bottom:6px}
+#lock .tag{font-family:var(--caps);font-size:.62rem;letter-spacing:.5em;opacity:.75;margin:10px 0 64px;padding-inline-start:.5em}
+#lock .glyph{width:84px;height:84px;border-radius:26px;border:1px solid rgba(239,227,202,.28);display:grid;place-items:center;background:rgba(239,227,202,.06);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .25s}
+#lock .glyph svg{width:44px;height:44px;stroke:var(--cream);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#lock:active .glyph{transform:scale(.94)}
+#lock.busy .glyph{animation:fidPulse 1.1s ease-in-out infinite}
+#lock .hint{margin-top:18px;font-size:.88rem;opacity:.8}
+#lock .err{min-height:1.4em;margin-top:8px;font-size:.82rem;opacity:.85}
+#lock .use-pin{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));font-size:.82rem;opacity:.55;color:var(--cream);padding:10px 16px}
 #pinWrap.fid-on .or{display:block}
 #pinWrap .or{display:none;font-size:.78rem;opacity:.5;margin:-4px 0 12px}
 .enroll p{margin-bottom:18px}
@@ -179,6 +190,14 @@ tr:last-child td{border-bottom:none}
 <body>
 
 <!-- ===== gate ===== -->
+<div id="lock" hidden role="button" aria-label="افتح بـ Face ID">
+  <span class="logo logo-en" role="img" aria-label="Bob & Co"></span>
+  <div class="tag">ADMIN</div>
+  <div class="glyph"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 13V9a4 4 0 0 1 4-4h4M27 5h4a4 4 0 0 1 4 4v4M35 27v4a4 4 0 0 1-4 4h-4M13 35H9a4 4 0 0 1-4-4v-4"/><path d="M14 15v3M26 15v3M20 15v7.5a1.5 1.5 0 0 1-1.5 1.5H18M14.5 28c3 2.4 8 2.4 11 0"/></svg></div>
+  <div class="hint">المس للفتح</div>
+  <div class="err" id="lockErr"></div>
+  <button class="use-pin" id="usePin">الدخول بالرمز</button>
+</div>
 <div id="gate">
   <div class="gate-card">
     <span class="logo logo-en logo-ink" role="img" aria-label="Bob & Co" style="width:180px;margin:0 auto 4px"></span>
