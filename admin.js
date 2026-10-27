@@ -27,7 +27,9 @@ async function tryPin(){
   const { data } = await db.from("settings").select("value").eq("key", "admin_pin").single();
   if (data && v === data.value) {
     try { localStorage.setItem("bobco_admin", String(Date.now())); } catch (_) {}
-    openPanel();
+    document.getElementById("pin").value = "";
+    document.getElementById("gateErr").textContent = "";
+    if (window.BobFaceID) BobFaceID.afterPin(openPanel); else openPanel();
   } else {
     document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة";
     document.getElementById("pin").value = "";
@@ -45,16 +47,23 @@ function adminRemembered(){
   } catch (_) {}
   return false;
 }
-if (adminRemembered()) openPanel();
+// إذا Face ID مفعّل على الجهاز، هو اللي بيفتح؛ غير هيك منرجع لنظام الـ 3 أيام
+if (!(window.BobFaceID && BobFaceID.boot(openPanel, adminRemembered())) && adminRemembered()) openPanel();
+document.getElementById("fidBtn").addEventListener("click", () => BobFaceID.tryFaceID());
+document.getElementById("lockBtn").addEventListener("click", () => BobFaceID.lockNow());
 
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t.dataset.v));
 }));
 
+var panelLoaded; // var مقصودة: openPanel ممكن تنطلب قبل هالسطر
 async function openPanel(){
   gate.style.display = "none";
   panel.style.display = "block";
+  if (window.BobFaceID) { BobFaceID.syncLockBtn(); BobFaceID.renderSettings(); }
+  if (panelLoaded) { syncRate(); return; } // رجعة من القفل — البيانات محمّلة
+  panelLoaded = true;
   await loadAll();
   renderDash(); renderLogForm(); renderLog(); renderDay(); renderBookings(); renderSettings(); renderStats(); renderPartners(); renderCoffeeInvest();
   syncRate();
