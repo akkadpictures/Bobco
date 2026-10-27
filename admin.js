@@ -26,10 +26,10 @@ async function tryPin(){
   const v = document.getElementById("pin").value.trim();
   const { data } = await db.from("settings").select("value").eq("key", "admin_pin").single();
   if (data && v === data.value) {
-    try { localStorage.setItem("bobco_admin", String(Date.now())); } catch (_) {}
+    try { localStorage.setItem("bobco_admin_trusted", "1"); localStorage.setItem("bobco_admin", String(Date.now())); } catch (_) {}
     document.getElementById("pin").value = "";
     document.getElementById("gateErr").textContent = "";
-    if (window.BobFaceID) BobFaceID.afterPin(openPanel); else openPanel();
+    openPanel();
   } else {
     document.getElementById("gateErr").textContent = "الرمز غلط — جرّب كمان مرة";
     document.getElementById("pin").value = "";
@@ -47,10 +47,15 @@ function adminRemembered(){
   } catch (_) {}
   return false;
 }
-// إذا Face ID مفعّل على الجهاز، هو اللي بيفتح؛ غير هيك منرجع لنظام الـ 3 أيام
-if (!(window.BobFaceID && BobFaceID.boot(openPanel, adminRemembered())) && adminRemembered()) openPanel();
-document.getElementById("fidBtn").addEventListener("click", () => BobFaceID.tryFaceID());
-document.getElementById("lockBtn").addEventListener("click", () => BobFaceID.lockNow());
+// جهاز موثوق: بعد أول دخول بالرمز بيضل يفتح دغري عهالجهاز — بلا رمز ولا Face ID (قفل الموبايل نفسه هو الحماية)
+function adminTrusted(){ try { return localStorage.getItem("bobco_admin_trusted") === "1"; } catch (_) { return false; } }
+try { localStorage.removeItem("bobco_faceid"); localStorage.removeItem("bobco_faceid_asked"); } catch (_) {}
+if (adminTrusted() || adminRemembered()) { try { localStorage.setItem("bobco_admin_trusted", "1"); } catch (_) {} openPanel(); }
+function forgetDevice(){
+  if (!confirm("بدك تطلع من هالجهاز؟ المرة الجاية بيطلب الرمز.")) return;
+  try { localStorage.removeItem("bobco_admin_trusted"); localStorage.removeItem("bobco_admin"); } catch (_) {}
+  location.reload();
+}
 
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
@@ -61,7 +66,8 @@ var panelLoaded; // var مقصودة: openPanel ممكن تنطلب قبل ها�
 async function openPanel(){
   gate.style.display = "none";
   panel.style.display = "block";
-  if (window.BobFaceID) { BobFaceID.syncLockBtn(); BobFaceID.renderSettings(); }
+  const fs = document.getElementById("fidSettings");
+  if (fs) { fs.innerHTML = '<p class="muted" style="margin-bottom:14px">هالجهاز محفوظ — التطبيق بيفتح دغري بلا رمز. إذا ضاع الموبايل أو بدك تقفله، اطلع من هون.</p><button class="mini" id="forgetBtn">تسجيل خروج من هالجهاز</button>'; document.getElementById("forgetBtn").onclick = forgetDevice; }
   if (panelLoaded) { syncRate(); return; } // رجعة من القفل — البيانات محمّلة
   panelLoaded = true;
   await loadAll();
