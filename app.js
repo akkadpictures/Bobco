@@ -18,6 +18,8 @@ const SVC_DESC = {
 };
 // خدمات بدون سعر — الحساب لاحقاً
 const NO_PRICE = ["بروتين"];
+// سعر 0 بقاعدة البيانات = السعر حسب الطلب
+const noPriceOf = s => NO_PRICE.includes(s.name) || !(+s.price > 0);
 // هل الخدمة قسم عناية؟ (يعتمد على عمود section بقاعدة البيانات، مع دعم القديم)
 const isCare = s => (s.section ? s.section === "عناية" : ["تنضيف بشرة","عناية وجه","مساج ظهر","حمام زيت","بروتين"].includes(s.name));
 // تعارض الخدمات — لما تختار وحدة، بتلغي المتعارضين معها (خدمات الراس الأساسية)
@@ -134,10 +136,20 @@ function renderServices(){
   const barberBox = document.getElementById('svcBarber');
   const careBox = document.getElementById('svcCare');
   barberBox.innerHTML = ''; careBox.innerHTML = '';
+  const groups = {};
   visibleServices().forEach(s => {
+    // خدمات إلها مجموعة (متل الصبغة): كرت واحد، بتكبسو بتطلع الأنواع وفيك تختار أكتر من وحدة
+    if (s.grp) {
+      if (!groups[s.grp]) {
+        const g = groups[s.grp] = document.createElement('div');
+        g.className = 'svc svc-grp'; g.dataset.grp = s.grp;
+        (isCare(s) ? careBox : barberBox).appendChild(g);
+      }
+      return;
+    }
     const el = document.createElement('div');
     el.className = 'svc'; el.dataset.id = s.id;
-    const noPrice = NO_PRICE.includes(s.name);
+    const noPrice = noPriceOf(s);
     const descTxt = s.description || SVC_DESC[s.name] || '';
     const desc = descTxt ? `<div class="svc-desc">${descTxt}</div>` : '';
     const metaLeft = noPrice ? '' : `<span>${arNum(s.duration_min)} دقيقة</span>`;
@@ -160,6 +172,23 @@ function renderServices(){
       update();
     };
     (isCare(s) ? careBox : barberBox).appendChild(el);
+  });
+  Object.entries(groups).forEach(([name, g]) => {
+    const opts = SERVICES.filter(x => x.grp === name);
+    const priced = opts.filter(x => !noPriceOf(x)).map(x => +x.price);
+    const from = priced.length ? `<b>من ${fmtSYP(Math.min(...priced))}</b>` : `<b class="svc-later">حسب الطلب</b>`;
+    g.innerHTML = `<div class="check">✓</div><h3>${name}</h3><div class="svc-desc grp-picked">اكبس لتختار النوع</div>
+      <div class="meta"><span>${opts.length} أنواع</span>${from}</div>
+      <div class="grp-opts">${opts.map(x => `<button type="button" class="gopt" data-id="${x.id}">
+        <span class="gn">${x.name}${x.description ? `<small>${x.description}</small>` : ''}</span>
+        <span class="gp">${noPriceOf(x) ? 'حسب الطلب' : fmtSYP(x.price)}</span></button>`).join('')}</div>`;
+    g.onclick = e => { if (!e.target.closest('.gopt')) g.classList.toggle('open'); };
+    g.querySelectorAll('.gopt').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const id = Number(b.dataset.id);
+      state.services.has(id) ? state.services.delete(id) : state.services.add(id);
+      state.slot = null; update();
+    });
   });
   document.getElementById('careWrap').style.display = careBox.children.length ? '' : 'none';
 }
@@ -349,7 +378,7 @@ function syncTicket(){
     totals.style.display = 'none';
   } else {
     body.innerHTML = items.map(s => {
-        const priceTxt = NO_PRICE.includes(s.name) ? '<span class="p later">الحساب لاحقاً</span>' : `<span class="p">${fmtSYP(s.price)}</span>`;
+        const priceTxt = noPriceOf(s) ? '<span class="p later">الحساب لاحقاً</span>' : `<span class="p">${fmtSYP(s.price)}</span>`;
         return `<div class="tline"><span class="n">${s.name}</span>${priceTxt}</div>`;
       }).join('')
       + (discount ? `<div class="tline discount"><span class="n">خصم كومبو ✦</span><span class="p">−${fmtSYP(discount)}</span></div>` : '');
@@ -371,7 +400,14 @@ function syncTicket(){
 }
 
 function update(){
-  document.querySelectorAll('.svc').forEach(el => el.classList.toggle('on', state.services.has(Number(el.dataset.id))));
+  document.querySelectorAll('.svc:not(.svc-grp)').forEach(el => el.classList.toggle('on', state.services.has(Number(el.dataset.id))));
+  document.querySelectorAll('.gopt').forEach(b => b.classList.toggle('on', state.services.has(Number(b.dataset.id))));
+  document.querySelectorAll('.svc-grp').forEach(g => {
+    const picked = SERVICES.filter(x => x.grp === g.dataset.grp && state.services.has(x.id));
+    g.classList.toggle('on', picked.length > 0);
+    if (picked.length) g.classList.add('open');
+    const t = g.querySelector('.grp-picked'); if (t) t.textContent = picked.length ? picked.map(x => x.name).join(' + ') : 'اكبس لتختار النوع';
+  });
   // الحلاق اللي بعطلة باليوم المختار: كرتو مقفول ومكتوب عليه «عطلة هاليوم»
   if (state.barber && state.date && isDayOff(state.barber, iso(state.date))) { state.date = null; state.slot = null; }
   document.querySelectorAll('.bpick').forEach(el => {
@@ -413,8 +449,8 @@ async function submitBooking(){
 
   const ids = [...state.services];
   const code = 'BC-' + Math.floor(1000 + Math.random()*9000);
-  const hasProtein = items.some(s => NO_PRICE.includes(s.name));
-  const laterNote = hasProtein ? ' · حساب البروتين لاحقاً' : '';
+  const later = items.filter(noPriceOf);
+  const laterNote = later.length ? ' · حساب ' + later.map(s => s.name).join(' و ') + ' لاحقاً' : '';
 
   const { data: inserted, error } = await db.from("bookings").insert({
     customer_name: name, phone,

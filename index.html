@@ -266,6 +266,14 @@ nav.solid{background:rgba(40,45,28,.92);backdrop-filter:blur(10px);box-shadow:0 
 .svc .meta span{opacity:.6}
 .svc .meta b{font-variant-numeric:tabular-nums;font-size:1.05rem}
 .svc-later{font-size:.92rem;font-weight:700}
+.grp-opts{display:none;margin-top:14px;gap:8px;flex-direction:column}
+.svc-grp.open .grp-opts{display:flex}
+.gopt{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:start;font:inherit;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--ink,#1c1c1c);cursor:pointer;transition:.2s}
+.gopt .gn{font-weight:700;font-size:.95rem}
+.gopt small{display:block;font-weight:400;font-size:.75rem;opacity:.6;margin-top:2px}
+.gopt .gp{font-weight:700;font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gopt.on{background:var(--cream);color:var(--olive);border-color:var(--cream)}
+.svc-grp.on .gopt:not(.on){background:transparent;color:inherit;border-color:rgba(255,255,255,.3)}
 .tline .p.later{font-size:.8rem;opacity:.7;font-weight:700}
 .combo-note{display:none;margin-top:14px;border:1px dashed var(--olive);border-radius:12px;padding:10px 14px;font-size:.85rem;font-weight:700;color:var(--olive);background:rgba(52,57,37,.06)}
 .combo-note.show{display:block}

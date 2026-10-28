@@ -130,6 +130,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .chip{border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:700;font-size:.85rem;background:#fff}
 .chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .svc-list{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.grp-box{display:none}.grp-box.open{display:contents}.grp-tog.has{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
 .svc{border:1px solid var(--line);border-radius:11px;padding:9px 11px;font-size:.84rem;font-weight:700;background:#fff;display:flex;justify-content:space-between;gap:6px}
 .svc.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .svc small{opacity:.65;font-weight:400}
@@ -669,8 +670,8 @@ function openBook(barberId, time){
     </div>
     <div class="frow"><label>موبايل الزبون <span style="font-weight:400;opacity:.6">(اختياري — بس هو اللي بيبني داتا الزباين وبيجمع زياراتو)</span></label><input id="bkPhone" inputmode="tel" placeholder="09xxxxxxxx"><div id="bkHit"></div></div>
     <div class="frow"><label>الاسم</label><input id="bkName" placeholder="اسم الزبون"></div>
-    <div class="frow"><label>الخدمات</label><div class="svc-list" id="bkSvcs">${SERVICES.map(s =>
-      `<button class="svc" data-id="${s.id}" onclick="togSvc(this)">${s.name}<small>${s.duration_min||30}د</small></button>`).join("")}</div>
+    <div class="frow"><label>الخدمات</label><div class="svc-list" id="bkSvcs">${grpPick(SERVICES, "svc", s =>
+      `<button class="svc" data-id="${s.id}" onclick="togSvc(this)">${s.name}<small>${s.duration_min||30}د</small></button>`)}</div>
       <p class="muted" id="bkDur" style="margin-top:6px"></p></div>
     <div class="frow"><label>مصدر الحجز</label><div class="chips">${SOURCES.map(s =>
       `<button class="chip" data-s="${s}" onclick="togSrc(this)">${s}</button>`).join("")}</div></div>
@@ -694,6 +695,18 @@ function pickCust(id, name, phone){
   document.getElementById("bkName").value = name;
   document.getElementById("bkPhone").value = phone;
   document.getElementById("bkHit").innerHTML = `<p class="muted">✓ زبون مسجل</p>`;
+}
+// خدمات إلها مجموعة (متل الصبغة) بتنعرض بزر واحد، بتكبسيه بيطلعو الأنواع (فيكي تختاري أكتر من وحدة)
+function grpPick(list, cls, btn){
+  let out = ""; const seen = {};
+  list.forEach(s => {
+    if (!s.grp) { out += btn(s); return; }
+    if (seen[s.grp]) return; seen[s.grp] = 1;
+    const inner = list.filter(x => x.grp === s.grp).map(btn).join("");
+    const anyOn = /class="[^"]*\bon\b/.test(inner);
+    out += `<button type="button" class="${cls} grp-tog${anyOn ? " has" : ""}" onclick="this.nextElementSibling.classList.toggle('open')">${s.grp} ▾</button><span class="grp-box${anyOn ? " open" : ""}">${inner}</span>`;
+  });
+  return out;
 }
 function togSvc(el){
   const id = +el.dataset.id;
@@ -1444,8 +1457,8 @@ function openPay(id, kind){
       <div class="frow"><label>الحلاق</label><div class="chips" id="payBarbers">${BARBERS.map(b =>
         `<button class="chip ${payState.barber_id === b.id ? "on" : ""}" data-b="${b.id}" onclick="payBarber(this)">${b.name}</button>`).join("")}
         <button class="chip ${p && !p.barber_id ? "on" : ""}" data-b="" onclick="payBarber(this)">بلا حلاق</button></div></div>
-      <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${SERVICES.filter(x => +x.price > 0).map(x =>
-        `<button class="chip ${p && idsFromWhat(p.what).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`).join("")}
+      <div class="frow"><label>الخدمة — بتعبّي المبلغ لحالها</label><div class="chips">${grpPick(SERVICES.filter(x => +x.price > 0), "chip", x =>
+        `<button class="chip ${p && idsFromWhat(p.what).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="paySvc(this)">${x.name}</button>`)}
         <button class="chip" onclick="document.getElementById('payWhat').focus()">أخرى</button></div></div>
       <div class="frow"><label>شو الدفعة — اكتبيها باليد إذا مو بالقائمة</label><input id="payWhat" value="${esc(p && p.what)}" placeholder="كامل · دقن..." oninput="commLive()"></div>
       <div class="frow"><label>المبلغ (ل.س)</label><input id="payAmount" inputmode="numeric" value="${p ? +p.amount : ""}" placeholder="مثلاً 120000" oninput="commLive()"></div>
@@ -1718,8 +1731,8 @@ function openAppt(id){
       <button class="btn" style="margin-top:12px" onclick="apSaveInfo('${a.id}')">احفظ التعديل</button>
     </div>
     <div class="frow"><label>✂️ الخدمات — اكبسي لتضيفي خدمة تانية أو تشيلي وحدة</label>
-      <div class="chips" id="apSvcs">${SERVICES.map(x =>
-        `<button class="chip ${svcIds(a).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="apTogSvc('${a.id}',this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`).join("")}</div></div>
+      <div class="chips" id="apSvcs">${grpPick(SERVICES, "chip", x =>
+        `<button class="chip ${svcIds(a).includes(x.id) ? "on" : ""}" data-s="${x.id}" onclick="apTogSvc('${a.id}',this)">${x.name}${+x.price ? ` <span style="opacity:.55;font-weight:400">${fmt(+x.price / 1000)}</span>` : ""}</button>`)}</div></div>
     <div class="frow"><label>⏱ مدة الموعد — صغّرها ليفتح المجال لموعد تاني</label>
       <div class="chips" style="margin-bottom:8px">${[15,30,45,60,90].map(m =>
         `<button class="chip ${bookingMins(a)===m?"on":""}" onclick="setDur('${a.id}',${m})">${m} د</button>`).join("")}</div>
