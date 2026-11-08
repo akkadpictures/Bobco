@@ -720,10 +720,22 @@ function togSrc(el){
   bookState.source = el.dataset.s;
   document.querySelectorAll("#bookSheet .chip").forEach(c => c.classList.toggle("on", c === el));
 }
+// نفس الزبون بنفس اليوم: بالرقم، أو بالاسم إذا ما في رقم (والاسم مو عام متل «زبون»)
+const GENERIC_NAMES = ["زبون", "زبونة", "زبون جديد", "—"];
+const sameCust = (x, name, phone) => (phone && cleanPh(x.phone) === phone) ||
+  (!phone && name && !GENERIC_NAMES.includes(name) && String(x.customer_name || "").trim() === name);
+const liveAppt = x => isLive(x) && x.source !== "بريك" && x.source !== OFF_SRC && x.status !== "ما إجا";
+let dupOk = false;
 async function saveBook(){
-  const name = document.getElementById("bkName").value.trim();
+  let name = document.getElementById("bkName").value.trim();
   const phone = cleanPh(document.getElementById("bkPhone").value);
   if (!name) return toast("اكتب اسم الزبون");
+  if (!dupOk){
+    const dup = BOOKINGS.find(x => liveAppt(x) && x.booking_date === iso(curDate) && sameCust(x, name, phone));
+    if (dup) return dupAsk(dup);
+  }
+  if (dupOk === "friend" && !/رفيق/.test(name)) name = name + " (رفيق)";
+  dupOk = false;
   const ids = [...bookState.services];
   const mins = ids.reduce((s,i) => s + (+(SERVICES.find(x=>x.id===i)||{}).duration_min || 30), 0) || Number(SETTINGS.slot_minutes||30);
   // customer upsert
@@ -742,6 +754,30 @@ async function saveBook(){
   });
   if (error) { console.error(error); return toast("صار خطأ — جرب كمان مرة"); }
   closeOv("bookOv"); toast("✓ انحجز"); drawCal();
+}
+// الزبون عندو موعد بنفس اليوم: يا نفس الشخص (منقل موعدو لهون)، يا رفيقو (حجز جديد باسم مميّز)
+function dupAsk(dup){
+  const bn = (BARBERS.find(b => b.id === dup.barber_id) || {}).name || "";
+  const box = document.getElementById("dupBox") || Object.assign(document.createElement("div"), { id: "dupBox" });
+  box.style.cssText = "background:#fff6e6;border:1px solid #e3c98f;border-radius:14px;padding:12px;margin:10px 0";
+  box.innerHTML = `<b>⚠️ ${esc_(dup.customer_name)} عندو موعد اليوم عند ${bn} الساعة ${dup.booking_time}</b>
+    <p class="muted" style="margin:6px 0 10px">نفس الشخص ولا رفيقو؟ لا تحجزيلو عند حلاقين اتنين لتمسكي الدور.</p>
+    <div class="btn-row" style="margin:0">
+      <button class="btn" onclick="dupMove('${dup.id}')">نفس الشخص — انقل موعدو لهون</button>
+      <button class="btn ghost" onclick="dupOk='friend';saveBook()">شخص تاني (رفيقو) — احجز</button>
+    </div>`;
+  const btn = [...document.querySelectorAll("#bookSheet .btn")].find(b => /ثبّت الحجز/.test(b.textContent));
+  (btn || document.getElementById("bookSheet").lastElementChild).before(box);
+}
+async function dupMove(id){
+  const dup = BOOKINGS.find(x => x.id === id); if (!dup) return;
+  const prev = { barber_id: dup.barber_id, booking_time: dup.booking_time };
+  const upd = { barber_id: bookState.barber_id, booking_time: bookState.time };
+  const { error } = await db.from("bookings").update(upd).eq("id", id);
+  if (error) { console.error(error); return toast("ما انتقل — جرب كمان مرة"); }
+  if (typeof UNDO !== "undefined") { UNDO.push({ id, prev, label: "نقل " + (dup.customer_name || "") }); if (typeof syncUndo === "function") syncUndo(); }
+  Object.assign(dup, upd); dupOk = false;
+  closeOv("bookOv"); toast("✓ انتقل الموعد — ما انعمل حجز جديد"); drawCal();
 }
 
 /* ---------- break: بلوك يدوي — السكرتيرة بتحدد الحلاق، من أيمتى، ولأيمتى ---------- */
@@ -1048,7 +1084,11 @@ const isCareSvc = x => !!x && x.section === "عناية";
 function splitAmt(ids, amount){
   const list = (ids || []).map(i => SERVICES.find(x => x.id === i)).filter(Boolean);
   const tot = list.reduce((s, x) => s + (+x.price || 0), 0), carePrice = list.filter(isCareSvc).reduce((s, x) => s + (+x.price || 0), 0);
-  const care = !list.length ? 0 : list.every(isCareSvc) ? amount : tot > 0 ? Math.round(amount * carePrice / tot) : 0;
+  const hasCare = list.some(isCareSvc), cutPrice = tot - carePrice;
+  // الحلاقة بسعرها، والباقي خدمات (بنسبة الخدمات) — حتى لو الخدمة «حسب الطلب» أو انضافت عالموعد نفسو
+  // إذا المبلغ أقل من مجموع الأسعار (خصم) بيتقسّم بالتناسب
+  const care = !list.length || !hasCare ? 0 : list.every(isCareSvc) ? amount
+    : amount >= tot ? amount - cutPrice : tot > 0 ? Math.round(amount * carePrice / tot) : 0;
   return { cut: amount - care, care };
 }
 const idsFromWhat = w => String(w || "").split("+").map(n => (SERVICES.find(x => x.name === n.trim()) || {}).id).filter(Boolean);
@@ -1132,6 +1172,9 @@ async function renderAcc(){
   const open_ = real.filter(b => ["بانتظار التأكيد", "جديد", "مؤكد", "وصل"].includes(b.status) && !(+b.amount > 0));
   // ملغي/ما إجا وعليه مبلغ مسجّل — مو محسوب، بس لازم ينشاف
   const ghost = BOOKINGS.filter(b => b.source !== "بريك" && b.source !== OFF_SRC && (!isLive(b) || b.status === "ما إجا") && +b.amount > 0);
+  // نفس الزبون عند أكتر من حلاق واحد منهم لسا مفتوح — غالباً انحجزلو بمكانين وبقي واحد زيادة
+  const dupOpen = real.filter(b => !(+b.amount > 0) && b.status !== "ما إجا" &&
+    real.some(o => o.id !== b.id && o.barber_id !== b.barber_id && sameCust(o, String(b.customer_name || "").trim(), cleanPh(b.phone))));
   ACC = { rows, per, other, otherSum, prods, perfs, exps, total, toBarbers, prodSum, prodCost, perfSum, perfDol, perfQty, perfTxt, perfAll, expSum, net, netTxt, usdIn, usdSypOut, unpaid: unpaid.length, open_, ghost,
           count: PAYMENTS.find(p => kindOf(p) === "count") || null };
   const head = t => `<p style="font-weight:800;margin:16px 0 4px">${t}</p>`;
@@ -1140,6 +1183,7 @@ async function renderAcc(){
   document.getElementById("accList").innerHTML =
     warn("مواعيد لسا مفتوحة وما عليها حساب — إذا الزبون إجا اكبسي «حاسب»، وإذا ما إجا علّميه", open_, "سكّري الموعد") +
     warn("ملغيين وعليهم مبلغ مسجّل — مو محسوبين. إذا الزبون دفع فعلاً رجّعي الموعد «خلص»", ghost, "اكبسي لتسكّريه") +
+    warn("زبون محجوز عند أكتر من حلاق وواحد منهم لسا مفتوح — إذا نفس الشخص ألغي الزيادة", dupOpen, "ألغي إذا مكرر") +
     (unpaid.length ? `<p class="muted" style="margin:4px 0 6px;font-weight:800;opacity:1;color:var(--neg)">خلصو وما تسجّل حسابهم (${unpaid.length}) — اكبسي عالاسم وسجّلي:</p>` +
       unpaid.map(b => `<div class="cust-row" style="cursor:pointer" onclick="openAppt('${b.id}')"><div><b>${b.customer_name || "—"}</b><span class="muted">${b.booking_time} · ${bName(b.barber_id)} · ${svcNames(b) || ""}</span></div><span class="pill">سجّل الحساب</span></div>`).join("") : "") +
     (rows.map(r => `<div class="cust-row" style="cursor:pointer" onclick="${r.kind === "b" ? `openAppt('${r.id}')` : `openPay('${r.id}')`}">
@@ -1892,9 +1936,26 @@ async function ghostFix(id, paid){
   if (error) { console.error(error); toast("ما انحفظ — جرب كمان مرة"); }
   drawCal();
 }
+let paidDupOk = null;
 async function saveAmount(id){
   const a = BOOKINGS.find(x => x.id === id);
   const v = +String(document.getElementById("apAmount").value).replace(/[^\d.]/g, "") || null;
+  if (v && a && !(+a.amount > 0) && paidDupOk !== id){
+    const other = BOOKINGS.find(x => x.id !== id && liveAppt(x) && x.booking_date === a.booking_date && +x.amount > 0 &&
+      sameCust(x, String(a.customer_name || "").trim(), cleanPh(a.phone)));
+    if (other){
+      const bn = (BARBERS.find(b => b.id === other.barber_id) || {}).name || "";
+      const box = document.getElementById("paidDupBox") || Object.assign(document.createElement("div"), { id: "paidDupBox" });
+      box.style.cssText = "background:#fff6e6;border:1px solid #e3c98f;border-radius:14px;padding:12px;margin:10px 0";
+      box.innerHTML = `<b>⚠️ ${esc_(a.customer_name)} محسوب اليوم عند ${bn} (${fmt(+other.amount)})</b>
+        <p class="muted" style="margin:6px 0 10px">إذا نفس الشخص، لا تحسبيه مرتين — ضيفي الخدمة عالموعد الأول. إذا رفيقو، كمّلي.</p>
+        <button class="btn" style="margin:0" onclick="paidDupOk='${id}';saveAmount('${id}')">شخص تاني — احسب</button>`;
+      const btn = [...document.querySelectorAll("#apptSheet .btn")].find(b => /حاسب|عدّل الحساب/.test(b.textContent));
+      (btn ? btn.closest(".btn-row") || btn : document.getElementById("apptSheet").lastElementChild).before(box);
+      return;
+    }
+  }
+  paidDupOk = null;
   const uEl = document.getElementById("apUsd"), u = uEl ? (+String(uEl.value).replace(/[^\d.]/g, "") || null) : null;
   const upd = { amount: v, usd: v ? u : null, comm_rate: v ? commPick : null, care_rate: v ? carePick : null };
   // حاسب = خلص: إذا الموعد لسا مؤكد/وصل منقلبو «خلص» مع تسجيل الحساب
