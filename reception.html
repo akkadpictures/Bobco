@@ -1357,6 +1357,7 @@ function commBlock(cur, curCare){
   return `<div class="frow"><label>نسبة الحلاق من هالدفعة — الأساس تلقائي، وكل قسم بيتعدّل لحالو إذا في اتفاق خاص</label>
     ${commRow("cut", "✂️ الحلاقة", commPick)}
     ${commRow("care", "🧴 الخدمات", carePick)}
+    <p class="muted" style="margin-top:6px;font-size:.78rem">النسبة العادية محطوطة لحالها — ما بدها كبسة. غيّري بس إذا في اتفاق خاص.</p>
     <p class="muted" id="commLive" style="margin-top:8px;opacity:.85"></p></div>`;
 }
 function pickComm(which, v, fromInput){
@@ -1374,7 +1375,16 @@ function commLive(){
   const show = (w, on) => { const r = document.getElementById("commRow_" + w); if (r) r.style.display = on ? "" : "none"; };
   show("cut", hasCut); show("care", hasCare);
   const sub = (w, t) => { const x = document.getElementById("commSub_" + w); if (x) x.textContent = t; };
-  sub("cut", b ? `— التلقائي ${pct(commRate(b))}` : ""); sub("care", b ? `— التلقائي ${pct(defCare(b))}` : "");
+  sub("cut", ""); sub("care", "");
+  // زر «تلقائي» بيكتب النسبة نفسها (✓ 50% تلقائي)، وزر النسبة المكرر بيختفي — لحتى ما تنكبس كل مرة عالفاضي
+  const autoLbl = (w, def) => {
+    const box = document.getElementById("commChips_" + w); if (!box) return;
+    box.querySelectorAll(".chip").forEach(c => {
+      if (c.dataset.r === "") c.textContent = b ? `✓ ${pct(def)} تلقائي` : "تلقائي";
+      else c.style.display = (b && +c.dataset.r === def && !c.classList.contains("on")) ? "none" : "";
+    });
+  };
+  if (b) { autoLbl("cut", commRate(b)); autoLbl("care", defCare(b)); }
   if (!b) { el.textContent = "بلا حلاق — كلو للصالون"; return; }
   if (!amount) { el.textContent = ""; return; }
   const r = { amount, rate: commPick, crate: carePick, ...splitAmt(ids, amount) }, share = shareOf(b, r);
