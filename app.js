@@ -477,7 +477,7 @@ async function submitBooking(){
     `<br><br><b style="color:var(--olive)">اضغط الزر الأخضر تحت لإرسال حجزك وتثبيته 👇</b>`;
   document.getElementById('confirmCode').textContent = code;
 
-  const SHOP_WA = "963949534048";
+  const SHOP_WA = "971523177745"; // واتساب المحل (الإماراتي) — الرقم السوري للاتصال فقط
   const proteinTxt = hasProtein ? `\nملاحظة: حساب البروتين لاحقاً` : '';
   const detailsRaw =
     `حجز جديد — Bob & Co\n` +
