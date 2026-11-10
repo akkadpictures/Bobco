@@ -169,6 +169,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .inq-days{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:6px;scrollbar-width:none}
 .inq-days::-webkit-scrollbar{display:none}
 .iday{flex:0 0 auto;min-width:78px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 10px;text-align:center;cursor:pointer;font-family:inherit;color:var(--ink)}
+.iday.tot{border:1.5px solid var(--olive)}
 .iday span{display:block;font-size:.68rem;font-weight:700;opacity:.65}
 .iday b{display:block;font-size:1.35rem;font-weight:800;color:var(--olive);line-height:1.2}
 .iday small{font-size:.64rem;opacity:.55;font-weight:700}
@@ -2094,7 +2095,8 @@ async function renderInquiries(keep){
       <div><b>${base.length - bConv}</b><span>بس سأل</span></div>
       <div class="hl"><b dir="ltr">${pct(bConv, base.length)}%</b><span>نسبة الحجز</span></div>
     </div>
-    <div class="inq-days">${days.map(d => {
+    <div class="inq-days">${days.length ? (() => { const cv = conv.length, n = INQUIRIES.length;
+      return `<button class="iday tot${!isDay ? " on" : ""}" onclick="INQ_F.day='all';renderInquiries('local')"><span>المجموع · الشهر</span><b>${n}</b><small>${cv} حجز · <bdi dir="ltr">${pct(cv, n)}%</bdi></small></button>`; })() : ""}${days.map(d => {
       const L = byDay[d], cv = L.filter(i => i.converted).length;
       return `<button class="iday${INQ_F.day === d ? " on" : ""}" onclick="INQ_F.day='${d}';renderInquiries('local')"><span>${dLbl(d)}</span><b>${L.length}</b><small>${cv} حجز · <bdi dir="ltr">${pct(cv, L.length)}%</bdi></small></button>`;
     }).join("") || `<span class="muted">لسا ما في استفسارات هالشهر</span>`}</div>
