@@ -189,6 +189,11 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .chc-bar{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:8px}
 .chc-bar i{display:block;height:100%;background:var(--olive);border-radius:99px}
 .chc small{font-size:.7rem;opacity:.65;font-weight:700}
+.chc-conv{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:.78rem;font-weight:700}
+.chc-conv>span:first-child{background:#e6efe3;color:#2f5a32;padding:4px 9px;border-radius:99px}
+.chc-conv b{font-size:1rem;font-weight:800}
+.chc-conv .pc{opacity:.7}
+.chc.inq-tot .chc-conv>span:first-child{background:rgba(255,255,255,.16)}
 .toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:fit-content;background:var(--olive);color:var(--cream);padding:11px 22px;border-radius:999px;font-weight:800;z-index:99;opacity:0;pointer-events:none;transition:.3s}
 .toast.show{opacity:1}
 @media(max-width:700px){ .grid th{min-width:128px} .grid td.cell{min-width:128px} .svc-list{grid-template-columns:1fr} }
@@ -2104,11 +2109,11 @@ async function renderInquiries(keep){
         <div class="chc-h"><span>${c.ch}</span>${c.today ? `<em>+${c.today} اليوم</em>` : ""}</div>
         <div class="chc-n" style="display:flex;align-items:baseline;gap:6px"><b>${c.n}</b><span style="font-size:.75rem;opacity:.55;font-weight:700">استفسار</span></div>
         <div class="chc-bar"><i style="width:${Math.round(c.n / max * 100)}%"></i></div>
-        <small>صار منهم ${c.conv} حجز · <bdi dir="ltr">${pct(c.conv, c.n)}%</bdi></small>
+        <div class="chc-conv"><span>✓ ثبّتوا حجز: <b>${c.conv}</b></span><span class="pc">نسبة <b dir="ltr">${pct(c.conv, c.n)}%</b></span></div>
       </div>`).join("")}
     <div class="chc inq-tot"><div class="chc-h"><span>المجموع — ${scopeLbl}</span></div>
       <div class="chc-n" style="display:flex;align-items:baseline;gap:6px"><b>${base.length}</b><span style="font-size:.75rem;opacity:.55;font-weight:700">استفسار</span></div>
-      <small>صار منهم ${bConv} حجز · <bdi dir="ltr">${pct(bConv, base.length)}%</bdi></small></div></div>`;
+      <div class="chc-conv"><span>✓ ثبّتوا حجز: <b>${bConv}</b></span><span class="pc">نسبة <b dir="ltr">${pct(bConv, base.length)}%</b></span></div></div></div>`;
   const list = base.filter(i => !INQ_F.ch || i.channel === INQ_F.ch);
   const fl = [INQ_F.ch, isDay && dLbl(INQ_F.day)].filter(Boolean).join(" · ");
   const head = fl
