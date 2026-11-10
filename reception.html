@@ -165,6 +165,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .inq-sum span{font-size:.72rem;opacity:.6;font-weight:700}
 .inq-sum .hl{background:#323723 var(--pat-green) 0 0/200% auto repeat-y}.inq-sum .hl b,.inq-sum .hl span{color:var(--cream)}
 .inq-ch{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.inq-scope{font-weight:800;font-size:.95rem;margin:0 2px 8px;color:var(--olive)}
 .inq-days{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 10px;margin-bottom:6px;scrollbar-width:none}
 .inq-days::-webkit-scrollbar{display:none}
 .iday{flex:0 0 auto;min-width:78px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:9px 10px;text-align:center;cursor:pointer;font-family:inherit;color:var(--ink)}
@@ -183,7 +184,7 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .chc.top{border-color:var(--olive);box-shadow:0 0 0 1px var(--olive) inset}
 .chc-h{display:flex;justify-content:space-between;align-items:center;gap:6px;font-weight:800;font-size:.9rem}
 .chc-h em{font-style:normal;font-size:.68rem;background:var(--cream);color:var(--olive);padding:2px 7px;border-radius:99px;white-space:nowrap}
-.chc>b{display:block;font-size:1.9rem;font-weight:800;color:var(--olive);margin:4px 0 6px;line-height:1}
+.chc>b,.chc .chc-n b{display:block;font-size:1.9rem;font-weight:800;color:var(--olive);margin:4px 0 6px;line-height:1}
 .chc-bar{height:5px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:8px}
 .chc-bar i{display:block;height:100%;background:var(--olive);border-radius:99px}
 .chc small{font-size:.7rem;opacity:.65;font-weight:700}
@@ -2057,9 +2058,10 @@ let INQ_F = { day:null, ch:null };
 const INQ_TOPICS = ["سعر","موعد","بكج عريس","موقع/عنوان","دوام","عناية/بشرة","عطور","كوفي"];
 const inqDay = i => iso(new Date(i.at));
 function inqFilter(k, v){ INQ_F[k] = INQ_F[k] === v ? null : v; renderInquiries("local"); }
-function inqClear(){ INQ_F = { day:null, ch:null }; renderInquiries("local"); }
+function inqClear(){ INQ_F = { day:"all", ch:null }; renderInquiries("local"); }
+// الفترة: يوم محدد (iso) أو "all" = الشهر كلو. أول ما تنفتح الصفحة بتبلّش على اليوم
 async function renderInquiries(keep){
-  if (!keep) INQ_F = { day:null, ch:null };
+  if (!keep) INQ_F = { day: iso(new Date()), ch:null };
   if (keep !== "local") await loadInquiries();
   document.getElementById("inqBtns").innerHTML = INQ_CHANNELS.map(ch =>
     `<button class="inq-btn" onclick="logInq('${ch}')">${ch}<small>+ رسالة جديدة</small></button>`).join("");
@@ -2068,43 +2070,50 @@ async function renderInquiries(keep){
   const conv = INQUIRIES.filter(i => i.converted);
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
   // الأرقام بالبطاقات بتمشي مع اليوم المختار (إذا في)
-  const base = INQ_F.day ? INQUIRIES.filter(i => inqDay(i) === INQ_F.day) : INQUIRIES;
+  const isDay = INQ_F.day && INQ_F.day !== "all";
+  const base = isDay ? INQUIRIES.filter(i => inqDay(i) === INQ_F.day) : INQUIRIES;
   const chs = INQ_CHANNELS.map(ch => {
     const all = base.filter(i => i.channel === ch);
-    return { ch, n: all.length, today: INQ_F.day ? 0 : all.filter(i => inqDay(i) === tIso).length, conv: all.filter(i => i.converted).length };
+    return { ch, n: all.length, today: isDay ? 0 : all.filter(i => inqDay(i) === tIso).length, conv: all.filter(i => i.converted).length };
   }).sort((a, b) => b.n - a.n);
   const max = Math.max(1, ...chs.map(c => c.n));
   // شريط الأيام: كل يوم بالشهر فيه استفسارات، الأحدث أول
   const byDay = {}; INQUIRIES.forEach(i => { const d = inqDay(i); (byDay[d] = byDay[d] || []).push(i); });
   const days = Object.keys(byDay).sort().reverse();
   const dLbl = d => { const x = new Date(d + "T12:00:00"); return `${["أحد","اثنين","ثلاثاء","أربعاء","خميس","جمعة","سبت"][x.getDay()]} <bdi dir="ltr">${x.getDate()}/${x.getMonth()+1}</bdi>`; };
+  const yIso = iso(new Date(Date.now() - 864e5));
+  const bConv = base.filter(i => i.converted).length;
+  const scopeLbl = !isDay ? "كل الشهر" : INQ_F.day === tIso ? "اليوم " + dLbl(INQ_F.day).replace(/^[^<]+/, "") : INQ_F.day === yIso ? "مبارح " + dLbl(INQ_F.day).replace(/^[^<]+/, "") : dLbl(INQ_F.day);
+  const scBtn = (v, t) => `<button class="chip${(v === "all" ? !isDay : INQ_F.day === v) ? " on" : ""}" onclick="INQ_F.day='${v}';renderInquiries('local')">${t}</button>`;
   document.getElementById("inqStats").innerHTML = `
+    <div class="chips" style="margin-bottom:10px">${scBtn(tIso, "اليوم")}${scBtn(yIso, "مبارح")}${scBtn("all", "كل الشهر")}</div>
+    <div class="inq-scope">${scopeLbl}</div>
     <div class="inq-sum">
-      <div class="clk${INQ_F.day === tIso ? " sel" : ""}" onclick="inqFilter('day','${tIso}')"><b>${today.length}</b><span>اليوم</span></div>
-      <div class="clk" onclick="inqClear()"><b>${INQUIRIES.length}</b><span>هالشهر</span></div>
-      <div><b>${conv.length}</b><span>حجز مؤكد</span></div>
-      <div class="hl"><b dir="ltr">${pct(conv.length, INQUIRIES.length)}%</b><span>نسبة الحجز</span></div>
+      <div><b>${base.length}</b><span>استفسار</span></div>
+      <div><b>${bConv}</b><span>صار حجز</span></div>
+      <div><b>${base.length - bConv}</b><span>بس سأل</span></div>
+      <div class="hl"><b dir="ltr">${pct(bConv, base.length)}%</b><span>نسبة الحجز</span></div>
     </div>
     <div class="inq-days">${days.map(d => {
       const L = byDay[d], cv = L.filter(i => i.converted).length;
-      return `<button class="iday${INQ_F.day === d ? " on" : ""}" onclick="inqFilter('day','${d}')"><span>${dLbl(d)}</span><b>${L.length}</b><small>${cv} حجز</small></button>`;
+      return `<button class="iday${INQ_F.day === d ? " on" : ""}" onclick="INQ_F.day='${d}';renderInquiries('local')"><span>${dLbl(d)}</span><b>${L.length}</b><small>${cv} حجز · <bdi dir="ltr">${pct(cv, L.length)}%</bdi></small></button>`;
     }).join("") || `<span class="muted">لسا ما في استفسارات هالشهر</span>`}</div>
     <div class="inq-ch">${chs.map((c, k) => `
       <div class="chc clk${INQ_F.ch === c.ch ? " sel" : ""}${!INQ_F.ch && k === 0 && c.n ? " top" : ""}" onclick="inqFilter('ch','${c.ch}')">
         <div class="chc-h"><span>${c.ch}</span>${c.today ? `<em>+${c.today} اليوم</em>` : ""}</div>
-        <b>${c.n}</b>
+        <div class="chc-n" style="display:flex;align-items:baseline;gap:6px"><b>${c.n}</b><span style="font-size:.75rem;opacity:.55;font-weight:700">استفسار</span></div>
         <div class="chc-bar"><i style="width:${Math.round(c.n / max * 100)}%"></i></div>
-        <small>${c.conv} حجز مؤكد · <bdi dir="ltr">${pct(c.conv, c.n)}%</bdi></small>
+        <small>صار منهم ${c.conv} حجز · <bdi dir="ltr">${pct(c.conv, c.n)}%</bdi></small>
       </div>`).join("")}</div>`;
   const list = base.filter(i => !INQ_F.ch || i.channel === INQ_F.ch);
-  const fl = [INQ_F.ch, INQ_F.day && dLbl(INQ_F.day)].filter(Boolean).join(" · ");
+  const fl = [INQ_F.ch, isDay && dLbl(INQ_F.day)].filter(Boolean).join(" · ");
   const head = fl
     ? `<div class="inq-fh"><span>${fl} — <b>${list.length}</b> استفسار · ${list.filter(i=>i.converted).length} حجز</span><button onclick="inqClear()">✕ الكل</button></div>`
     : `<div class="inq-fh"><span>آخر الاستفسارات — اكبسي على يوم أو قناة لتفلتري</span></div>`;
   const tm = i => new Date(i.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
   document.getElementById("inqList").innerHTML = head +
     (fl ? list : list.slice(0,40)).map(i =>
-      `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${fl && INQ_F.day ? "" : dLbl(inqDay(i)) + " · "}<bdi dir="ltr">${tm(i)}</bdi></span>${i.note ? `<span class="inq-note">${esc_(i.note)}</span>` : ""}</div>
+      `<div class="cust-row"><div><b>${i.channel}</b><span class="muted">${fl && isDay ? "" : dLbl(inqDay(i)) + " · "}<bdi dir="ltr">${tm(i)}</bdi></span>${i.note ? `<span class="inq-note">${esc_(i.note)}</span>` : ""}</div>
        <span style="display:flex;gap:6px;align-items:center"><button class="pill" style="border:none;cursor:pointer;background:${i.converted ? "var(--pos)" : "var(--cream)"};color:${i.converted ? "#fff" : "var(--olive)"}"
          onclick="togConv('${i.id}',${!i.converted})">${i.converted ? "✓ ثبّت" : "ثبّت حجز؟"}</button>
        <button class="pill" style="border:1px solid var(--line);background:#fff;cursor:pointer" onclick="editInq('${i.id}')">تعديل</button></span></div>`).join("")
