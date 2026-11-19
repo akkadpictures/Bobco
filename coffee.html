@@ -380,7 +380,7 @@ const tm = r => new Date(r.created_at).toLocaleTimeString("en-GB", { hour: "2-di
 const dm = s => `${+s.slice(8)}/${+s.slice(5, 7)}`;
 const cupsOf = r => (r.items || []).filter(i => !i.adj).reduce((s, i) => s + (+i.qty || 0), 0);
 const itemsTxt = r => (r.items || []).map(i => i.adj ? `${i.name} ${nl(Math.abs(i.price))}` : i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
-const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "سيروبات", "كاسات وأغطية", "تنظيف"];
+const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "سيروبات", "كاسات وأغطية", "تنظيف", "راتب عدنان"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
 let WHERE = null;   // "كرسي 3" · "خارجي" · null
 function whereHtml(sel, fn){
