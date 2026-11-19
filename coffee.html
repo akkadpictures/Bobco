@@ -86,7 +86,7 @@ body.simple .cards{grid-template-columns:repeat(3,1fr)}
 .item.other{background:transparent;border:1.5px dashed rgba(52,57,37,.35);box-shadow:none}
 .item.other b{color:var(--olive)}
 
-.order{background:#fff;border-radius:20px;padding:18px;position:sticky;top:14px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
+.order{background:#fff;border-radius:20px;padding:18px;position:sticky;top:84px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
 .order h3{font-size:1.3rem;font-weight:400;color:var(--olive);display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .order h3 button{font-size:.82rem;opacity:.55;font-weight:700}
 .lines{max-height:36vh;overflow:auto}
@@ -200,12 +200,19 @@ body.simple .cards{grid-template-columns:repeat(3,1fr)}
 .overlay{position:fixed;inset:0;background:rgba(15,15,15,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .overlay.on{display:flex}
 .sheet{background:var(--cream-soft);border-radius:22px 22px 0 0;width:min(560px,100vw);max-height:92vh;overflow:auto;padding:20px 18px calc(24px + env(safe-area-inset-bottom,0px))}
-.sheet h3{margin-bottom:14px;font-size:1.2rem}
+.sheet h3{margin-bottom:14px;font-size:1.2rem;padding-inline-end:48px}
+.sheet{position:relative}
+.xbtn{position:absolute;top:14px;inset-inline-end:14px;width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line);font-size:1.35rem;line-height:1;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;z-index:2}
+.order .xbtn{display:none}
+body.simple .tabs{grid-template-columns:repeat(3,1fr)}
+.tabs{position:sticky;top:8px;z-index:25;box-shadow:0 4px 14px rgba(15,15,15,.08)}
+.tabs .tab{padding-top:13px;padding-bottom:13px;font-size:1rem}
+.cats{position:sticky;top:76px;z-index:24;background:var(--cream);padding:6px 0;margin-top:-6px}
 .toast{position:fixed;bottom:22px;inset-inline:0;margin:auto;width:fit-content;max-width:92vw;background:var(--ink);color:var(--cream);padding:12px 14px 12px 22px;border-radius:999px;font-weight:700;z-index:99;opacity:0;pointer-events:none;transition:.25s;display:flex;gap:14px;align-items:center}
 .toast.show{opacity:1;pointer-events:auto}
 .toast button{background:var(--cream);color:var(--ink);border-radius:999px;padding:6px 14px;font-weight:700;font-size:.85rem;display:none}
 .toast.undo button{display:inline-block}
-@media(max-width:900px){ .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
+@media(max-width:900px){ .order .xbtn{display:flex} .order h3{padding-inline-end:52px} .item{min-height:88px;padding:14px 14px 12px} .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
 body.simple .adv{display:none!important}
 .card.net .v{color:var(--olive)}
 .moreb{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-size:.8rem;font-family:inherit;cursor:pointer;margin-inline-start:8px}
@@ -261,6 +268,7 @@ body.simple .adv{display:none!important}
         <div class="menu" id="menu"></div>
       </div>
       <aside class="order" id="order">
+        <button class="xbtn" onclick="closeOrder()" aria-label="سكّر">✕</button>
         <h3>الطلب <button onclick="clearCart()">تفريغ</button></h3>
         <div class="lines" id="lines"></div>
         <div id="adjLine"></div>
@@ -1054,7 +1062,7 @@ function showView(v){
   if (v === "sup") renderSup();
   if (v === "day") loadDay();
 }
-function sheet(html){ document.getElementById("sheet").innerHTML = html; document.getElementById("ov").classList.add("on"); }
+function sheet(html){ document.getElementById("sheet").innerHTML = `<button class="xbtn" onclick="closeSheet()" aria-label="سكّر">✕</button>` + html; document.getElementById("ov").classList.add("on"); }
 function closeSheet(){ document.getElementById("ov").classList.remove("on"); }
 function toast(msg, undo){
   const t = document.getElementById("toast"), b = document.getElementById("toastBtn");
