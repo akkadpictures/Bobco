@@ -51,7 +51,8 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 #logoutBtn{color:#fff;font-size:.9rem;opacity:.85;font-weight:700;padding:8px}
 
 /* البطاقات — ظاهرة دايماً فوق */
-.cards{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+.cards{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+body.simple .cards{grid-template-columns:repeat(3,1fr)}
 .card{background:#fff;border-radius:18px;padding:16px 16px 14px;text-align:start;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(15,15,15,.05);transition:transform .12s}
 .card:active{transform:scale(.98)}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
@@ -136,7 +137,10 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
   header .sub{display:none}
   header{gap:8px}
   .datepill{padding:7px 12px;font-size:.85rem}
-  header .brandlogo{width:96px}
+  header .brandlogo{width:78px}
+  .datepill{padding:6px 10px;font-size:.8rem}
+  .moreb{padding:5px 9px;font-size:.75rem;margin:0}
+  #logoutBtn{padding:6px 2px;font-size:.8rem}
 }
 
 /* ===== لوحات عامة ===== */
@@ -202,10 +206,14 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 .toast button{background:var(--cream);color:var(--ink);border-radius:999px;padding:6px 14px;font-weight:700;font-size:.85rem;display:none}
 .toast.undo button{display:inline-block}
 @media(max-width:900px){ .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
+body.simple .adv{display:none!important}
+.card.net .v{color:var(--olive)}
+.moreb{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-size:.8rem;font-family:inherit;cursor:pointer;margin-inline-start:8px}
+.xq{display:flex;gap:10px}.xq .frow{flex:1}
 @media(prefers-reduced-motion:reduce){ *{transition:none!important} }
 </style>
 </head>
-<body>
+<body class="simple">
 
 <div id="gate">
   <div style="display:flex;flex-direction:column;align-items:center;gap:26px">
@@ -224,23 +232,25 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
     <span class="datepill" id="todayPill"></span>
-    <button id="logoutBtn" onclick="logout()">خروج</button>
+    <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
+    <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
   </header>
 
   <!-- البطاقات -->
   <div class="cards">
-    <button class="card box" onclick="showView('box')"><span class="l">الصندوق الكلي</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
-    <button class="card" onclick="showView('box')"><span class="l">صندوق اليوم</span><span class="v num" id="cToday">0</span><span class="s" id="cTodayS">&nbsp;</span></button>
+    <button class="card box adv" onclick="showView('box')"><span class="l">الصندوق الكلي</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
+    <button class="card adv" onclick="showView('box')"><span class="l">صندوق اليوم</span><span class="v num" id="cToday">0</span><span class="s" id="cTodayS">&nbsp;</span></button>
     <button class="card" onclick="showView('day')"><span class="l">مبيعات اليوم</span><span class="v num" id="cSales">0</span><span class="s" id="cSalesS">&nbsp;</span></button>
     <button class="card exp" onclick="showView('exp')"><span class="l">مصاريف اليوم</span><span class="v num" id="cExp">0</span><span class="s" id="cExpS">&nbsp;</span></button>
+    <button class="card net" onclick="showView('day')"><span class="l">الصافي</span><span class="v num" id="cNet">0</span><span class="s">مبيعات − مصاريف</span></button>
   </div>
 
   <nav class="tabs">
-    <button class="tab on" data-v="pos" onclick="showView('pos')">الكاشير</button>
-    <button class="tab" data-v="exp" onclick="showView('exp')">المصاريف</button>
-    <button class="tab" data-v="sup" onclick="showView('sup')">الموردين</button>
-    <button class="tab" data-v="box" onclick="showView('box')">الصندوق</button>
-    <button class="tab" data-v="day" onclick="showView('day')">الدفتر</button>
+    <button class="tab on" data-v="pos" onclick="showView('pos')">بيع</button>
+    <button class="tab" data-v="exp" onclick="showView('exp')">مصروف</button>
+    <button class="tab adv" data-v="sup" onclick="showView('sup')">الموردين</button>
+    <button class="tab adv" data-v="box" onclick="showView('box')">الصندوق</button>
+    <button class="tab" data-v="day" onclick="showView('day')">دفتر اليوم</button>
   </nav>
 
   <!-- الكاشير -->
@@ -254,12 +264,12 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
         <h3>الطلب <button onclick="clearCart()">تفريغ</button></h3>
         <div class="lines" id="lines"></div>
         <div id="adjLine"></div>
-        <button class="adjbtn" id="adjBtn" onclick="openAdj()">٪ خصم (ستاف أو غيرو) · أو زيادة</button>
-        <div class="wlbl">وين؟ (اختياري)</div>
-        <div class="where" id="where"></div>
+        <button class="adjbtn adv" id="adjBtn" onclick="openAdj()">٪ خصم (ستاف أو غيرو) · أو زيادة</button>
+        <div class="wlbl adv">وين؟ (اختياري)</div>
+        <div class="where adv" id="where"></div>
         <div class="pays">
           <button class="pay on" data-p="cash" onclick="setPay('cash')">كاش</button>
-          <button class="pay" data-p="usd" onclick="setPay('usd')">دولار</button>
+          <button class="pay adv" data-p="usd" onclick="setPay('usd')">دولار</button>
           <button class="pay" data-p="treat" onclick="setPay('treat')">ضيافة</button>
         </div>
         <div class="usdrow" id="usdRow"><input id="usdIn" type="number" inputmode="decimal" min="0" step="0.5" placeholder="كم دولار انقبض؟"></div>
@@ -278,8 +288,9 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
         <div class="frow"><label>شو المصروف؟</label>
           <div class="chips" id="xQuick" style="margin-bottom:8px"></div>
           <input id="xWhat" placeholder="أو اكتب هون"></div>
-        <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="xAmt" type="number" inputmode="numeric"></div>
-        <div class="frow"><label>من وين انتدفع؟</label>
+        <div class="xq"><div class="frow"><label>العدد</label><input id="xQty" type="number" inputmode="numeric" value="1" min="1"></div>
+          <div class="frow" style="flex:2"><label>المبلغ كلّو (ليرة جديدة)</label><input id="xAmt" type="number" inputmode="numeric" placeholder="مثلاً 650"></div></div>
+        <div class="frow adv"><label>من وين انتدفع؟</label>
           <div class="seg" id="xPaySeg">
             <button class="on" data-p="till" onclick="xPay('till')">من الصندوق</button>
             <button data-p="debt" onclick="xPay('debt')">دين عالمورّد</button>
@@ -287,7 +298,7 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
           <p class="hint">«من الصندوق» بينطرح من الصندوق ومن صافي اليوم. «دين» بينضاف على حساب المورّد، وما بينطرح.</p></div>
         <div class="frow" id="xSupRow" style="display:none"><label>المورّد</label>
           <select id="xSup"></select></div>
-        <div class="frow"><label>ملاحظة (اختياري)</label><input id="xNote"></div>
+        <div class="frow adv"><label>ملاحظة (اختياري)</label><input id="xNote"></div>
         <button class="btn" onclick="saveExpense()">سجّل المصروف</button>
       </div>
       <div>
@@ -361,7 +372,7 @@ const tm = r => new Date(r.created_at).toLocaleTimeString("en-GB", { hour: "2-di
 const dm = s => `${+s.slice(8)}/${+s.slice(5, 7)}`;
 const cupsOf = r => (r.items || []).filter(i => !i.adj).reduce((s, i) => s + (+i.qty || 0), 0);
 const itemsTxt = r => (r.items || []).map(i => i.adj ? `${i.name} ${nl(Math.abs(i.price))}` : i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
-const EXP_QUICK = ["حليب", "بضاعة", "سيروبات", "كاسات وأغطية", "حلويات", "مي", "تلج", "تنظيف", "راتب"];
+const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "سيروبات", "كاسات وأغطية", "تنظيف"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
 let WHERE = null;   // "كرسي 3" · "خارجي" · null
 function whereHtml(sel, fn){
@@ -391,11 +402,17 @@ async function tryPin(){
   remember(); enter();
 }
 document.getElementById("pin").addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
+const SIMPLE_KEY = "bobco_coffee_full";
+function applySimple(){ let full = false; try { full = localStorage.getItem(SIMPLE_KEY) === "1"; } catch(_){}
+  document.body.classList.toggle("simple", !full); document.getElementById("moreBtn").textContent = full ? "بسيط" : "المزيد";
+  if (!full) { const v = (document.querySelector(".view.on") || {}).id; if (v === "v-sup" || v === "v-box") showView("pos"); } }
+function toggleSimple(){ try { localStorage.setItem(SIMPLE_KEY, localStorage.getItem(SIMPLE_KEY) === "1" ? "0" : "1"); } catch(_){ document.body.classList.toggle("simple"); return; } applySimple(); }
 function logout(){ try { localStorage.removeItem(REM_KEY); } catch(_){} location.reload(); }
 
 async function enter(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
+  applySimple();
   document.getElementById("xQuick").innerHTML = EXP_QUICK.map(q => `<button class="chip" onclick="pickQuick(this)">${q}</button>`).join("");
   document.getElementById("where").innerHTML = whereHtml(null, "setWhere");
   await loadMenu();
@@ -472,6 +489,7 @@ function renderCards(){
   document.getElementById("cSales").textContent = nl(A.sales);
   document.getElementById("cSalesS").textContent = `${A.cups} كاسة` + (A.usd ? ` · منها ${A.usd}$` : "");
   document.getElementById("cExp").textContent = nl(A.expSum);
+  document.getElementById("cNet").textContent = nl(A.net);
   document.getElementById("cExpS").textContent = A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ";
 }
 
@@ -661,10 +679,10 @@ async function saveExpense(){
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
     items: sup ? { supplier: sup } : [],
-    note: document.getElementById("xNote").value.trim() || null
+    note: [(+document.getElementById("xQty").value || 1) > 1 ? "×" + (+document.getElementById("xQty").value) : "", document.getElementById("xNote").value.trim()].filter(Boolean).join(" · ") || null
   });
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
-  ["xWhat", "xAmt", "xNote"].forEach(id => document.getElementById(id).value = "");
+  ["xWhat", "xAmt", "xNote"].forEach(id => document.getElementById(id).value = ""); document.getElementById("xQty").value = 1;
   document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.remove("on"));
   xPay("till");
   toast("✓ انسجّل المصروف");
