@@ -410,11 +410,24 @@ async function tryPin(){
   remember(); enter();
 }
 document.getElementById("pin").addEventListener("keydown", e => { if (e.key === "Enter") tryPin(); });
-const SIMPLE_KEY = "bobco_coffee_full";
-function applySimple(){ let full = false; try { full = localStorage.getItem(SIMPLE_KEY) === "1"; } catch(_){}
-  document.body.classList.toggle("simple", !full); document.getElementById("moreBtn").textContent = full ? "بسيط" : "المزيد";
-  if (!full) { const v = (document.querySelector(".view.on") || {}).id; if (v === "v-sup" || v === "v-box") showView("pos"); } }
-function toggleSimple(){ try { localStorage.setItem(SIMPLE_KEY, localStorage.getItem(SIMPLE_KEY) === "1" ? "0" : "1"); } catch(_){ document.body.classList.toggle("simple"); return; } applySimple(); }
+let FULL = false;   // وضع المدير — بكلمة سر الإدارة، وما بينحفظ (كل فتحة جديدة بترجع بسيطة)
+function applySimple(){
+  document.body.classList.toggle("simple", !FULL); document.getElementById("moreBtn").textContent = FULL ? "قفل" : "المزيد";
+  if (!FULL) { const v = (document.querySelector(".view.on") || {}).id; if (v === "v-sup" || v === "v-box") showView("pos"); } }
+function toggleSimple(){
+  if (FULL) { FULL = false; return applySimple(); }
+  sheet(`<h3>وضع المدير</h3>
+    <div class="frow"><label>كلمة سر الإدارة</label><input id="mgrPin" type="password" autocomplete="off"></div>
+    <div id="mgrErr" style="color:#a33;font-size:.9rem;min-height:1.2em"></div>
+    <div class="btn-row"><button class="btn ghost" onclick="closeSheet()">إلغاء</button><button class="btn" onclick="mgrUnlock()">فتح</button></div>`);
+  setTimeout(() => { const i = document.getElementById("mgrPin"); i.focus(); i.addEventListener("keydown", e => { if (e.key === "Enter") mgrUnlock(); }); }, 50);
+}
+async function mgrUnlock(){
+  const v = document.getElementById("mgrPin").value.trim(); if (!v) return;
+  const { data } = await db.from("settings").select("value").eq("key", "admin_pin").maybeSingle();
+  if (!data || data.value !== v) { document.getElementById("mgrErr").textContent = "كلمة السر غلط"; document.getElementById("mgrPin").value = ""; return; }
+  FULL = true; closeSheet(); applySimple();
+}
 function logout(){ try { localStorage.removeItem(REM_KEY); } catch(_){} location.reload(); }
 
 async function enter(){
