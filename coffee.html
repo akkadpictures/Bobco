@@ -524,8 +524,9 @@ function renderMenu(){
 /* ---------- الطلب ---------- */
 function addItem(id){
   const it = ITEMS.find(x => x.id === id); if (!it) return;
-  const l = CART.find(x => x.id === id && x.price === +it.price);
-  l ? l.qty++ : CART.push({ id, name: it.name, price: +it.price, base: +it.price, qty: 1 });
+  const l = CART.find(x => x.id === id);
+  if (l) { toast("موجود بالطلب — زيد العدد من جوّا الطلب"); if (window.innerWidth <= 900) openOrder(); return; }
+  CART.push({ id, name: it.name, price: +it.price, base: +it.price, qty: 1 });
   if (navigator.vibrate) navigator.vibrate(8);
   renderCart();
 }
