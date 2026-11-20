@@ -55,7 +55,7 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 body.simple .cards{grid-template-columns:repeat(3,1fr)}
 body.simple .card.box{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
 body.simple .card.box .s{display:none}
-.card{background:#fff;border-radius:18px;padding:16px 16px 14px;text-align:start;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(15,15,15,.05);transition:transform .12s}
+.card{background:#F3E9D4 var(--pat-beige) 0 0/200% auto repeat-y;border-radius:18px;padding:16px 16px 14px;text-align:start;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(15,15,15,.05);transition:transform .12s}
 .card:active{transform:scale(.98)}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
 .card .v{font-size:1.75rem;font-weight:400;color:var(--olive);line-height:1.1}
@@ -190,9 +190,11 @@ body.simple .card.box .s{display:none}
 .mrow{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:6px;padding:11px 4px;border-bottom:1px solid rgba(52,57,37,.07);align-items:center;cursor:pointer;font-size:.92rem}
 .mrow.hd{cursor:default;font-size:.78rem;opacity:.65;padding-top:4px}.mrow.on{background:rgba(52,57,37,.06);border-radius:10px}
 .mrow span:not(:first-child){text-align:end;font-family:'Montserrat',sans-serif}
-.dbar{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center;background:#fff;border-radius:18px;padding:6px;margin-bottom:10px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
+.dbar{display:grid;grid-template-columns:52px 1fr 52px auto;gap:8px;align-items:center;background:#fff;border-radius:18px;padding:6px;margin-bottom:10px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
 .dbar .arr{height:52px;border-radius:14px;background:var(--cream-soft,#F6EFDF);font-size:1.6rem;color:var(--olive);border:none;cursor:pointer}
 .dbar .arr:disabled{opacity:.3}
+.dbar .arr.today{padding:0 16px;font-size:.95rem;background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream)}
+.dbar .arr.today.hide{display:none}
 .dlabel{position:relative;text-align:center;color:var(--olive);padding:6px;cursor:pointer;display:block}
 .dlabel #dLbl{font-size:1.15rem;display:block}.dlabel small{display:block;font-size:.75rem;opacity:.6}
 .dlabel input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
@@ -258,18 +260,24 @@ body.simple .adv{display:none!important}
   <header>
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
-    <label class="datepill" title="اختار يوم"><span id="todayPill"></span><input type="date" id="hdrPick" onchange="hdrDay(this.value)"></label>
+    
     <button class="moreb rep" onclick="goReport()">التقرير</button>
     <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
     <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
   </header>
+  <div class="dbar">
+    <button class="arr" onclick="shiftDay(1)" aria-label="اليوم اللي قبل">›</button>
+    <label class="dlabel"><span id="dLbl">—</span><input type="date" id="dayPick" onchange="setDay(this.value)"></label>
+    <button class="arr" id="nextArr" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">‹</button>
+    <button class="arr today" id="todayArr" onclick="setDay(bizToday())">اليوم</button>
+  </div>
 
   <!-- البطاقات -->
   <div class="cards">
     <button class="card box" onclick="FULL && showView('box')"><span class="l">الصندوق الكلي</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
     <button class="card adv" onclick="showView('box')"><span class="l">صندوق اليوم</span><span class="v num" id="cToday">0</span><span class="s" id="cTodayS">&nbsp;</span></button>
-    <button class="card" onclick="showView('day')"><span class="l">مبيعات اليوم</span><span class="v num" id="cSales">0</span><span class="s" id="cSalesS">&nbsp;</span></button>
-    <button class="card exp" onclick="showView('exp')"><span class="l">مصاريف اليوم</span><span class="v num" id="cExp">0</span><span class="s" id="cExpS">&nbsp;</span></button>
+    <button class="card" onclick="showView('day')"><span class="l" id="lSales">مبيعات اليوم</span><span class="v num" id="cSales">0</span><span class="s" id="cSalesS">&nbsp;</span></button>
+    <button class="card exp" onclick="showView('exp')"><span class="l" id="lExp">مصاريف اليوم</span><span class="v num" id="cExp">0</span><span class="s" id="cExpS">&nbsp;</span></button>
     <button class="card net" onclick="showView('day')"><span class="l">الصافي</span><span class="v num" id="cNet">0</span><span class="s">مبيعات − مصاريف</span></button>
   </div>
 
@@ -366,12 +374,6 @@ body.simple .adv{display:none!important}
 
   <!-- دفتر اليوم -->
   <section class="view" id="v-day">
-    <div class="dbar">
-      <button class="arr" onclick="shiftDay(1)" aria-label="اليوم اللي قبل">›</button>
-      <label class="dlabel"><span id="dLbl">—</span><small>اكبس لتختار يوم</small>
-        <input type="date" id="dayPick" onchange="setDay(this.value)"></label>
-      <button class="arr" id="nextArr" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">‹</button>
-    </div>
     <div id="dayBody"></div>
     <div class="panel" id="monthBody"></div>
   </section>
@@ -477,7 +479,7 @@ async function refresh(){
   if (v === "v-day") await loadDay();
 }
 async function loadToday(){
-  const { data } = await db.from("coffee_sales").select("*").eq("sale_date", bizToday()).order("created_at", { ascending: false });
+  const { data } = await db.from("coffee_sales").select("*").eq("sale_date", DAY).order("created_at", { ascending: false });
   TODAY = data || [];
 }
 async function loadBox(){
@@ -528,7 +530,8 @@ function calc(rows){
 function longDate(isoStr){ const d = new Date(isoStr + "T12:00:00"); return `${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; }
 function renderCards(){
   const A = calc(TODAY), t = bizToday(), d = new Date(t + "T12:00:00");
-  document.getElementById("todayPill").innerHTML = `<span class="dn">${AR_DAYS[d.getDay()]} · </span><span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
+  dayLabel();
+  const isT = DAY === t; document.getElementById("lSales").textContent = isT ? "مبيعات اليوم" : "مبيعات"; document.getElementById("lExp").textContent = isT ? "مصاريف اليوم" : "مصاريف";
   document.getElementById("cToday").textContent = nl(A.cashNet);
   document.getElementById("cTodayS").textContent = "كاش − مصاريف";
   document.getElementById("cBox").textContent = BOX ? nl(BOX.lira) : "—";
@@ -694,6 +697,7 @@ function addManual(){
 let busy = false;
 async function checkout(){
   if (!CART.length || busy) return;
+  DAY = bizToday();
   const usd = PAY === "usd" ? +document.getElementById("usdIn").value : null;
   if (PAY === "usd" && !(usd > 0)) { document.getElementById("usdIn").focus(); return toast("اكتب كم دولار انقبض"); }
   busy = true; document.getElementById("goBtn").disabled = true;
@@ -722,6 +726,7 @@ function xPay(p){
   if (p === "debt") fillSupSelect("xSup");
 }
 async function saveExpense(){
+  DAY = bizToday();
   const what = document.getElementById("xWhat").value.trim(), amt = +document.getElementById("xAmt").value;
   if (!what) return toast("شو المصروف؟");
   if (!(amt > 0)) return toast("حط المبلغ");
@@ -919,11 +924,12 @@ function dayLabel(){
   const rel = DAY === t ? "اليوم · " : DAY === yIso() ? "مبارح · " : "";
   document.getElementById("dLbl").innerHTML = `${rel}${AR_DAYS[d.getDay()]} <span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
   document.getElementById("nextArr").disabled = DAY >= t;
-  const hp = document.getElementById("hdrPick"); if (hp) { hp.value = DAY; hp.max = t; } document.getElementById("dayPick").max = t;
+  document.getElementById("dayPick").max = t; document.getElementById("dayPick").value = DAY;
+  document.getElementById("todayArr").classList.toggle("hide", DAY === t);
 }
 function hdrDay(v){ if (!v) return; setDay(v); showView("day"); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function pickDay(){ showView("day"); const i = document.getElementById("dayPick"); try { i.showPicker(); } catch(_) { i.focus(); i.click(); } }
-function setDay(v){ if (!v) return; if (v > bizToday()) v = bizToday(); DAY = v; MONTH = v.slice(0, 7); loadDay(); renderMonth(); }
+function setDay(v){ if (!v) return; if (v > bizToday()) v = bizToday(); DAY = v; MONTH = v.slice(0, 7); dayLabel(); refresh(); if ((document.querySelector(".view.on") || {}).id === "v-day") renderMonth(); }
 // ---------- أيام الشهر: كل يوم شو انباع وشو الصافي (المصاريف الكبيرة برّا اليوم) ----------
 let MONTH = null;
 function shiftMonth(n){ const [y, m] = (MONTH || DAY.slice(0, 7)).split("-").map(Number); const d = new Date(y, m - 1 + n, 1); MONTH = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; renderMonth(); }
