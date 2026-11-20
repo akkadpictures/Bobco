@@ -191,11 +191,13 @@ body.simple .card.box .s{display:none}
 .mrow.hd{cursor:default;font-size:.78rem;opacity:.65;padding-top:4px}.mrow.on{background:rgba(52,57,37,.06);border-radius:10px}
 .mrow span:not(:first-child){text-align:end;font-family:'Montserrat',sans-serif}
 .dbar{display:flex;align-items:center;gap:8px;margin:0 0 12px}
-.dbar .arr{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 14px;font-weight:800;font-size:1rem;color:var(--olive);cursor:pointer;line-height:1.4}
+.dbar .arr{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-weight:800;font-size:1rem;color:var(--olive);cursor:pointer;line-height:1.4}
 .dbar .arr:disabled{opacity:.35}
 .dbar .arr.today{background:#fff}
 .dbar .arr.today.hide{display:none}
-.dlabel{position:relative;color:var(--olive);font-weight:700;font-size:1rem;min-width:120px;text-align:center;cursor:pointer}
+.dbar .arr.rep{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;color:var(--cream);border-color:transparent;font-size:.9rem}
+.dbar .arr{white-space:nowrap}
+.dlabel{position:relative;color:var(--olive);font-weight:700;font-size:1rem;flex:1;min-width:0;white-space:nowrap;text-align:center;cursor:pointer}
 .dlabel #dLbl{display:inline}.dlabel input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .dchips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .dchips .chip{padding:9px 16px}.dchips .chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
@@ -261,7 +263,6 @@ body.simple .adv{display:none!important}
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
     
-    <button class="moreb rep" onclick="goReport()">التقرير</button>
     <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
     <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
   </header>
@@ -270,6 +271,7 @@ body.simple .adv{display:none!important}
     <label class="dlabel"><span id="dLbl">—</span><input type="date" id="dayPick" onchange="setDay(this.value)"></label>
     <button class="arr" id="nextArr" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">›</button>
     <button class="arr today" id="todayArr" onclick="setDay(bizToday())">اليوم</button>
+    <button class="arr rep" onclick="openReport()">📄 تقرير</button>
   </div>
 
   <!-- البطاقات -->
@@ -1041,7 +1043,7 @@ async function delRow(id){
 
 /* ---------- تقرير آخر اليوم (بنفس أسلوب تقرير الاستقبال) ---------- */
 async function openReport(){
-  const A = calc(ROWS);
+  const A = calc(TODAY);
   const { data } = await db.from("coffee_sales").select("*").eq("kind", "count").lt("sale_date", DAY).order("created_at", { ascending: false }).limit(1);
   const prev = (data || [])[0] || null;
   const d = new Date(DAY + "T12:00:00");
