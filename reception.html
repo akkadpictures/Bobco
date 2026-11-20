@@ -32,7 +32,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:var(--ar);background:#EFE3CA;color:var(--ink);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-button{font-family:var(--ar);cursor:pointer;border:none;background:none}
+button{font-family:var(--ar);cursor:pointer;border:none;background:none;color:var(--olive)}
 input,select,textarea{font-family:var(--ar);font-size:1rem}
 /* ===== gate ===== */
 #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#323723 var(--pat-green) 0 0/200% auto repeat-y}
@@ -298,7 +298,7 @@ html,body{max-width:100%;overflow-x:hidden}
         <button class="nav" onclick="openPay(null,'product')">+ منتج</button>
         <button class="nav" onclick="openPay(null,'perfume')">+ عطر</button>
         <button class="nav" onclick="openPay(null,'expense')">+ مصروف</button>
-        <button class="nav" style="background:var(--cream);border-color:var(--cream)" onclick="openReport()">📄 تقرير اليوم</button>
+        <button class="nav" style="border-color:var(--olive)" onclick="openReport()">تقرير اليوم</button>
       </span>
     </div>
     <div class="kgrid" id="accStats"></div>
