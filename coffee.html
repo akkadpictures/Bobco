@@ -1001,13 +1001,13 @@ async function openReport(){
   const supOwed = SUPS.reduce((s, x) => s + x.bal, 0);
   if (SUPS.length){ L.push({ k: "sum", r: "مجموع اللي علينا للموردين لهلق", l: nl(supOwed) }); L.push({ k: "gap" }); }
   L.push({ k: "h", r: "الخلاصة" });
-  L.push({ k: "sum", r: "مبيعات", l: nl(A.sales) });
-  if (A.expSum) L.push({ k: "sum", r: "مصاريف", l: "−" + nl(A.expSum), neg: true });
   const salary = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
-  if (salary) L.push({ k: "sum", r: "صافي قبل الراتب", l: nl(A.net + salary) });
-  L.push({ k: "big", r: "صافي الكوفي اليوم", l: nl(A.net) });
+  const opExp = A.expSum - salary;
+  L.push({ k: "sum", r: "مبيعات", l: nl(A.sales) });
+  if (opExp) L.push({ k: "sum", r: "مصاريف", l: "−" + nl(opExp), neg: true });
+  L.push({ k: "big", r: "صافي الكوفي اليوم", l: nl(A.sales - opExp) });
+  if (salary) L.push({ k: "sum", r: "راتب (طلع من الصندوق)", l: "−" + nl(salary), neg: true });
   if (A.supPaySum) L.push({ k: "sum", r: "طلع من الدرج للموردين", l: "−" + nl(A.supPaySum), neg: true });
-  L.push({ k: "big", r: "صندوق اليوم (كاش)", l: nl(A.cashNet) });
   const cnt = A.count ? +A.count.amount : null;
   // الصندوق الكلي آخر هاليوم = آخر عدّ قبلو + كل الكاش من بعدو لآخر هاليوم (مش بس كاش اليوم)
   let runQ = db.from("coffee_sales").select("kind,pay,amount").neq("kind", "count").lte("sale_date", DAY);
@@ -1017,8 +1017,8 @@ async function openReport(){
   L.push({ k: "big", r: "صندوق الكوفي الكلي (آخر اليوم)", l: nl(runBox) });
   if (cnt !== null) L.push({ k: "big", r: "صندوق الكوفي (عدّ الدرج)", l: nl(cnt) });
   if (A.count && A.count.usd) L.push({ k: "sum", r: "دولار بالدرج", l: +A.count.usd + "$" });
-  if (cnt !== null && pv !== null && cnt !== pv + A.cashNet){
-    const diff = cnt - pv - A.cashNet;
+  if (cnt !== null && cnt !== runBox){
+    const diff = cnt - runBox;
     L.push({ k: "sum", r: "فرق العدّ عن المتوقع", l: (diff > 0 ? "+" : "−") + nl(Math.abs(diff)), neg: true });
   }
   REPORT = { title, L };
