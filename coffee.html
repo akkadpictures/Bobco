@@ -382,6 +382,10 @@ const tm = r => new Date(r.created_at).toLocaleTimeString("en-GB", { hour: "2-di
 const dm = s => `${+s.slice(8)}/${+s.slice(5, 7)}`;
 const cupsOf = r => (r.items || []).filter(i => !i.adj).reduce((s, i) => s + (+i.qty || 0), 0);
 const itemsTxt = r => (r.items || []).map(i => i.adj ? `${i.name} ${nl(Math.abs(i.price))}` : i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
+// المصاريف الكبيرة (راتب، بن، بضاعة…) بتطلع من الصندوق بس ما بتنحسب بمصاريف اليوم — متل الاستقبال
+const BIG_RE = /(^|\s)بن(\s|$)|راتب|كاسات|سيروب|بضاعة|ستيك|سلفة/;
+const isBig = r => BIG_RE.test(r.what || "") || +r.amount >= 300000;
+const bigSum = rows => rows.filter(isBig).reduce((t, r) => t + +r.amount, 0);
 const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "سيروبات", "كاسات وأغطية", "تنظيف", "راتب عدنان"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
 let WHERE = null;   // "كرسي 3" · "خارجي" · null
@@ -513,11 +517,11 @@ function renderCards(){
   document.getElementById("cSales").textContent = nl(A.sales);
   document.getElementById("cSalesS").textContent = `${A.cups} كاسة` + (A.usd ? ` · منها ${A.usd}$` : "");
   document.getElementById("cExp").textContent = nl(A.expSum);
-  const sal = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
+  const sal = bigSum(A.tillExp);
   document.getElementById("cNet").textContent = nl(A.net + sal);
-  document.getElementById("cNet").nextElementSibling.textContent = sal ? `قبل الراتب (${nl(sal)})` : "مبيعات − مصاريف";
+  document.getElementById("cNet").nextElementSibling.textContent = "مبيعات − مصاريف";
   document.getElementById("cExp").textContent = nl(A.expSum - sal);
-  document.getElementById("cExpS").textContent = sal ? `+ راتب ${nl(sal)}` : (A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ");
+  document.getElementById("cExpS").textContent = sal ? `+ كبيرة ${nl(sal)}` : (A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ");
 }
 
 /* ---------- المنيو ---------- */
@@ -719,9 +723,9 @@ async function saveExpense(){
 function renderExp(){
   const A = calc(TODAY);
   const list = A.exps;
-  document.getElementById("expList").innerHTML = `<h4>مصاريف اليوم <span class="num">${nl(A.expSum)}</span></h4>` + (list.length ? list.map(r => `
+  document.getElementById("expList").innerHTML = `<h4>مصاريف اليوم <span class="num">${nl(A.expSum - bigSum(A.tillExp))}</span></h4>` + (list.length ? list.map(r => `
     <div class="row click" onclick="editExpense('${r.id}')">
-      <div><b>${esc(r.what || "مصروف")}${r.pay === "debt" ? `<span class="tag debt">دين${supOf(r) ? " · " + esc(supOf(r)) : ""}</span>` : ""}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""}</small></div>
+      <div><b>${esc(r.what || "مصروف")}${r.pay !== "debt" && isBig(r) ? `<span class="tag debt">كبير — مش من اليوم</span>` : ""}${r.pay === "debt" ? `<span class="tag debt">دين${supOf(r) ? " · " + esc(supOf(r)) : ""}</span>` : ""}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""}</small></div>
       <div class="amt num ${r.pay === "debt" ? "" : "neg"}">${r.pay === "debt" ? "" : "−"}${nl(r.amount)}</div></div>`).join("")
     + (A.debtSum ? `<div class="row"><div><b>دين عالمورّد اليوم</b><small>مسجّل بس، ما انطرح من الصندوق</small></div><div class="amt num">${nl(A.debtSum)}</div></div>` : "")
     : `<p class="empty">ما في مصاريف لليوم</p>`);
@@ -901,13 +905,13 @@ async function loadDay(){
   const pays = { cash: "", usd: `<span class="tag usd">دولار</span>`, treat: `<span class="tag treat">ضيافة</span>` };
   const cupsHtml = Object.entries(A.per).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<span>${esc(n)} <b>${q}</b></span>`).join("");
   const ext = A.saleRows.filter(r => r.what === "خارجي");
-  const SAL = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
+  const SAL = bigSum(A.tillExp);
   let h = `<div class="dayttl">${longDate(DAY)}<small>${DAY === bizToday() ? "اليوم" : ""}</small></div>
     <div class="panel"><h4>الخلاصة</h4>
     <div class="row"><div><b>مبيعات</b><small>${A.cups} كاسة${A.usd ? ` · منها ${A.usd}$` : ""}</small></div><div class="amt num">${nl(A.sales)}</div></div>
-    <div class="row"><div><b>مصاريف من الصندوق</b></div><div class="amt num neg">−${nl(A.expSum - SAL)}</div></div>
+    <div class="row"><div><b>مصاريف اليوم</b></div><div class="amt num neg">−${nl(A.expSum - SAL)}</div></div>
     <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net + SAL)}</div></div>
-    ${SAL ? `<div class="row"><div><b>راتب</b><small>طلع من الصندوق</small></div><div class="amt num neg">−${nl(SAL)}</div></div>` : ""}
+    ${SAL ? `<div class="row"><div><b>مصاريف كبيرة</b><small>راتب، بن، بضاعة — طلعت من الصندوق، مش من مصاريف اليوم</small></div><div class="amt num neg">−${nl(SAL)}</div></div>` : ""}
     ${ext.length ? `<div class="row"><div><b>طلبات خارجية</b><small>${ext.reduce((s, r) => s + cupsOf(r), 0)} كاسة</small></div><div class="amt num">${nl(ext.reduce((s, r) => s + +r.amount, 0))}</div></div>` : ""}</div>`;
   if (cupsHtml) h += `<div class="panel"><h4>شو انباع</h4><div class="cups">${cupsHtml}</div></div>`;
   h += `<div class="panel"><h4>المبيعات — اكبس لتعدّل أو تمسح</h4>${A.saleRows.length ? A.saleRows.map(r => `
@@ -916,7 +920,7 @@ async function loadDay(){
       <div class="amt num">${r.pay === "treat" ? "0" : nl(r.amount)}</div></div>`).join("") : `<p class="empty">ما في مبيعات لهاليوم</p>`}</div>`;
   if (A.exps.length) h += `<div class="panel"><h4>المصاريف</h4>${A.exps.map(r => `
     <div class="row click" onclick="editExpense('${r.id}')">
-      <div><b>${esc(r.what || "مصروف")}${r.pay === "debt" ? `<span class="tag debt">دين</span>` : ""}</b><small>${tm(r)}</small></div>
+      <div><b>${esc(r.what || "مصروف")}${r.pay !== "debt" && isBig(r) ? `<span class="tag debt">كبير — مش من اليوم</span>` : ""}${r.pay === "debt" ? `<span class="tag debt">دين</span>` : ""}</b><small>${tm(r)}</small></div>
       <div class="amt num ${r.pay === "debt" ? "" : "neg"}">${r.pay === "debt" ? "" : "−"}${nl(r.amount)}</div></div>`).join("")}</div>`;
   if (A.supPays.length) h += `<div class="panel"><h4>دفعات للموردين (من الدرج)</h4>${A.supPays.map(r => `
     <div class="row click" onclick="delRow('${r.id}')"><div><b>${esc(r.what)}</b><small>${tm(r)}${r.note ? " · " + esc(r.note) : ""} · اكبس لتمسحها</small></div><div class="amt num neg">−${nl(r.amount)}</div></div>`).join("")}</div>`;
@@ -990,9 +994,15 @@ async function openReport(){
   if (A.disc) L.push({ k: "row", r: `خصومات: ${A.discN}` + (A.discStaff ? ` (منها ستاف ${nl(A.discStaff)})` : ""), l: "−" + nl(A.disc), neg: true });
   if (A.treatCups) L.push({ k: "row", r: `ضيافة: ${A.treatCups} كاسة (قيمتها ${nl(A.treatVal)})`, l: "0" });
   L.push({ k: "gap" });
-  if (A.tillExp.length){
-    L.push({ k: "h", r: "مصاريف من الصندوق" });
-    A.tillExp.forEach(r => L.push({ k: "row", r: (r.what || "مصروف") + (r.note ? " — " + r.note : ""), l: "−" + nl(r.amount), neg: true }));
+  const smallE = A.tillExp.filter(r => !isBig(r)), bigE = A.tillExp.filter(isBig);
+  if (smallE.length){
+    L.push({ k: "h", r: "مصاريف اليوم" });
+    smallE.forEach(r => L.push({ k: "row", r: (r.what || "مصروف") + (r.note ? " — " + r.note : ""), l: "−" + nl(r.amount), neg: true }));
+    L.push({ k: "gap" });
+  }
+  if (bigE.length){
+    L.push({ k: "h", r: "مصاريف كبيرة (من الصندوق، مش من اليوم)" });
+    bigE.forEach(r => L.push({ k: "row", r: (r.what || "مصروف") + (r.note ? " — " + r.note : ""), l: "−" + nl(r.amount), neg: true }));
     L.push({ k: "gap" });
   }
   if (A.supPays.length){
@@ -1008,12 +1018,12 @@ async function openReport(){
   const supOwed = SUPS.reduce((s, x) => s + x.bal, 0);
   if (SUPS.length){ L.push({ k: "sum", r: "مجموع اللي علينا للموردين لهلق", l: nl(supOwed) }); L.push({ k: "gap" }); }
   L.push({ k: "h", r: "الخلاصة" });
-  const salary = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
+  const salary = bigSum(A.tillExp);
   const opExp = A.expSum - salary;
   L.push({ k: "sum", r: "مبيعات", l: nl(A.sales) });
   if (opExp) L.push({ k: "sum", r: "مصاريف", l: "−" + nl(opExp), neg: true });
   L.push({ k: "big", r: "صافي الكوفي اليوم", l: nl(A.sales - opExp) });
-  if (salary) L.push({ k: "sum", r: "راتب (طلع من الصندوق)", l: "−" + nl(salary), neg: true });
+  if (salary) L.push({ k: "sum", r: "مصاريف كبيرة (طلعت من الصندوق)", l: "−" + nl(salary), neg: true });
   if (A.supPaySum) L.push({ k: "sum", r: "طلع من الدرج للموردين", l: "−" + nl(A.supPaySum), neg: true });
   const cnt = A.count ? +A.count.amount : null;
   // الصندوق الكلي آخر هاليوم = آخر عدّ قبلو + كل الكاش من بعدو لآخر هاليوم (مش بس كاش اليوم)
