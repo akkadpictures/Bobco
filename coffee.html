@@ -60,8 +60,8 @@ body.simple .card.box .s{display:none}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
 .card .v{font-size:1.75rem;font-weight:400;color:var(--olive);line-height:1.1}
 .card .s{font-size:.82rem;font-weight:400;opacity:.6}
-.card.box{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-radius:18px;box-shadow:none}
-.card.box .l,.card.box .s{color:var(--cream);opacity:.85}.card.box .v{color:var(--cream);font-weight:400}
+.card.box{background:#fff;border-radius:18px}
+.card.box .l,.card.box .s{color:var(--olive);opacity:.75}.card.box .v{color:var(--olive);font-weight:400}
 .card.box .v{font-size:2.1rem}
 .card.exp .v{color:var(--neg)}
 
@@ -235,7 +235,8 @@ body.simple .tabs{grid-template-columns:repeat(3,1fr)}
 .toast.undo button{display:inline-block}
 @media(max-width:900px){ .datepill .dn{display:none} .order .xbtn{display:flex} .order h3{padding-inline-end:52px} .item{min-height:88px;padding:14px 14px 12px} .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
 body.simple .adv{display:none!important}
-.card.net .v{color:var(--olive)}
+.card.net{background:#323723 var(--pat-green) 0 0/200% auto repeat-y}
+.card.net .v{color:#fff;font-weight:700}.card.net .l,.card.net .s{color:#E9DFCC;opacity:1}
 .moreb{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-size:.8rem;font-family:inherit;cursor:pointer;margin-inline-start:8px}
 .xq{display:flex;gap:10px}.xq .frow{flex:1}
 @media(prefers-reduced-motion:reduce){ *{transition:none!important} }
