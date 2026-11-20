@@ -139,7 +139,8 @@ body.simple .cards{grid-template-columns:repeat(3,1fr)}
   .datepill{padding:7px 12px;font-size:.85rem}
   header .brandlogo{width:78px}
   .datepill{padding:6px 10px;font-size:.8rem}
-  .moreb{padding:5px 9px;font-size:.75rem;margin:0}
+  .moreb.rep{background:var(--cream);color:var(--olive);border-color:var(--cream);font-weight:700}
+.moreb{padding:5px 9px;font-size:.75rem;margin:0}
   #logoutBtn{padding:6px 2px;font-size:.8rem}
 }
 
@@ -212,7 +213,7 @@ body.simple .tabs{grid-template-columns:repeat(3,1fr)}
 .toast.show{opacity:1;pointer-events:auto}
 .toast button{background:var(--cream);color:var(--ink);border-radius:999px;padding:6px 14px;font-weight:700;font-size:.85rem;display:none}
 .toast.undo button{display:inline-block}
-@media(max-width:900px){ .order .xbtn{display:flex} .order h3{padding-inline-end:52px} .item{min-height:88px;padding:14px 14px 12px} .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
+@media(max-width:900px){ .datepill .dn{display:none} .order .xbtn{display:flex} .order h3{padding-inline-end:52px} .item{min-height:88px;padding:14px 14px 12px} .toast{bottom:calc(92px + env(safe-area-inset-bottom,0px))} .sheet{width:100vw} }
 body.simple .adv{display:none!important}
 .card.net .v{color:var(--olive)}
 .moreb{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:999px;padding:6px 12px;font-size:.8rem;font-family:inherit;cursor:pointer;margin-inline-start:8px}
@@ -239,6 +240,7 @@ body.simple .adv{display:none!important}
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
     <span class="datepill" id="todayPill"></span>
+    <button class="moreb rep" onclick="goReport()">التقرير</button>
     <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
     <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
   </header>
@@ -428,6 +430,7 @@ async function mgrUnlock(){
   if (!data || data.value !== v) { document.getElementById("mgrErr").textContent = "كلمة السر غلط"; document.getElementById("mgrPin").value = ""; return; }
   FULL = true; closeSheet(); applySimple();
 }
+async function goReport(){ DAY = bizToday(); showView("day"); await loadDay(); openReport(); }
 function logout(){ try { localStorage.removeItem(REM_KEY); } catch(_){} location.reload(); }
 
 async function enter(){
@@ -502,7 +505,7 @@ function calc(rows){
 function longDate(isoStr){ const d = new Date(isoStr + "T12:00:00"); return `${AR_DAYS[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; }
 function renderCards(){
   const A = calc(TODAY), t = bizToday(), d = new Date(t + "T12:00:00");
-  document.getElementById("todayPill").innerHTML = `${AR_DAYS[d.getDay()]} · <span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
+  document.getElementById("todayPill").innerHTML = `<span class="dn">${AR_DAYS[d.getDay()]} · </span><span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
   document.getElementById("cToday").textContent = nl(A.cashNet);
   document.getElementById("cTodayS").textContent = "كاش − مصاريف";
   document.getElementById("cBox").textContent = BOX ? nl(BOX.lira) : "—";
