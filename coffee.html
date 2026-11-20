@@ -60,8 +60,8 @@ body.simple .card.box .s{display:none}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
 .card .v{font-size:1.75rem;font-weight:400;color:var(--olive);line-height:1.1}
 .card .s{font-size:.82rem;font-weight:400;opacity:.6}
-.card.box{background:#F3E9D4 var(--pat-beige) 0 0/200% auto repeat-y;border-radius:18px;overflow:hidden;box-shadow:0 1px 2px rgba(15,15,15,.06)}
-.card.box .l,.card.box .s{color:var(--olive);opacity:.75;letter-spacing:.2px}.card.box .v{color:var(--olive);font-weight:400;letter-spacing:-.5px}
+.card.box{background:var(--olive);border-radius:18px;box-shadow:none}
+.card.box .l,.card.box .s{color:var(--cream);opacity:.8}.card.box .v{color:#fff;font-weight:400}
 .card.box .v{font-size:2.1rem}
 .card.exp .v{color:var(--neg)}
 
@@ -190,6 +190,16 @@ body.simple .card.box .s{display:none}
 .mrow{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:6px;padding:11px 4px;border-bottom:1px solid rgba(52,57,37,.07);align-items:center;cursor:pointer;font-size:.92rem}
 .mrow.hd{cursor:default;font-size:.78rem;opacity:.65;padding-top:4px}.mrow.on{background:rgba(52,57,37,.06);border-radius:10px}
 .mrow span:not(:first-child){text-align:end;font-family:'Montserrat',sans-serif}
+.dbar{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center;background:#fff;border-radius:18px;padding:6px;margin-bottom:10px;box-shadow:0 1px 2px rgba(15,15,15,.05)}
+.dbar .arr{height:52px;border-radius:14px;background:var(--cream-soft,#F6EFDF);font-size:1.6rem;color:var(--olive);border:none;cursor:pointer}
+.dbar .arr:disabled{opacity:.3}
+.dlabel{position:relative;text-align:center;color:var(--olive);padding:6px;cursor:pointer;display:block}
+.dlabel #dLbl{font-size:1.15rem;display:block}.dlabel small{display:block;font-size:.75rem;opacity:.6}
+.dlabel input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.dchips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.dchips .chip{padding:9px 16px}.dchips .chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
+.dchips .chip.rep{margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)}
+.datepill{cursor:pointer}
 .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .dayhead .nav{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-weight:700}
 .dayhead input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
@@ -248,7 +258,7 @@ body.simple .adv{display:none!important}
   <header>
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
-    <span class="datepill" id="todayPill"></span>
+    <span class="datepill" id="todayPill" onclick="pickDay()" title="اختار يوم"></span>
     <button class="moreb rep" onclick="goReport()">التقرير</button>
     <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
     <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
@@ -356,12 +366,16 @@ body.simple .adv{display:none!important}
 
   <!-- دفتر اليوم -->
   <section class="view" id="v-day">
-    <div class="dayhead">
-      <button class="nav" onclick="shiftDay(1)" aria-label="اليوم اللي قبل">›</button>
-      <input type="date" id="dayPick" onchange="setDay(this.value)">
-      <button class="nav" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">‹</button>
-      <button class="nav" onclick="setDay(bizToday())">اليوم</button>
-      <button class="nav" style="margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openReport()">تقرير آخر اليوم</button>
+    <div class="dbar">
+      <button class="arr" onclick="shiftDay(1)" aria-label="اليوم اللي قبل">›</button>
+      <label class="dlabel"><span id="dLbl">—</span><small>اكبس لتختار يوم</small>
+        <input type="date" id="dayPick" onchange="setDay(this.value)"></label>
+      <button class="arr" id="nextArr" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">‹</button>
+    </div>
+    <div class="dchips">
+      <button class="chip" id="chToday" onclick="setDay(bizToday())">اليوم</button>
+      <button class="chip" id="chYest" onclick="setDay(yIso())">مبارح</button>
+      <button class="chip rep" onclick="openReport()">تقرير هاليوم</button>
     </div>
     <div id="dayBody"></div>
     <div class="panel" id="monthBody"></div>
@@ -904,7 +918,17 @@ async function saveCount(){
 }
 
 /* ---------- دفتر اليوم ---------- */
-function setDay(v){ if (!v) return; DAY = v; MONTH = v.slice(0, 7); loadDay(); renderMonth(); }
+const yIso = () => { const d = new Date(bizToday() + "T12:00:00"); d.setDate(d.getDate() - 1); return iso(d); };
+function dayLabel(){
+  const d = new Date(DAY + "T12:00:00"), t = bizToday();
+  const rel = DAY === t ? "اليوم · " : DAY === yIso() ? "مبارح · " : "";
+  document.getElementById("dLbl").innerHTML = `${rel}${AR_DAYS[d.getDay()]} <span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
+  document.getElementById("nextArr").disabled = DAY >= t;
+  document.getElementById("chToday").classList.toggle("on", DAY === t);
+  document.getElementById("chYest").classList.toggle("on", DAY === yIso());
+}
+function pickDay(){ showView("day"); const i = document.getElementById("dayPick"); try { i.showPicker(); } catch(_) { i.focus(); i.click(); } }
+function setDay(v){ if (!v) return; if (v > bizToday()) v = bizToday(); DAY = v; MONTH = v.slice(0, 7); loadDay(); renderMonth(); }
 // ---------- أيام الشهر: كل يوم شو انباع وشو الصافي (المصاريف الكبيرة برّا اليوم) ----------
 let MONTH = null;
 function shiftMonth(n){ const [y, m] = (MONTH || DAY.slice(0, 7)).split("-").map(Number); const d = new Date(y, m - 1 + n, 1); MONTH = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; renderMonth(); }
@@ -933,7 +957,7 @@ async function renderMonth(){
 }
 function shiftDay(n){ const d = new Date(DAY + "T12:00:00"); d.setDate(d.getDate() - n); setDay(iso(d)); }
 async function loadDay(){
-  document.getElementById("dayPick").value = DAY;
+  document.getElementById("dayPick").value = DAY; dayLabel();
   const { data, error } = await db.from("coffee_sales").select("*").eq("sale_date", DAY).order("created_at", { ascending: false });
   if (error) { document.getElementById("dayBody").innerHTML = `<div class="panel"><p class="empty">ما قدرنا نجيب الدفتر — ${esc(error.message)}</p></div>`; return; }
   ROWS = data || [];
@@ -942,12 +966,17 @@ async function loadDay(){
   const cupsHtml = Object.entries(A.per).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<span>${esc(n)} <b>${q}</b></span>`).join("");
   const ext = A.saleRows.filter(r => r.what === "خارجي");
   const SAL = bigSum(A.tillExp);
-  let h = `<div class="dayttl">${longDate(DAY)}<small>${DAY === bizToday() ? "اليوم" : ""}</small></div>
-    <div class="panel"><h4>الخلاصة</h4>
+  const pdD = new Date(DAY + "T12:00:00"); pdD.setDate(pdD.getDate() - 1); const pd = iso(pdD);
+  const { data: prRows } = await db.from("coffee_sales").select("kind,pay,amount,items,what").eq("sale_date", pd);
+  const PA = calc(prRows || []);
+  const pct = PA.sales ? Math.round((A.sales - PA.sales) / PA.sales * 100) : null;
+  const cmp = PA.sales || A.sales ? `<div class="row"><div><b>اليوم اللي قبل</b><small>${AR_DAYS[pdD.getDay()]} ${pdD.getDate()}/${pdD.getMonth() + 1} · ${PA.cups} كاسة</small></div><div class="amt num">${nl(PA.sales)}${pct !== null ? ` <small style="color:${pct >= 0 ? "#3d6b35" : "#a33"}">${pct >= 0 ? "▲" : "▼"} ${Math.abs(pct)}%</small>` : ""}</div></div>` : "";
+  let h = `<div class="panel"><h4>الخلاصة</h4>
     <div class="row"><div><b>مبيعات</b><small>${A.cups} كاسة${A.usd ? ` · منها ${A.usd}$` : ""}</small></div><div class="amt num">${nl(A.sales)}</div></div>
     <div class="row"><div><b>مصاريف اليوم</b></div><div class="amt num neg">−${nl(A.expSum - SAL)}</div></div>
     <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net + SAL)}</div></div>
     ${SAL ? `<div class="row"><div><b>مصاريف كبيرة</b><small>راتب، بن، بضاعة — طلعت من الصندوق، مش من مصاريف اليوم</small></div><div class="amt num neg">−${nl(SAL)}</div></div>` : ""}
+    ${cmp}
     ${ext.length ? `<div class="row"><div><b>طلبات خارجية</b><small>${ext.reduce((s, r) => s + cupsOf(r), 0)} كاسة</small></div><div class="amt num">${nl(ext.reduce((s, r) => s + +r.amount, 0))}</div></div>` : ""}</div>`;
   if (cupsHtml) h += `<div class="panel"><h4>شو انباع</h4><div class="cups">${cupsHtml}</div></div>`;
   h += `<div class="panel"><h4>المبيعات — اكبس لتعدّل أو تمسح</h4>${A.saleRows.length ? A.saleRows.map(r => `
