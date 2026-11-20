@@ -510,8 +510,11 @@ function renderCards(){
   document.getElementById("cSales").textContent = nl(A.sales);
   document.getElementById("cSalesS").textContent = `${A.cups} كاسة` + (A.usd ? ` · منها ${A.usd}$` : "");
   document.getElementById("cExp").textContent = nl(A.expSum);
-  document.getElementById("cNet").textContent = nl(A.net);
-  document.getElementById("cExpS").textContent = A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ";
+  const sal = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
+  document.getElementById("cNet").textContent = nl(A.net + sal);
+  document.getElementById("cNet").nextElementSibling.textContent = sal ? `قبل الراتب (${nl(sal)})` : "مبيعات − مصاريف";
+  document.getElementById("cExp").textContent = nl(A.expSum - sal);
+  document.getElementById("cExpS").textContent = sal ? `+ راتب ${nl(sal)}` : (A.debtSum ? `+ دين ${nl(A.debtSum)}` : " ");
 }
 
 /* ---------- المنيو ---------- */
@@ -895,12 +898,13 @@ async function loadDay(){
   const pays = { cash: "", usd: `<span class="tag usd">دولار</span>`, treat: `<span class="tag treat">ضيافة</span>` };
   const cupsHtml = Object.entries(A.per).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<span>${esc(n)} <b>${q}</b></span>`).join("");
   const ext = A.saleRows.filter(r => r.what === "خارجي");
+  const SAL = A.tillExp.filter(r => /راتب/.test(r.what || "")).reduce((t, r) => t + +r.amount, 0);
   let h = `<div class="dayttl">${longDate(DAY)}<small>${DAY === bizToday() ? "اليوم" : ""}</small></div>
     <div class="panel"><h4>الخلاصة</h4>
     <div class="row"><div><b>مبيعات</b><small>${A.cups} كاسة${A.usd ? ` · منها ${A.usd}$` : ""}</small></div><div class="amt num">${nl(A.sales)}</div></div>
-    <div class="row"><div><b>مصاريف من الصندوق</b></div><div class="amt num neg">−${nl(A.expSum)}</div></div>
-    <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net)}</div></div>
-    <div class="row"><div><b>صندوق اليوم</b><small>كاش − مصاريف − دفعات موردين</small></div><div class="amt num">${nl(A.cashNet)}</div></div>
+    <div class="row"><div><b>مصاريف من الصندوق</b></div><div class="amt num neg">−${nl(A.expSum - SAL)}</div></div>
+    <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net + SAL)}</div></div>
+    ${SAL ? `<div class="row"><div><b>راتب</b><small>طلع من الصندوق</small></div><div class="amt num neg">−${nl(SAL)}</div></div>` : ""}
     ${ext.length ? `<div class="row"><div><b>طلبات خارجية</b><small>${ext.reduce((s, r) => s + cupsOf(r), 0)} كاسة</small></div><div class="amt num">${nl(ext.reduce((s, r) => s + +r.amount, 0))}</div></div>` : ""}</div>`;
   if (cupsHtml) h += `<div class="panel"><h4>شو انباع</h4><div class="cups">${cupsHtml}</div></div>`;
   h += `<div class="panel"><h4>المبيعات — اكبس لتعدّل أو تمسح</h4>${A.saleRows.length ? A.saleRows.map(r => `
