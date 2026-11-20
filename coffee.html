@@ -60,8 +60,8 @@ body.simple .card.box .s{display:none}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
 .card .v{font-size:1.75rem;font-weight:400;color:var(--olive);line-height:1.1}
 .card .s{font-size:.82rem;font-weight:400;opacity:.6}
-.card.box{background:var(--olive);border-radius:18px;box-shadow:none}
-.card.box .l,.card.box .s{color:var(--cream);opacity:.8}.card.box .v{color:#fff;font-weight:400}
+.card.box{background:#323723 var(--pat-green) 0 0/200% auto repeat-y;border-radius:18px;box-shadow:none}
+.card.box .l,.card.box .s{color:var(--cream);opacity:.85}.card.box .v{color:var(--cream);font-weight:400}
 .card.box .v{font-size:2.1rem}
 .card.exp .v{color:var(--neg)}
 
@@ -199,7 +199,7 @@ body.simple .card.box .s{display:none}
 .dchips{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .dchips .chip{padding:9px 16px}.dchips .chip.on{background:var(--olive);color:var(--cream);border-color:var(--olive)}
 .dchips .chip.rep{margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)}
-.datepill{cursor:pointer}
+.datepill{cursor:pointer;position:relative}.datepill input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .dayhead .nav{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-weight:700}
 .dayhead input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
@@ -258,7 +258,7 @@ body.simple .adv{display:none!important}
   <header>
     <span class="brandlogo" role="img" aria-label="Bob &amp; Co"></span>
     <span class="sub">الكوفي</span>
-    <span class="datepill" id="todayPill" onclick="pickDay()" title="اختار يوم"></span>
+    <label class="datepill" title="اختار يوم"><span id="todayPill"></span><input type="date" id="hdrPick" onchange="hdrDay(this.value)"></label>
     <button class="moreb rep" onclick="goReport()">التقرير</button>
     <button class="moreb" id="moreBtn" onclick="toggleSimple()">المزيد</button>
     <button id="logoutBtn" class="adv" onclick="logout()">خروج</button>
@@ -371,11 +371,6 @@ body.simple .adv{display:none!important}
       <label class="dlabel"><span id="dLbl">—</span><small>اكبس لتختار يوم</small>
         <input type="date" id="dayPick" onchange="setDay(this.value)"></label>
       <button class="arr" id="nextArr" onclick="shiftDay(-1)" aria-label="اليوم اللي بعد">‹</button>
-    </div>
-    <div class="dchips">
-      <button class="chip" id="chToday" onclick="setDay(bizToday())">اليوم</button>
-      <button class="chip" id="chYest" onclick="setDay(yIso())">مبارح</button>
-      <button class="chip rep" onclick="openReport()">تقرير هاليوم</button>
     </div>
     <div id="dayBody"></div>
     <div class="panel" id="monthBody"></div>
@@ -924,9 +919,9 @@ function dayLabel(){
   const rel = DAY === t ? "اليوم · " : DAY === yIso() ? "مبارح · " : "";
   document.getElementById("dLbl").innerHTML = `${rel}${AR_DAYS[d.getDay()]} <span class="num">${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}</span>`;
   document.getElementById("nextArr").disabled = DAY >= t;
-  document.getElementById("chToday").classList.toggle("on", DAY === t);
-  document.getElementById("chYest").classList.toggle("on", DAY === yIso());
+  const hp = document.getElementById("hdrPick"); if (hp) { hp.value = DAY; hp.max = t; } document.getElementById("dayPick").max = t;
 }
+function hdrDay(v){ if (!v) return; setDay(v); showView("day"); window.scrollTo({ top: 0, behavior: "smooth" }); }
 function pickDay(){ showView("day"); const i = document.getElementById("dayPick"); try { i.showPicker(); } catch(_) { i.focus(); i.click(); } }
 function setDay(v){ if (!v) return; if (v > bizToday()) v = bizToday(); DAY = v; MONTH = v.slice(0, 7); loadDay(); renderMonth(); }
 // ---------- أيام الشهر: كل يوم شو انباع وشو الصافي (المصاريف الكبيرة برّا اليوم) ----------
