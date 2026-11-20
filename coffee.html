@@ -53,6 +53,8 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 /* البطاقات — ظاهرة دايماً فوق */
 .cards{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 body.simple .cards{grid-template-columns:repeat(3,1fr)}
+body.simple .card.box{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+body.simple .card.box .s{display:none}
 .card{background:#fff;border-radius:18px;padding:16px 16px 14px;text-align:start;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(15,15,15,.05);transition:transform .12s}
 .card:active{transform:scale(.98)}
 .card .l{font-size:1rem;font-weight:400;opacity:.75}
@@ -247,7 +249,7 @@ body.simple .adv{display:none!important}
 
   <!-- البطاقات -->
   <div class="cards">
-    <button class="card box adv" onclick="showView('box')"><span class="l">الصندوق الكلي</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
+    <button class="card box" onclick="FULL && showView('box')"><span class="l">لازم يكون بالصندوق هلق</span><span class="v num" id="cBox">—</span><span class="s" id="cBoxS">ليرة جديدة</span></button>
     <button class="card adv" onclick="showView('box')"><span class="l">صندوق اليوم</span><span class="v num" id="cToday">0</span><span class="s" id="cTodayS">&nbsp;</span></button>
     <button class="card" onclick="showView('day')"><span class="l">مبيعات اليوم</span><span class="v num" id="cSales">0</span><span class="s" id="cSalesS">&nbsp;</span></button>
     <button class="card exp" onclick="showView('exp')"><span class="l">مصاريف اليوم</span><span class="v num" id="cExp">0</span><span class="s" id="cExpS">&nbsp;</span></button>
