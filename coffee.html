@@ -183,6 +183,13 @@ body.simple .card.box .s{display:none}
 .btn.danger{background:var(--neg)}
 .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .hint{font-size:.8rem;opacity:.6;margin-top:6px;line-height:1.6}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 6px}
+.mhead h4{margin:0}.mhead .mnav{display:flex;gap:6px}.mhead .mnav button{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:1.1rem;color:var(--olive);cursor:pointer}
+.mtot{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 10px}
+.mtot div{background:var(--cream-soft,#F6EFDF);border-radius:12px;padding:10px 12px}.mtot small{display:block;opacity:.7;font-size:.78rem}.mtot b{font-weight:400;font-size:1.15rem;color:var(--olive)}
+.mrow{display:grid;grid-template-columns:1.3fr .7fr 1fr 1fr;gap:6px;padding:11px 4px;border-bottom:1px solid rgba(52,57,37,.07);align-items:center;cursor:pointer;font-size:.92rem}
+.mrow.hd{cursor:default;font-size:.78rem;opacity:.65;padding-top:4px}.mrow.on{background:rgba(52,57,37,.06);border-radius:10px}
+.mrow span:not(:first-child){text-align:end;font-family:'Montserrat',sans-serif}
 .dayhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .dayhead .nav{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 15px;font-weight:700}
 .dayhead input[type=date]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-weight:700}
@@ -357,6 +364,7 @@ body.simple .adv{display:none!important}
       <button class="nav" style="margin-inline-start:auto;background:var(--olive);color:var(--cream);border-color:var(--olive)" onclick="openReport()">تقرير آخر اليوم</button>
     </div>
     <div id="dayBody"></div>
+    <div class="panel" id="monthBody"></div>
   </section>
 </div>
 
@@ -896,7 +904,33 @@ async function saveCount(){
 }
 
 /* ---------- دفتر اليوم ---------- */
-function setDay(v){ if (!v) return; DAY = v; loadDay(); }
+function setDay(v){ if (!v) return; DAY = v; MONTH = v.slice(0, 7); loadDay(); renderMonth(); }
+// ---------- أيام الشهر: كل يوم شو انباع وشو الصافي (المصاريف الكبيرة برّا اليوم) ----------
+let MONTH = null;
+function shiftMonth(n){ const [y, m] = (MONTH || DAY.slice(0, 7)).split("-").map(Number); const d = new Date(y, m - 1 + n, 1); MONTH = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; renderMonth(); }
+async function renderMonth(){
+  const box = document.getElementById("monthBody"); if (!box) return;
+  const ym = MONTH || DAY.slice(0, 7);
+  const [y, m] = ym.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  const { data } = await db.from("coffee_sales").select("sale_date,kind,pay,amount,items,what").gte("sale_date", ym + "-01").lte("sale_date", ym + "-" + String(last).padStart(2, "0"));
+  const by = {};
+  (data || []).forEach(r => { (by[r.sale_date] = by[r.sale_date] || []).push(r); });
+  const days = Object.keys(by).sort().reverse();
+  let T = { s: 0, e: 0, cups: 0, big: 0 };
+  const rows = days.map(dd => {
+    const A = calc(by[dd]); const big = bigSum(A.tillExp); const e = A.expSum - big;
+    T.s += A.sales; T.e += e; T.cups += A.cups; T.big += big;
+    const d = new Date(dd + "T12:00:00");
+    return `<div class="mrow ${dd === DAY ? "on" : ""}" onclick="setDay('${dd}')"><span>${AR_DAYS[d.getDay()]} <b class="num">${d.getDate()}/${d.getMonth() + 1}</b></span><span>${A.cups}</span><span>${nl(A.sales)}</span><span>${nl(A.sales - e)}</span></div>`;
+  }).join("");
+  const n = days.length || 1;
+  box.innerHTML = `<div class="mhead"><h4>أيام الشهر · <span class="num">${m}/${y}</span></h4><div class="mnav"><button onclick="shiftMonth(-1)" aria-label="الشهر اللي قبل">›</button><button onclick="shiftMonth(1)" aria-label="الشهر اللي بعد">‹</button></div></div>
+    <div class="mtot"><div><small>مبيعات الشهر</small><b class="num">${nl(T.s)}</b></div><div><small>صافي الشهر</small><b class="num">${nl(T.s - T.e)}</b></div><div><small>معدّل اليوم</small><b class="num">${nl(T.s / n)}</b></div></div>
+    ${T.big ? `<p class="hint" style="margin:0 0 8px">مصاريف كبيرة هالشهر (راتب، بن…): <span class="num">${nl(T.big)}</span> — مش محسوبة بالصافي اليومي</p>` : ""}
+    <div class="mrow hd"><span>اليوم</span><span>كاسات</span><span>مبيعات</span><span>صافي</span></div>
+    ${rows || `<p class="empty">ما في شي مسجّل بهالشهر</p>`}`;
+}
 function shiftDay(n){ const d = new Date(DAY + "T12:00:00"); d.setDate(d.getDate() - n); setDay(iso(d)); }
 async function loadDay(){
   document.getElementById("dayPick").value = DAY;
@@ -1100,7 +1134,7 @@ function showView(v){
   if (v === "exp") renderExp();
   if (v === "box") renderBox();
   if (v === "sup") renderSup();
-  if (v === "day") loadDay();
+  if (v === "day") { loadDay(); renderMonth(); }
 }
 function sheet(html){ document.getElementById("sheet").innerHTML = `<button class="xbtn" onclick="closeSheet()" aria-label="سكّر">✕</button>` + html; document.getElementById("ov").classList.add("on"); }
 function closeSheet(){ document.getElementById("ov").classList.remove("on"); }
