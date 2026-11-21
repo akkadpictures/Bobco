@@ -397,6 +397,7 @@ function renderCash(){
     <tr><td><strong>&nbsp;&nbsp;= صافي الكوفي (تموز)</strong></td><td><strong>${fmtSYP(cofIn - cofExp - cofToUsd - zUsdCof)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;بصندوق الكوفي</td><td>${fmtSYP(cofIn - cofExp - cofOut - cofToUsd)}</td></tr>
+    <tr><td>&nbsp;&nbsp;<span style="color:var(--danger,#a33)">⚠️ دين الكوفي لدرج الحلاقة</span></td><td class="neg">${fmtSYP(ENTRIES.filter(e => e.type === "نقل" && (e.detail || "").startsWith("دين الكوفي")).reduce((t, e) => t + (+e.amount || 0), 0) - ENTRIES.filter(e => e.type === "نقل" && (e.detail || "").startsWith("سداد دين الكوفي")).reduce((t, e) => t + (+e.amount || 0), 0))}</td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
     ${coffeeSplitRows()}
