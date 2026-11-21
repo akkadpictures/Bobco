@@ -397,6 +397,7 @@ function renderCash(){
     <tr><td><strong>&nbsp;&nbsp;= صافي الكوفي (تموز)</strong></td><td><strong>${fmtSYP(cofIn - cofExp - cofToUsd - zUsdCof)}</strong></td></tr>
     <tr><td colspan="2" style="padding-top:12px;font-size:.8rem;opacity:.55;font-weight:800">وين الفلوس؟ ↓</td></tr>
     <tr><td>&nbsp;&nbsp;بصندوق الكوفي</td><td>${fmtSYP(cofIn - cofExp - cofOut - cofToUsd)}</td></tr>
+    <tr><td>&nbsp;&nbsp;<span style="color:var(--danger,#a33)">⚠️ دين الكوفي للموردين</span> <span style="opacity:.6;font-size:.8rem" id="cofSupNote"></span></td><td class="neg" id="cofSupDebt">…</td></tr>
     <tr><td>&nbsp;&nbsp;<span style="color:var(--danger,#a33)">⚠️ دين الكوفي لدرج الحلاقة</span></td><td class="neg">${fmtSYP(ENTRIES.filter(e => e.type === "نقل" && (e.detail || "").startsWith("دين الكوفي")).reduce((t, e) => t + (+e.amount || 0), 0) - ENTRIES.filter(e => e.type === "نقل" && (e.detail || "").startsWith("سداد دين الكوفي")).reduce((t, e) => t + (+e.amount || 0), 0))}</td></tr>
     <tr><td>&nbsp;&nbsp;<strong>🏦 صندوق زيد — ليرة</strong></td><td><strong>${fmtSYP(zCof - zUsdCof)}</strong></td></tr>
     <tr><td>&nbsp;&nbsp;<strong>💵 صندوق زيد — دولار</strong></td><td><strong>${usdCof.toFixed(0)} $</strong></td></tr>
@@ -1393,3 +1394,13 @@ function renderCoffeeInvest(){
     بعد الاسترداد بتضل النسبة ${Math.round(z1*100)}/${Math.round(b1*100)} مدة مساوية لمدة الاسترداد، وبعدها بترجع ${pn} ${Math.round(b3*100)}% · زيد ${Math.round(z3*100)}%.
   </div>`;
 }
+
+// دين الكوفي للموردين = المصاريف المسجّلة «دين» بصفحة الكوفي ولسّا ما اندفعت (لما تندفع بتتعدّل لـ«من الصندوق»)
+async function fillCoffeeSupDebt(){
+  const el = document.getElementById("cofSupDebt"); if (!el) return;
+  const { data } = await db.from("coffee_sales").select("what,amount,sale_date").eq("kind", "expense").eq("pay", "debt");
+  const rows = data || [];
+  el.textContent = fmtSYP(rows.reduce((t, r) => t + (+r.amount || 0), 0));
+  const n = document.getElementById("cofSupNote"); if (n) n.textContent = rows.length ? "(" + rows.map(r => r.what).join("، ") + ")" : "";
+}
+new MutationObserver(() => { const el = document.getElementById("cofSupDebt"); if (el && el.textContent === "…") fillCoffeeSupDebt(); }).observe(document.body, { childList: true, subtree: true });
