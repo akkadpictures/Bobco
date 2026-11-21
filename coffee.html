@@ -327,6 +327,12 @@ body.simple .adv{display:none!important}
           <input id="xWhat" placeholder="أو اكتب هون"></div>
         <div class="xq"><div class="frow"><label>العدد</label><input id="xQty" type="number" inputmode="numeric" value="1" min="1"></div>
           <div class="frow" style="flex:2"><label>المبلغ كلّو (ليرة جديدة)</label><input id="xAmt" type="number" inputmode="numeric" placeholder="مثلاً 650"></div></div>
+        <div class="frow"><label>نوع المصروف</label>
+          <div class="seg" id="xKindSeg">
+            <button class="on" data-k="day" onclick="xKind('day')">مصروف يومي</button>
+            <button data-k="big" onclick="xKind('big')">مصروف كبير</button>
+          </div>
+          <p class="hint">«مصروف يومي»: حليب، تلج، محارم… · «مصروف كبير»: راتب، سيروبات، بن، كاسات — بيطلع من الصندوق الكلي بس ما بيدخل بمصاريف اليوم.</p></div>
         <div class="frow adv"><label>من وين انتدفع؟</label>
           <div class="seg" id="xPaySeg">
             <button class="on" data-p="till" onclick="xPay('till')">من الصندوق</button>
@@ -405,9 +411,9 @@ const cupsOf = r => (r.items || []).filter(i => !i.adj).reduce((s, i) => s + (+i
 const itemsTxt = r => (r.items || []).map(i => i.adj ? `${i.name} ${nl(Math.abs(i.price))}` : i.name + (+i.qty > 1 ? " ×" + i.qty : "")).join("، ");
 // المصاريف الكبيرة (راتب، بن، بضاعة…) بتطلع من الصندوق بس ما بتنحسب بمصاريف اليوم — متل الاستقبال
 const BIG_RE = /(^|\s)بن(\s|$)|راتب|كاسات|سيروب|بضاعة|ستيك|سلفة/;
-const isBig = r => BIG_RE.test(r.what || "") || +r.amount >= 300000;
+const isBig = r => { const it = r.items; if (it && !Array.isArray(it) && typeof it === "object") { if (it.big === true) return true; if (it.big === false) return false; } return BIG_RE.test(r.what || "") || +r.amount >= 300000; };
 const bigSum = rows => rows.filter(isBig).reduce((t, r) => t + +r.amount, 0);
-const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "سيروبات", "كاسات وأغطية", "تنظيف", "راتب عدنان"];
+const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "تنظيف", "راتب عدنان", "سيروبات", "بن", "كاسات وأغطية"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
 let WHERE = null;   // "كرسي 3" · "خارجي" · null
 function whereHtml(sel, fn){
@@ -718,7 +724,9 @@ async function checkout(){
 }
 
 /* ---------- المصاريف ---------- */
-function pickQuick(b){ document.getElementById("xWhat").value = b.textContent; document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.toggle("on", x === b)); document.getElementById("xAmt").focus(); }
+let XKIND = "day";
+function xKind(k){ XKIND = k; document.querySelectorAll("#xKindSeg button").forEach(b => b.classList.toggle("on", b.dataset.k === k)); }
+function pickQuick(b){ xKind(BIG_RE.test(b.textContent) ? "big" : "day"); document.getElementById("xWhat").value = b.textContent; document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.toggle("on", x === b)); document.getElementById("xAmt").focus(); }
 function xPay(p){
   XPAY = p;
   document.querySelectorAll("#xPaySeg button").forEach(b => { b.classList.toggle("on", b.dataset.p === p); b.classList.toggle("red", b.dataset.p === "debt"); });
@@ -734,13 +742,13 @@ async function saveExpense(){
   if (XPAY === "debt") { sup = document.getElementById("xSup").value; if (!sup) return toast("اختار المورّد"); }
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
-    items: sup ? { supplier: sup } : [],
+    items: Object.assign(sup ? { supplier: sup } : {}, { big: XKIND === "big" }),
     note: [(+document.getElementById("xQty").value || 1) > 1 ? "×" + (+document.getElementById("xQty").value) : "", document.getElementById("xNote").value.trim()].filter(Boolean).join(" · ") || null
   });
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
   ["xWhat", "xAmt", "xNote"].forEach(id => document.getElementById(id).value = ""); document.getElementById("xQty").value = 1;
   document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.remove("on"));
-  xPay("till");
+  xPay("till"); xKind("day");
   toast("✓ انسجّل المصروف");
   refresh();
 }
