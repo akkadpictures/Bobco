@@ -333,7 +333,7 @@ body.simple .adv{display:none!important}
             <button data-k="big" onclick="xKind('big')">مصروف كبير</button>
           </div>
           <p class="hint">«مصروف يومي»: حليب، تلج، محارم… · «مصروف كبير»: راتب، سيروبات، بن، كاسات — بيطلع من الصندوق الكلي بس ما بيدخل بمصاريف اليوم.</p></div>
-        <div class="frow adv"><label>من وين انتدفع؟</label>
+        <div class="frow"><label>من وين انتدفع؟</label>
           <div class="seg" id="xPaySeg">
             <button class="on" data-p="till" onclick="xPay('till')">من الصندوق</button>
             <button data-p="debt" onclick="xPay('debt')">دين عالمورّد</button>
@@ -739,7 +739,7 @@ async function saveExpense(){
   if (!what) return toast("شو المصروف؟");
   if (!(amt > 0)) return toast("حط المبلغ");
   let sup = null;
-  if (XPAY === "debt") { sup = document.getElementById("xSup").value; if (!sup) return toast("اختار المورّد"); }
+  if (XPAY === "debt") { sup = (document.getElementById("xSup") || {}).value || null; }
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
     items: Object.assign(sup ? { supplier: sup } : {}, { big: XKIND === "big" }),
@@ -768,7 +768,7 @@ function editExpense(id){
   sheet(`<h3>تعديل مصروف</h3>
     <div class="frow"><label>شو المصروف؟</label><input id="eWhat" value="${esc(r.what || "")}"></div>
     <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="eAmt" type="number" inputmode="numeric" value="${+r.amount / K}"></div>
-    <div class="frow ${FULL || r.pay === "debt" ? "" : "adv"}"><label>من وين انتدفع؟</label><div class="seg" id="ePaySeg">
+    <div class="frow"><label>من وين انتدفع؟</label><div class="seg" id="ePaySeg">
       <button data-p="till" class="${r.pay !== "debt" ? "on" : ""}" onclick="ePay('till')">من الصندوق</button>
       <button data-p="debt" class="${r.pay === "debt" ? "on red" : ""}" onclick="ePay('debt')">دين عالمورّد</button></div></div>
     <div class="frow"><label>ملاحظة</label><input id="eNote" value="${esc(r.note || "")}"></div>
