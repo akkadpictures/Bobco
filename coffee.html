@@ -340,7 +340,8 @@ body.simple .adv{display:none!important}
           </div>
           <p class="hint">«من الصندوق» بينطرح من الصندوق ومن صافي اليوم. «دين» بينضاف على حساب المورّد، وما بينطرح.</p></div>
         <div class="frow" id="xSupRow" style="display:none"><label>المورّد</label>
-          <select id="xSup"></select></div>
+          <select id="xSup"></select>
+          <input id="xSupNew" placeholder="اسم المورّد الجديد" style="display:none;margin-top:8px"></div>
         <div class="frow adv"><label>ملاحظة (اختياري)</label><input id="xNote"></div>
         <button class="btn" onclick="saveExpense()">سجّل المصروف</button>
       </div>
@@ -739,14 +740,14 @@ async function saveExpense(){
   if (!what) return toast("شو المصروف؟");
   if (!(amt > 0)) return toast("حط المبلغ");
   let sup = null;
-  if (XPAY === "debt") { sup = (document.getElementById("xSup") || {}).value || null; if (!sup) return toast("الدين لازم يكون على مورّد — اختار المورّد"); }
+  if (XPAY === "debt") { sup = await resolveSup("xSup"); if (sup === null) return; if (!sup) return toast("الدين لازم يكون على مورّد — اختار المورّد أو اكتب اسم جديد"); }
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
     items: Object.assign(sup ? { supplier: sup } : {}, { big: XKIND === "big" }),
     note: [(+document.getElementById("xQty").value || 1) > 1 ? "×" + (+document.getElementById("xQty").value) : "", document.getElementById("xNote").value.trim()].filter(Boolean).join(" · ") || null
   });
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
-  ["xWhat", "xAmt", "xNote"].forEach(id => document.getElementById(id).value = ""); document.getElementById("xQty").value = 1;
+  ["xWhat", "xAmt", "xNote", "xSupNew"].forEach(id => document.getElementById(id).value = ""); document.getElementById("xQty").value = 1;
   document.querySelectorAll("#xQuick .chip").forEach(x => x.classList.remove("on"));
   xPay("till"); xKind("day");
   toast("✓ انسجّل المصروف");
@@ -771,7 +772,7 @@ function editExpense(id){
     <div class="frow"><label>من وين انتدفع؟</label><div class="seg" id="ePaySeg">
       <button data-p="till" class="${r.pay !== "debt" ? "on" : ""}" onclick="ePay('till')">من الصندوق</button>
       <button data-p="debt" class="${r.pay === "debt" ? "on red" : ""}" onclick="ePay('debt')">دين عالمورّد</button></div></div>
-    <div class="frow" id="eSupRow" style="display:${r.pay === "debt" ? "block" : "none"}"><label>المورّد</label><select id="eSup"></select></div>
+    <div class="frow" id="eSupRow" style="display:${r.pay === "debt" ? "block" : "none"}"><label>المورّد</label><select id="eSup"></select><input id="eSupNew" placeholder="اسم المورّد الجديد" style="display:none;margin-top:8px"></div>
     <div class="frow"><label>ملاحظة</label><input id="eNote" value="${esc(r.note || "")}"></div>
     <div class="btn-row"><button class="btn danger" onclick="delRow('${id}')">امسح</button><button class="btn" onclick="saveEditExpense()">احفظ</button></div>`);
   fillSupSelect("eSup", supOf(r));
@@ -781,8 +782,9 @@ async function saveEditExpense(){
   const what = document.getElementById("eWhat").value.trim(), amt = +document.getElementById("eAmt").value;
   if (!what || !(amt > 0)) return toast("كمّل الاسم والمبلغ");
   const it0 = window._x.items, items = Object.assign({}, it0 && !Array.isArray(it0) && typeof it0 === "object" ? it0 : {});
-  const sup = (document.getElementById("eSup") || {}).value || "";
-  if (window._x.pay === "debt" && !sup) return toast("الدين لازم يكون على مورّد — اختار المورّد");
+  const sup = window._x.pay === "debt" ? await resolveSup("eSup") : "";
+  if (sup === null) return;
+  if (window._x.pay === "debt" && !sup) return toast("الدين لازم يكون على مورّد — اختار المورّد أو اكتب اسم جديد");
   if (sup) items.supplier = sup;
   const { error } = await db.from("coffee_sales").update({ what, amount: Math.round(amt * K), pay: window._x.pay, items, note: document.getElementById("eNote").value.trim() || null }).eq("id", window._x.id);
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
@@ -815,8 +817,23 @@ async function loadSup(){
 function fillSupSelect(id, sel){
   const el = document.getElementById(id); if (!el) return;
   const list = SUPS.filter(x => !x.orphan);
-  el.innerHTML = list.length ? `<option value="">— اختار المورّد —</option>` + list.map(s => `<option value="${esc(s.name)}" ${s.name === sel ? "selected" : ""}>${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
-    : `<option value="">ما في موردين — زيدهم من قسم «الموردين»</option>`;
+  el.innerHTML = `<option value="">— اختار المورّد —</option>`
+    + list.map(s => `<option value="${esc(s.name)}" ${s.name === sel ? "selected" : ""}>${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
+    + `<option value="__new">＋ مورّد جديد…</option>`;
+  el.onchange = () => { const n = document.getElementById(id + "New"); if (n) { n.style.display = el.value === "__new" ? "block" : "none"; if (el.value === "__new") n.focus(); } };
+  el.onchange();
+}
+// بترجّع اسم المورّد المختار؛ إذا «مورّد جديد» بتنشئه بقائمة الموردين أول
+async function resolveSup(id){
+  const el = document.getElementById(id); if (!el) return "";
+  if (el.value !== "__new") return el.value || "";
+  const name = ((document.getElementById(id + "New") || {}).value || "").trim();
+  if (!name) return "";
+  if (!SUPS.some(x => !x.orphan && x.name === name)) {
+    const { error } = await db.from("coffee_sales").insert({ kind: "supplier", sale_date: bizToday(), what: name, amount: 0, items: [] });
+    if (error) { toast("ما انضاف المورّد — جرّب كمان مرة"); return null; }
+  }
+  return name;
 }
 function renderSup(){
   const tot = SUPS.reduce((s, x) => s + x.bal, 0);
