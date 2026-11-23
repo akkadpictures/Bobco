@@ -798,10 +798,17 @@ async function loadSup(){
     const bought = buys.reduce((a, r) => a + +r.amount, 0), paid = pays.reduce((a, r) => a + +r.amount, 0);
     return { row: s, name: s.what, open: +s.amount || 0, bought, paid, bal: (+s.amount || 0) + bought - paid, buys, pays };
   }).sort((a, b) => b.bal - a.bal);
+  // ديون مسجّلة «دين» بلا اسم مورّد — لازم تنحسب، مش تضيع من المجموع
+  const known = new Set(SUPS.map(x => x.name));
+  const orphan = SUPROWS.filter(r => r.kind === "expense" && !known.has(supOf(r)));
+  if (orphan.length) {
+    const bought = orphan.reduce((a, r) => a + +r.amount, 0);
+    SUPS.unshift({ row: { what: "بلا اسم مورّد", note: orphan.map(r => r.what).join("، ") }, name: "بلا اسم مورّد", open: 0, bought, paid: 0, bal: bought, buys: orphan, pays: [], orphan: true });
+  }
 }
 function fillSupSelect(id){
   const el = document.getElementById(id); if (!el) return;
-  el.innerHTML = SUPS.length ? SUPS.map(s => `<option value="${esc(s.name)}">${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
+  el.innerHTML = SUPS.filter(x => !x.orphan).length ? SUPS.filter(x => !x.orphan).map(s => `<option value="${esc(s.name)}">${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
     : `<option value="">ما في موردين — زيدهم من قسم «الموردين»</option>`;
 }
 function renderSup(){
