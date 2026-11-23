@@ -739,7 +739,7 @@ async function saveExpense(){
   if (!what) return toast("شو المصروف؟");
   if (!(amt > 0)) return toast("حط المبلغ");
   let sup = null;
-  if (XPAY === "debt") { sup = (document.getElementById("xSup") || {}).value || null; }
+  if (XPAY === "debt") { sup = (document.getElementById("xSup") || {}).value || null; if (!sup) return toast("الدين لازم يكون على مورّد — اختار المورّد"); }
   const { error } = await db.from("coffee_sales").insert({
     kind: "expense", sale_date: bizToday(), what, amount: Math.round(amt * K), pay: XPAY,
     items: Object.assign(sup ? { supplier: sup } : {}, { big: XKIND === "big" }),
@@ -764,21 +764,27 @@ function renderExp(){
 }
 function editExpense(id){
   const r = TODAY.find(x => x.id === id) || ROWS.find(x => x.id === id); if (!r) return;
-  window._x = { id, pay: r.pay || "till" };
+  window._x = { id, pay: r.pay || "till", items: r.items };
   sheet(`<h3>تعديل مصروف</h3>
     <div class="frow"><label>شو المصروف؟</label><input id="eWhat" value="${esc(r.what || "")}"></div>
     <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="eAmt" type="number" inputmode="numeric" value="${+r.amount / K}"></div>
     <div class="frow"><label>من وين انتدفع؟</label><div class="seg" id="ePaySeg">
       <button data-p="till" class="${r.pay !== "debt" ? "on" : ""}" onclick="ePay('till')">من الصندوق</button>
       <button data-p="debt" class="${r.pay === "debt" ? "on red" : ""}" onclick="ePay('debt')">دين عالمورّد</button></div></div>
+    <div class="frow" id="eSupRow" style="display:${r.pay === "debt" ? "block" : "none"}"><label>المورّد</label><select id="eSup"></select></div>
     <div class="frow"><label>ملاحظة</label><input id="eNote" value="${esc(r.note || "")}"></div>
     <div class="btn-row"><button class="btn danger" onclick="delRow('${id}')">امسح</button><button class="btn" onclick="saveEditExpense()">احفظ</button></div>`);
+  fillSupSelect("eSup", supOf(r));
 }
-function ePay(p){ window._x.pay = p; document.querySelectorAll("#ePaySeg button").forEach(b => { b.classList.toggle("on", b.dataset.p === p); b.classList.toggle("red", b.dataset.p === "debt"); }); }
+function ePay(p){ window._x.pay = p; const sr = document.getElementById("eSupRow"); if (sr) sr.style.display = p === "debt" ? "block" : "none"; document.querySelectorAll("#ePaySeg button").forEach(b => { b.classList.toggle("on", b.dataset.p === p); b.classList.toggle("red", b.dataset.p === "debt"); }); }
 async function saveEditExpense(){
   const what = document.getElementById("eWhat").value.trim(), amt = +document.getElementById("eAmt").value;
   if (!what || !(amt > 0)) return toast("كمّل الاسم والمبلغ");
-  const { error } = await db.from("coffee_sales").update({ what, amount: Math.round(amt * K), pay: window._x.pay, note: document.getElementById("eNote").value.trim() || null }).eq("id", window._x.id);
+  const it0 = window._x.items, items = Object.assign({}, it0 && !Array.isArray(it0) && typeof it0 === "object" ? it0 : {});
+  const sup = (document.getElementById("eSup") || {}).value || "";
+  if (window._x.pay === "debt" && !sup) return toast("الدين لازم يكون على مورّد — اختار المورّد");
+  if (sup) items.supplier = sup;
+  const { error } = await db.from("coffee_sales").update({ what, amount: Math.round(amt * K), pay: window._x.pay, items, note: document.getElementById("eNote").value.trim() || null }).eq("id", window._x.id);
   if (error) return toast("ما انحفظ — جرّب كمان مرة");
   closeSheet(); toast("✓ انحفظ"); refresh();
 }
@@ -806,9 +812,10 @@ async function loadSup(){
     SUPS.unshift({ row: { what: "بلا اسم مورّد", note: orphan.map(r => r.what).join("، ") }, name: "بلا اسم مورّد", open: 0, bought, paid: 0, bal: bought, buys: orphan, pays: [], orphan: true });
   }
 }
-function fillSupSelect(id){
+function fillSupSelect(id, sel){
   const el = document.getElementById(id); if (!el) return;
-  el.innerHTML = SUPS.filter(x => !x.orphan).length ? SUPS.filter(x => !x.orphan).map(s => `<option value="${esc(s.name)}">${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
+  const list = SUPS.filter(x => !x.orphan);
+  el.innerHTML = list.length ? `<option value="">— اختار المورّد —</option>` + list.map(s => `<option value="${esc(s.name)}" ${s.name === sel ? "selected" : ""}>${esc(s.name)} — علينا ${nl(s.bal)}</option>`).join("")
     : `<option value="">ما في موردين — زيدهم من قسم «الموردين»</option>`;
 }
 function renderSup(){
