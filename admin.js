@@ -1398,9 +1398,21 @@ function renderCoffeeInvest(){
 // دين الكوفي للموردين = المصاريف المسجّلة «دين» بصفحة الكوفي ولسّا ما اندفعت (لما تندفع بتتعدّل لـ«من الصندوق»)
 async function fillCoffeeSupDebt(){
   const el = document.getElementById("cofSupDebt"); if (!el) return;
-  const { data } = await db.from("coffee_sales").select("what,amount,sale_date").eq("kind", "expense").eq("pay", "debt");
+  // نفس حساب صفحة الكوفي: لكل مورّد = دين افتتاحي + بضاعة بالدين − دفعات · والديون بلا اسم مورّد بتنحسب لحالها
+  const { data } = await db.from("coffee_sales").select("kind,what,amount,pay,items").in("kind", ["supplier", "supplier_pay", "expense"]);
   const rows = data || [];
-  el.textContent = fmtSYP(rows.reduce((t, r) => t + (+r.amount || 0), 0));
-  const n = document.getElementById("cofSupNote"); if (n) n.textContent = rows.length ? "(" + rows.map(r => r.what).join("، ") + ")" : "";
+  const supOf = r => (r.items && !Array.isArray(r.items) && r.items.supplier) || "";
+  const names = rows.filter(r => r.kind === "supplier").map(r => r.what);
+  const owed = [];
+  rows.filter(r => r.kind === "supplier").forEach(s => {
+    const bal = (+s.amount || 0)
+      + rows.filter(r => r.kind === "expense" && r.pay === "debt" && supOf(r) === s.what).reduce((t, r) => t + (+r.amount || 0), 0)
+      - rows.filter(r => r.kind === "supplier_pay" && r.what === s.what).reduce((t, r) => t + (+r.amount || 0), 0);
+    if (bal > 0) owed.push({ n: s.what, bal });
+  });
+  const orphan = rows.filter(r => r.kind === "expense" && r.pay === "debt" && !names.includes(supOf(r))).reduce((t, r) => t + (+r.amount || 0), 0);
+  if (orphan > 0) owed.push({ n: "بلا اسم مورّد", bal: orphan });
+  el.textContent = fmtSYP(owed.reduce((t, x) => t + x.bal, 0));
+  const n = document.getElementById("cofSupNote"); if (n) n.textContent = owed.length ? "(" + owed.map(x => x.n).join("، ") + ")" : "";
 }
 new MutationObserver(() => { const el = document.getElementById("cofSupDebt"); if (el && el.textContent === "…") fillCoffeeSupDebt(); }).observe(document.body, { childList: true, subtree: true });
