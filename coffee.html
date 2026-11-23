@@ -838,12 +838,12 @@ async function saveSupNew(){
   closeSheet(); toast("✓ انضاف " + name); refresh();
 }
 function supPicker(sel){
-  return SUPS.length ? `<div class="chips" id="spChips">${SUPS.map(s => `<button class="chip ${s.name === sel ? "on" : ""}" onclick="pickSup(this)">${esc(s.name)}</button>`).join("")}</div>`
+  return SUPS.some(x=>!x.orphan) ? `<div class="chips" id="spChips">${SUPS.filter(x=>!x.orphan).map(s => `<button class="chip ${s.name === sel ? "on" : ""}" onclick="pickSup(this)">${esc(s.name)}</button>`).join("")}</div>`
     : `<p class="hint">ما في موردين — زيد واحد أول.</p>`;
 }
 function pickSup(b){ window._sp = b.textContent; document.querySelectorAll("#spChips .chip").forEach(x => x.classList.toggle("on", x === b)); }
 function openSupPay(name){
-  window._sp = name || (SUPS.length === 1 ? SUPS[0].name : null);
+  window._sp = name || (SUPS.filter(x=>!x.orphan).length === 1 ? SUPS.filter(x=>!x.orphan)[0].name : null);
   sheet(`<h3>دفعة لمورّد</h3>
     <div class="frow"><label>لمين؟</label>${supPicker(window._sp)}</div>
     <div class="frow"><label>المبلغ (ليرة جديدة)</label><input id="pAmt" type="number" inputmode="numeric"></div>
@@ -861,7 +861,7 @@ async function saveSupPay(){
   closeSheet(); toast("✓ انسجّلت الدفعة"); refresh();
 }
 function openSupBuy(name){
-  window._sp = name || (SUPS.length === 1 ? SUPS[0].name : null);
+  window._sp = name || (SUPS.filter(x=>!x.orphan).length === 1 ? SUPS.filter(x=>!x.orphan)[0].name : null);
   sheet(`<h3>بضاعة بالدين</h3>
     <div class="frow"><label>من مين؟</label>${supPicker(window._sp)}</div>
     <div class="frow"><label>شو البضاعة؟</label><input id="bWhat" value="بضاعة"></div>
