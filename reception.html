@@ -371,8 +371,8 @@ async function tryPin(){
 document.getElementById("gateBtn").onclick = tryPin;
 document.getElementById("pin").addEventListener("keydown", e => { if(e.key === "Enter") tryPin(); });
 if (BARBER_VIEW || CREW_MODE) document.getElementById("gateTitle").textContent = "جدول الحلاقين";
-// الدخول بيضل محفوظ عالجهاز 3 أيام (localStorage) — سفاري بيمسح sessionStorage كل ما يسكّر التاب بالخلفية
-const REC_KEEP_MS = 3 * 24 * 60 * 60 * 1000;
+// الدخول بيضل محفوظ عالجهاز 30 يوم (localStorage) — سفاري بيمسح sessionStorage كل ما يسكّر التاب بالخلفية
+const REC_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 function recRemember(v){ try { localStorage.setItem("bobco_rec", v + "|" + Date.now()); } catch(_){} }
 function recRemembered(){
   try {
