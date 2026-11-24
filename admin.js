@@ -338,7 +338,7 @@ function renderCash(){
     if (e.type === "دولار" && e.detail === RENT_ACC && +e.rate === 1) {
       // نقل دولار جاهز من صندوق زيد للمؤونة: بيطلع من صندوق زيد وبيدخل المؤونة — ما بيمس الليرة
       const a = +e.amount || 0;
-      rentUsd += a; usdShop -= a;
+      rentUsd += a; if (e.sub !== "عطور") usdShop -= a; // sub=عطور: دولار العطور راح عالمؤونة مباشرة، ما مرّ بصندوق زيد
     } else if (e.type === "دولار") {
       const a = +e.amount || 0;
       if (e.detail === "صندوق الكوفي" || e.detail === "صندوق زيد — كوفي") usdCof += c.usd;
