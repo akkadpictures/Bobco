@@ -431,7 +431,7 @@ const isBig = r => { const it = r.items; if (it && !Array.isArray(it) && typeof 
 const bigSum = rows => rows.filter(isBig).reduce((t, r) => t + +r.amount, 0);
 const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "تنظيف", "راتب عدنان", "سيروبات", "بن", "كاسات وأغطية"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
-// الزبون إجباري: «على الماشي» (تو جو) أو «زبون المحل» (وبالوضع الكامل فيك تحدد الكرسي)
+// الزبون إجباري: «على الماشي» (تو جو) أو «زبون المحل»
 // what = "على الماشي" · "المحل" · "كرسي 3" · (قديم: "خارجي" = على الماشي)
 const TOGO = "على الماشي", SHOP = "المحل";
 const isToGo = r => r.what === TOGO || r.what === "خارجي";
@@ -439,9 +439,7 @@ const isShop = r => !!r.what && !isToGo(r);
 let WHERE = null;
 function whereHtml(sel, fn, need){
   const togo = sel === TOGO || sel === "خارجي", shop = !!sel && !togo;
-  return `<div class="wseg${need ? " need" : ""}"><button class="${togo ? "on" : ""}" onclick="${fn}('${TOGO}')">على الماشي</button><button class="${shop ? "on" : ""}" onclick="${fn}('${SHOP}')">زبون المحل</button></div>`
-    + (shop ? `<div class="chairs adv">` + Array.from({ length: CHAIRS }, (_, i) => `كرسي ${i + 1}`).map((w, i) =>
-      `<button class="${sel === w ? "on" : ""}" onclick="${fn}('${w}')">${i + 1}</button>`).join("") + `</div>` : "");
+  return `<div class="wseg${need ? " need" : ""}"><button class="${togo ? "on" : ""}" onclick="${fn}('${TOGO}')">على الماشي</button><button class="${shop ? "on" : ""}" onclick="${fn}('${SHOP}')">زبون المحل</button></div>`;
 }
 const pickWhere = (cur, w) => w.startsWith("كرسي") ? (cur === w ? SHOP : w) : (cur === w || (w === TOGO && cur === "خارجي") || (w === SHOP && cur && cur.startsWith("كرسي")) ? null : w);
 function setWhere(w){ WHERE = pickWhere(WHERE, w); document.getElementById("where").innerHTML = whereHtml(WHERE, "setWhere"); }
