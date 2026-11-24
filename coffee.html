@@ -54,6 +54,11 @@ header .sub{color:#fff;font-size:1.05rem;font-weight:400}
 .where button{min-width:44px;padding:10px 12px;border-radius:12px;font-weight:400;font-size:.95rem;background:var(--cream-soft);color:var(--olive)}
 .where button.on{background:var(--olive);color:var(--cream)}
 .where button.ext{flex:1 1 100%}
+.where .wseg{display:flex;gap:8px;width:100%}
+.where .wseg button{flex:1;padding:13px 10px;font-weight:700;font-size:1rem;border:1.5px solid var(--olive);background:#fff}
+.where .wseg button.on{background:var(--olive);color:var(--cream)}
+.where .wseg.need button{border-color:#a33}
+.where .chairs{display:flex;gap:6px;flex-wrap:wrap;width:100%}
 .wlbl{font-size:.8rem;font-weight:400;opacity:.6;margin-top:14px}
 .tag.wh{background:#e6e3d8;color:var(--ink)}
 .dayttl{font-size:1.7rem;font-weight:400;color:var(--olive);margin:0 4px 12px}
@@ -312,8 +317,8 @@ body.simple .adv{display:none!important}
         <div class="lines" id="lines"></div>
         <div id="adjLine"></div>
         <button class="adjbtn adv" id="adjBtn" onclick="openAdj()">٪ خصم (ستاف أو غيرو) · أو زيادة</button>
-        <div class="wlbl adv">وين؟ (اختياري)</div>
-        <div class="where adv" id="where"></div>
+        <div class="wlbl">الزبون؟</div>
+        <div class="where" id="where"></div>
         <div class="pays">
           <button class="pay on" data-p="cash" onclick="setPay('cash')">كاش</button>
           <button class="pay adv" data-p="usd" onclick="setPay('usd')">دولار</button>
@@ -426,13 +431,20 @@ const isBig = r => { const it = r.items; if (it && !Array.isArray(it) && typeof 
 const bigSum = rows => rows.filter(isBig).reduce((t, r) => t + +r.amount, 0);
 const EXP_QUICK = ["حليب", "تلج", "سفن اب", "شاي", "محارم", "نسلة", "ليفة", "تنظيف", "راتب عدنان", "سيروبات", "بن", "كاسات وأغطية"];
 const CHAIRS = 6;   // أرقام الكراسي متل ورقة الإكسل
-let WHERE = null;   // "كرسي 3" · "خارجي" · null
-function whereHtml(sel, fn){
-  return Array.from({ length: CHAIRS }, (_, i) => `كرسي ${i + 1}`).map((w, i) =>
-    `<button class="${sel === w ? "on" : ""}" onclick="${fn}('${w}')">${i + 1}</button>`).join("")
-    + `<button class="ext ${sel === "خارجي" ? "on" : ""}" onclick="${fn}('خارجي')">طلب خارجي</button>`;
+// الزبون إجباري: «على الماشي» (تو جو) أو «زبون المحل» (وبالوضع الكامل فيك تحدد الكرسي)
+// what = "على الماشي" · "المحل" · "كرسي 3" · (قديم: "خارجي" = على الماشي)
+const TOGO = "على الماشي", SHOP = "المحل";
+const isToGo = r => r.what === TOGO || r.what === "خارجي";
+const isShop = r => !!r.what && !isToGo(r);
+let WHERE = null;
+function whereHtml(sel, fn, need){
+  const togo = sel === TOGO || sel === "خارجي", shop = !!sel && !togo;
+  return `<div class="wseg${need ? " need" : ""}"><button class="${togo ? "on" : ""}" onclick="${fn}('${TOGO}')">على الماشي</button><button class="${shop ? "on" : ""}" onclick="${fn}('${SHOP}')">زبون المحل</button></div>`
+    + (shop ? `<div class="chairs adv">` + Array.from({ length: CHAIRS }, (_, i) => `كرسي ${i + 1}`).map((w, i) =>
+      `<button class="${sel === w ? "on" : ""}" onclick="${fn}('${w}')">${i + 1}</button>`).join("") + `</div>` : "");
 }
-function setWhere(w){ WHERE = WHERE === w ? null : w; document.getElementById("where").innerHTML = whereHtml(WHERE, "setWhere"); }
+const pickWhere = (cur, w) => w.startsWith("كرسي") ? (cur === w ? SHOP : w) : (cur === w || (w === TOGO && cur === "خارجي") || (w === SHOP && cur && cur.startsWith("كرسي")) ? null : w);
+function setWhere(w){ WHERE = pickWhere(WHERE, w); document.getElementById("where").innerHTML = whereHtml(WHERE, "setWhere"); }
 
 let ITEMS = [], CAT = null, CART = [], PAY = "cash", XPAY = "till", SUPS = [], SUPROWS = [];
 let DAY = bizToday(), ROWS = [], TODAY = [], BOX = null, REPORT = null;
@@ -714,6 +726,7 @@ function addManual(){
 let busy = false;
 async function checkout(){
   if (!CART.length || busy) return;
+  if (!WHERE) { document.getElementById("where").innerHTML = whereHtml(null, "setWhere", true); document.getElementById("where").scrollIntoView({ block: "center", behavior: "smooth" }); return toast("اختار: على الماشي ولا زبون المحل؟"); }
   DAY = bizToday();
   const usd = PAY === "usd" ? +document.getElementById("usdIn").value : null;
   if (PAY === "usd" && !(usd > 0)) { document.getElementById("usdIn").focus(); return toast("اكتب كم دولار انقبض"); }
@@ -1014,7 +1027,8 @@ async function loadDay(){
   const A = calc(ROWS);
   const pays = { cash: "", usd: `<span class="tag usd">دولار</span>`, treat: `<span class="tag treat">ضيافة</span>` };
   const cupsHtml = Object.entries(A.per).sort((a, b) => b[1] - a[1]).map(([n, q]) => `<span>${esc(n)} <b>${q}</b></span>`).join("");
-  const ext = A.saleRows.filter(r => r.what === "خارجي");
+  const cupsRows = rs => rs.reduce((s, r) => s + cupsOf(r), 0), amtRows = rs => rs.reduce((s, r) => s + +r.amount, 0);
+  const tg = A.saleRows.filter(isToGo), sh = A.saleRows.filter(isShop), un = A.saleRows.filter(r => !r.what);
   const SAL = bigSum(A.tillExp);
   const pdD = new Date(DAY + "T12:00:00"); pdD.setDate(pdD.getDate() - 1); const pd = iso(pdD);
   const { data: prRows } = await db.from("coffee_sales").select("kind,pay,amount,items,what").eq("sale_date", pd);
@@ -1027,7 +1041,9 @@ async function loadDay(){
     <div class="row total-row"><div><b>الصافي</b></div><div class="amt num">${nl(A.net + SAL)}</div></div>
     ${SAL ? `<div class="row"><div><b>مصاريف كبيرة</b><small>راتب، بن، بضاعة — طلعت من الصندوق، مش من مصاريف اليوم</small></div><div class="amt num neg">−${nl(SAL)}</div></div>` : ""}
     ${cmp}
-    ${ext.length ? `<div class="row"><div><b>طلبات خارجية</b><small>${ext.reduce((s, r) => s + cupsOf(r), 0)} كاسة</small></div><div class="amt num">${nl(ext.reduce((s, r) => s + +r.amount, 0))}</div></div>` : ""}</div>`;
+    ${A.saleRows.length ? `<div class="row"><div><b>على الماشي</b><small>${cupsRows(tg)} كاسة · ${tg.length} طلب</small></div><div class="amt num">${nl(amtRows(tg))}</div></div>
+    <div class="row"><div><b>زبون المحل</b><small>${cupsRows(sh)} كاسة · ${sh.length} طلب</small></div><div class="amt num">${nl(amtRows(sh))}</div></div>
+    ${un.length ? `<div class="row"><div><b>مش محدد</b><small>${cupsRows(un)} كاسة · قبل ما يصير إجباري</small></div><div class="amt num">${nl(amtRows(un))}</div></div>` : ""}` : ""}</div>`;
   if (cupsHtml) h += `<div class="panel"><h4>شو انباع</h4><div class="cups">${cupsHtml}</div></div>`;
   h += `<div class="panel"><h4>المبيعات — اكبس لتعدّل أو تمسح</h4>${A.saleRows.length ? A.saleRows.map(r => `
     <div class="row click" onclick="openSale('${r.id}')">
@@ -1058,13 +1074,13 @@ function drawSale(){
       <div class="tot num">${nl(i.price * i.qty)}</div></div>`).join("")}
     <div class="frow" style="margin-top:14px"><label>الدفع</label><div class="chips">
       ${[["cash","كاش"],["usd","دولار"],["treat","ضيافة"]].map(([k, t]) => `<button class="chip ${E.pay === k ? "on" : ""}" onclick="window._edit.pay='${k}';drawSale()">${t}</button>`).join("")}</div></div>
-    <div class="frow"><label>وين؟</label><div class="where" style="margin-top:0">${whereHtml(E.where, "eWhere")}</div></div>
+    <div class="frow"><label>الزبون</label><div class="where" style="margin-top:0">${whereHtml(E.where, "eWhere")}</div></div>
     ${E.pay === "usd" ? `<div class="frow"><label>كم دولار</label><input id="eUsd" type="number" inputmode="decimal" value="${+E.r.usd || ""}"></div>` : ""}
     <div class="frow"><label>ملاحظة</label><input id="eNote2" value="${esc(E.r.note || "")}"></div>
     <div class="total"><span>المجموع</span><b class="num">${E.pay === "treat" ? 0 : nl(sum)}</b></div>
     <div class="btn-row"><button class="btn danger" onclick="delRow('${E.r.id}')">امسح البيعة</button><button class="btn" onclick="saveSale()">احفظ</button></div>`);
 }
-function eWhere(w){ window._edit.where = window._edit.where === w ? null : w; drawSale(); }
+function eWhere(w){ window._edit.where = pickWhere(window._edit.where, w); drawSale(); }
 function eStep(k, d){ const E = window._edit; E.items[k].qty += d; if (E.items[k].qty <= 0) E.items.splice(k, 1); drawSale(); }
 async function saveSale(){
   const E = window._edit;
@@ -1104,8 +1120,13 @@ async function openReport(){
   L.push({ k: "h", r: "المبيعات" });
   L.push({ k: "sum", r: "مجموع المبيعات", l: nl(A.sales) });
   if (A.usd){ L.push({ k: "sum", r: `منها دولار (قيمتها ${nl(A.usdVal)})`, l: A.usd + "$" }); L.push({ k: "sum", r: "منها كاش ليرة", l: nl(A.cashSales) }); }
-  const extR = A.saleRows.filter(r => r.what === "خارجي");
-  if (extR.length) L.push({ k: "row", r: `طلبات خارجية: ${extR.reduce((s, r) => s + cupsOf(r), 0)} كاسة`, l: nl(extR.reduce((s, r) => s + +r.amount, 0)) });
+  const tgR = A.saleRows.filter(isToGo), shR = A.saleRows.filter(isShop), unR = A.saleRows.filter(r => !r.what);
+  const cR = rs => rs.reduce((s, r) => s + cupsOf(r), 0), aR = rs => rs.reduce((s, r) => s + +r.amount, 0);
+  if (A.saleRows.length){
+    L.push({ k: "row", r: `على الماشي: ${cR(tgR)} كاسة`, l: nl(aR(tgR)) });
+    L.push({ k: "row", r: `زبون المحل: ${cR(shR)} كاسة`, l: nl(aR(shR)) });
+    if (unR.length) L.push({ k: "row", r: `مش محدد: ${cR(unR)} كاسة`, l: nl(aR(unR)) });
+  }
   if (A.disc) L.push({ k: "row", r: `خصومات: ${A.discN}` + (A.discStaff ? ` (منها ستاف ${nl(A.discStaff)})` : ""), l: "−" + nl(A.disc), neg: true });
   if (A.treatCups) L.push({ k: "row", r: `ضيافة: ${A.treatCups} كاسة (قيمتها ${nl(A.treatVal)})`, l: "0" });
   L.push({ k: "gap" });
