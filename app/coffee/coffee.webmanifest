@@ -1,0 +1,20 @@
+{
+  "name": "كوفي بوب — Bob & Co",
+  "short_name": "كوفي بوب",
+  "description": "Bob & Co — صفحة الكوفي",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "/coffee.html",
+  "start_url": "/coffee.html",
+  "scope": "/coffee.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#A9825E",
+  "theme_color": "#A9825E",
+  "icons": [
+    { "src": "/app/coffee/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/coffee/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/coffee/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/app/coffee/touch-icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

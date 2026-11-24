@@ -8,6 +8,16 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="app/coffee/favicon-32.png" sizes="32x32" type="image/png">
+<!-- تطبيق الكوفي على الشاشة الرئيسية -->
+<link rel="manifest" href="app/coffee/coffee.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="app/coffee/touch-icon-1024.png?v=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="كوفي بوب">
+<meta name="application-name" content="كوفي بوب">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EFE3CA">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
@@ -427,8 +437,8 @@ function setWhere(w){ WHERE = WHERE === w ? null : w; document.getElementById("w
 let ITEMS = [], CAT = null, CART = [], PAY = "cash", XPAY = "till", SUPS = [], SUPROWS = [];
 let DAY = bizToday(), ROWS = [], TODAY = [], BOX = null, REPORT = null;
 
-/* ---------- الدخول (محفوظ عالجهاز 3 أيام متل الاستقبال) ---------- */
-const REM_KEY = "bobco_coffee", REM_MS = 3 * 864e5;
+/* ---------- الدخول (محفوظ عالجهاز 30 يوم متل الاستقبال) ---------- */
+const REM_KEY = "bobco_coffee", REM_MS = 30 * 864e5;
 function remember(){ try { localStorage.setItem(REM_KEY, String(Date.now())); } catch(_){} }
 function remembered(){
   try { const t = +localStorage.getItem(REM_KEY); if (t && Date.now() - t < REM_MS) return true; localStorage.removeItem(REM_KEY); } catch(_){}
