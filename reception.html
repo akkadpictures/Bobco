@@ -93,6 +93,12 @@ table.grid{border-collapse:separate;border-spacing:0;min-width:100%}
 .pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
 .pstats div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center}
 .pstats b{display:block;font-size:1.15rem;color:var(--olive)}
+.loy{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.loydots{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+.loydots i{aspect-ratio:1;border-radius:50%;border:1.5px solid var(--olive);opacity:.35;display:grid;place-items:center;font-style:normal;font-size:.6rem;font-weight:700}
+.loydots i.on{background:var(--olive);opacity:1}
+.loydots i.gift{border-style:dashed;opacity:.7}
+.loydots i.gift.on{color:var(--cream);border-style:solid}
 .pstats span{font-size:.68rem;opacity:.65;font-weight:700}
 .bar{height:8px;border-radius:8px;background:rgba(52,57,37,.1);overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;background:var(--olive);border-radius:8px}
@@ -1705,6 +1711,7 @@ async function openProfile(custId, phone, byName){
       <div><b>${visits.length ? dAr(visits[visits.length - 1].d).replace(/\/\d{4}$/, "") : "—"}</b><span>أول زيارة</span></div>
       <div><b>${paid ? fmt(paid) : "—"}</b><span>مدفوع مسجّل</span></div>
     </div>
+    ${c.phone ? `<div id="loyBox" class="loy"><p class="muted">بطاقة الولاء…</p></div>` : ""}
     ${dist.length ? `<div class="frow"><label>عند مين بيحلق</label>${dist.map(x =>
       `<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:.88rem"><b>${x.name}</b><span>${x.n} ${x.n > 10 ? "زيارة" : "مرة"}</span></div><div class="bar"><i style="width:${Math.round(x.n / withBarber * 100)}%"></i></div></div>`).join("")}</div>` : ""}
     ${upcoming.length ? `<div class="frow"><label>مواعيد جاية</label>${upcoming.map(x => `<p style="font-size:.9rem">${dAr(x.booking_date)} · ${x.booking_time} · ${bName(x.barber_id)}${svcNames(x) ? " · " + svcNames(x) : ""}</p>`).join("")}</div>` : ""}
@@ -1724,6 +1731,57 @@ async function openProfile(custId, phone, byName){
     </div>
     ${c.id ? `<button class="btn ghost" onclick="editCust('${c.id}')">تعديل الاسم والرقم</button>` : ""}
     <button class="btn ghost" onclick="closeOv('bookOv')">سكّر</button>`;
+  loyFill(c);
+}
+/* ---------- بطاقة الولاء: كل 5 زيارات حلاقة، السادسة علينا (العدّ من loyalty_start) ---------- */
+const LOY_URL = "https://bobcosy.com/card.html?c=";
+function waTo(phone, txt){
+  let ph = String(phone || "").replace(/\D/g, "");
+  if (ph.startsWith("00")) ph = ph.slice(2);
+  if (ph.startsWith("0")) ph = "963" + ph.slice(1); else if (ph.startsWith("9") && ph.length === 9) ph = "963" + ph;
+  const q = `phone=${ph}&text=${encodeURIComponent(txt)}`;
+  if (WA_MOBILE) location.href = `whatsapp://send?${q}`;
+  else window.open(`https://web.whatsapp.com/send?${q}`, "wa_bobco");
+}
+async function loyVisits(phone){ const { data } = await db.rpc("loyalty_visits", { p: phone }); return +data || 0; }
+// بيتأكد إنو الزبون إلو سطر بالزباين (مشان رابط البطاقة) وبيرجّع التوكن
+async function loyToken(c){
+  if (c.card_token) return c.card_token;
+  let { data } = await db.from("customers").select("id,card_token").eq("phone", c.phone).limit(1);
+  let row = (data || [])[0];
+  if (!row){
+    const r = await db.from("customers").insert({ name: c.name || null, phone: c.phone }).select("id,card_token").single();
+    if (r.error) { toast("ما قدرنا نجهّز البطاقة — جرّبي كمان مرة"); return null; }
+    row = r.data;
+  }
+  c.id = c.id || row.id; c.card_token = row.card_token;
+  return row.card_token;
+}
+const loyDots = n => Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? "on" : ""}"></i>`).join("") + `<i class="gift ${n === 5 ? "on" : ""}">علينا</i>`;
+async function loyFill(c){
+  const box = document.getElementById("loyBox"); if (!box || !c.phone) return;
+  const v = await loyVisits(c.phone), s = v % 6;
+  if (PROFILE !== c) return;
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>بطاقة الولاء</b><span class="muted">${s === 5 ? "الزيارة الجاية علينا" : `${s} من 5`}${v >= 6 ? ` · أخد ${Math.floor(v / 6)} مجانية` : ""}</span></div>
+    <div class="loydots">${loyDots(s)}</div>
+    <div class="btn-row" style="margin:10px 0 0"><button class="btn ghost" onclick="loySend('card')">ابعت البطاقة واتساب</button><button class="btn ghost" onclick="loySend('miss')">وحشتنا</button></div>`;
+  box.dataset.s = s;
+}
+async function loySend(kind){
+  const c = PROFILE; if (!c || !c.phone) return toast("ما في رقم لهالزبون");
+  const t = await loyToken(c); if (!t) return;
+  const s = +((document.getElementById("loyBox") || {}).dataset || {}).s || 0, left = 5 - s;
+  const first = String(c.name || "").trim().split(/\s+/)[0] || "";
+  const prog = s === 5 ? "الحلاقة الجاية علينا" : s === 0 ? "مع كل حلاقة بتاخد ختم، وبعد 5 زيارات السادسة علينا" : `معك ${s} من 5، باقيلك ${left} ${left === 1 ? "زيارة" : "زيارات"} وبتصير الحلاقة علينا`;
+  const txt = kind === "miss"
+    ? `${first ? first + "، " : ""}وحشتنا!\nصرلك فترة ما مرقت عـ Bob & Co.\n${prog}.\n\nبطاقتك: ${LOY_URL}${t}\nاحجز موعدك: https://bobcosy.com/#book`
+    : `أهلاً ${first}،\nهي بطاقة الولاء تبعك بـ Bob & Co ✂\nكل 5 زيارات، والسادسة علينا.\n${prog}.\n\n${LOY_URL}${t}`;
+  waTo(c.phone, txt);
+}
+async function loyBadge(a){
+  const v = await loyVisits(a.phone), el = document.getElementById("loyBadge"); if (!el) return;
+  if (a.status !== "خلص" && v % 6 === 5)
+    el.innerHTML = `<div style="background:var(--olive);color:var(--cream);border-radius:14px;padding:12px 14px;margin-bottom:12px;font-weight:700">هالزيارة السادسة — الحلاقة علينا (مجانية) <span style="font-weight:400;opacity:.8">· كمّل 5 زيارات ببطاقة الولاء</span></div>`;
 }
 // حالة الحجز أونلاين للزبون: يدوي (block/allow) أو تلقائي حسب عدد «ما إجا»
 function onlineState(v, ns){
@@ -1768,11 +1826,13 @@ function openAppt(id){
     return;
   }
   const sheet = document.getElementById("apptSheet");
+  if (!BARBER_VIEW && a.phone) setTimeout(() => loyBadge(a), 0);
   sheet.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
       <h3 style="margin:0">${a.customer_name||"—"} <span class="muted">· ${a.booking_time} · ${(BARBERS.find(b=>b.id===a.barber_id)||{}).name||""}</span></h3>
       ${!BARBER_VIEW ? `<button class="chip" style="flex:0 0 auto;white-space:nowrap" onclick="closeOv('apptOv');profileFromAppt('${a.id}')">بروفايل الزبون</button>` : ""}
     </div>
+    <div id="loyBadge"></div>
     ${(!BARBER_VIEW && +a.amount > 0 && (!isLive(a) || a.status === "ما إجا")) ? `
     <div style="background:#fff;border:2px solid var(--neg);border-radius:14px;padding:12px;margin-bottom:12px">
       <p style="font-weight:800;color:var(--neg);margin-bottom:4px">هالموعد «${a.status}» وعليه ${fmt(+a.amount)} — مو محسوب باليوم</p>
